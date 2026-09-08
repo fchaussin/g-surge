@@ -1,0 +1,12 @@
+{
+  "name": "void-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Endless antigrav runner built on three.js r128, no build step.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes serve public -l 5173",
+    "build": "node scripts/build-codepen.mjs",
+    "check": "node --check public/engine.js && node --check public/game.js"
+  }
+}
