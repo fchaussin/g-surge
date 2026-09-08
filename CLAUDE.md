@@ -1,23 +1,42 @@
-# Void Runner — notes for Claude Code
+# Void Runner — instructions for Claude Code
 
-Endless antigrav runner. Three.js r128, plain scripts, no bundler, no framework.
-Everything in `public/` is deployed as is.
+Endless antigrav runner. Three.js r128, two classic scripts, no bundler.
+Everything in `public/` is deployed as is to Cloudflare Pages.
+
+Read `docs/ARCHITECTURE.md` before the first non-trivial change.
+`docs/TECH-DEBT.md` is the honest state of the codebase.
+`docs/ROADMAP.md` says what to do first and in what order.
+`docs/GAMEPLAY.md` is the design reference; do not re-derive the numbers.
 
 ## Ground rules
 
-- **No build step.** `public/` is the artefact. Do not introduce a bundler
-  without being asked; the two scripts rely on sharing top-level declarations.
-- **Load order matters.** `engine.js` must run before `game.js`. They are
-  classic scripts, not modules, so top-level `const` and `let` are shared
-  between them. A name declared in both files throws at parse time. To check:
-  `cat public/engine.js public/game.js > /tmp/x.js && node --check /tmp/x.js`.
-- **three.js is pinned to r128.** Behaviour differs in later versions and the
-  code is calibrated on it. See the r128 traps below.
-- After any edit: `npm run check`.
-- A dockerised dev environment sits alongside, `Dockerfile` + `compose.yaml`.
+- **`public/` is the artefact.** No build step today. Do not introduce a bundler
+  as a side effect of another task; that is Phase 1 of the roadmap and it needs
+  its own branch.
+- **Load order matters.** `engine.js` runs before `game.js`. They are classic
+  scripts, so top-level `const` and `let` are shared between them and a name
+  declared in both throws at parse time.
+- **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
+  past r151 changes colour management and lighting defaults and is a re-tuning
+  pass, not a version bump.
+- **A dockerised dev environment sits alongside**, `Dockerfile` + `compose.yaml`.
   It changes nothing to the sources: the repository is bind-mounted and served
-  as is. `docker compose run --rm tools npm run check` is the same check inside
-  the image. See the Docker section of the README.
+  as is, so a change is a page reload away. The checks below also run inside the
+  image with `docker compose run --rm tools <command>`. Note that Phase 1 of the
+  roadmap replaces the static server with Vite: `compose.yaml` is part of that
+  phase, not a follow-up to it.
+- **Verify before claiming.** This codebase has produced several bugs whose
+  obvious explanation was wrong. Measure, do not reason from the symptom.
+
+## After any change
+
+```
+npm run check                                     # syntax, both scripts
+cat public/engine.js public/game.js > /tmp/x.js
+node --check /tmp/x.js                            # no name collision
+```
+
+Both are cheap and both have caught real breakage.
 
 ## Where things live
 
@@ -39,75 +58,59 @@ Everything in `public/` is deployed as is.
 - All the CSS, the splash screen and its own inline script, the service worker
   registration.
 
+`docs/ARCHITECTURE.md` goes further; this is only the map.
+
 ## The coordinate system, read this first
 
-The ship sits at the origin facing `+Z` and never moves. The track scrolls past
-it. Consequences that trip people up:
+The ship sits at the world origin facing `+Z` and never moves. The track is
+rebuilt in front of it every frame. Consequences:
 
-- World `+X` appears on the **left** of the screen, because the camera looks
-  down `+Z`. Steering input is inverted on purpose in `step()`.
-- There is no heading. A turn is the track bending in front of the ship, so the
-  sky has to be rotated by hand (`skyYaw`, integrated from curvature × speed)
-  or a corner would show no lateral motion at all.
-- Anything placed in the world and left behind will cross the camera, which sits
-  19 m back. That is why the smoke trail is parented to the ship instead.
+- World `+X` appears on the **left** of the screen. Steering input is inverted
+  on purpose in `step()`.
+- There is no heading. A turn is the track bending ahead, so the sky is rotated
+  by hand from integrated curvature, otherwise a corner shows no lateral motion.
+- Anything left in the world crosses the camera 19 m behind the ship. The smoke
+  trail is parented to the ship for exactly that reason.
 
 ## Traps already paid for. Do not reintroduce them.
 
 - **Canvas CSS size.** The canvas needs explicit `width:100%; height:100%`. With
-  `position:fixed; inset:0` alone a replaced element keeps its intrinsic size,
-  so at devicePixelRatio 2 you see the top-left quarter of the frame.
-- **Chevron aliasing.** Track markings must have a period above twice the
-  per-frame travel, otherwise the track visually falls apart. At 335 m/s and
-  60 fps that is 5.6 m per frame, hence `stripeEvery: 2` for a 24 m period.
-- **Shader precision.** Do not declare `precision mediump float` in the sky
+  `position:fixed; inset:0` alone, a replaced element keeps its intrinsic size,
+  so at devicePixelRatio 2 you see the top-left quarter of the frame. This one
+  cost two wrong diagnoses before it was found.
+- **Chevron aliasing.** Track markings need a period above twice the per frame
+  travel. At 335 m/s and 60 fps that is 11.2 m. Below it the track decomposes and
+  it looks like a frame rate problem, which it is not.
+- **Shader precision.** Never declare `precision mediump float` in the sky
   shader. The hash loses its spread and stars fuse into large blobs. Let
   three.js apply its default `highp`.
 - **`filter: blur` on a 3D transformed element** rasterises at low resolution and
   looks pixelated. Blur in screen space with `backdrop-filter` instead.
-- **`MeshLambertMaterial` has no `flatShading`** in r128. Non-indexed geometry
-  is already flat shaded; the property only logs a warning.
-- **Sprite scale must be clamped.** A puff whose age factor goes out of range
-  produced a negative scale, so a mirrored sprite filling the screen.
-- **`resetRun` must clear anything holding a distance**, `clearSmoke()` for
-  instance, or leftovers from the attract mode land in front of the ship.
-- **`setMode` is what builds keyboard navigation.** The start state has to be
-  set by calling `setMode('menu')`, not by classes in the HTML alone.
+- **`MeshLambertMaterial` has no `flatShading`** in r128. Non-indexed geometry is
+  already flat shaded; the property only logs a warning.
+- **Sprite scale must be clamped.** An age factor out of range produced a
+  negative scale, hence a mirrored sprite filling the screen.
+- **`resetRun` must clear anything holding a distance.** `clearSmoke()` exists
+  because puffs from the attract mode landed in front of the ship after a reset.
+- **`setMode` builds keyboard navigation.** The start state must be set by
+  calling `setMode('menu')`, not by classes in the HTML alone.
 - **Auto quality never turns the background off** and needs several consecutive
-  bad measurements. A single dip used to kill the visual signature of the game.
+  bad measurements. A single dip used to kill the visual signature.
+- **Frame rate throttling only skips on an integer ratio of at least two.**
+  A 144 Hz display targeting 120 dropped to 72 before that rule existed.
 
-## Tuning and difficulty
+## Editing style that works here
 
-`DIFF` in `game.js` holds three levels. Each one rewrites a subset of `TUNING`
-on top of `DEFAULTS`, and carries a score coefficient because a harder level
-caps the reachable multiplier. `applyDifficulty` is also what the global reset
-calls, so resetting restores the current level rather than Easy.
-
-`renderScale` is a display setting: keep it out of anything that bulk-assigns
-`TUNING`.
-
-## Scoring model
-
-Score is the integral of `speed × multiplier × difficulty coefficient`. The
-multiplier starts at 1, rises with each coin by an amount that depends on the
-speed tier, erodes continuously, erodes half as fast above 1000 km/h, and is
-halved by a wall. Distance alone is worth little; that is deliberate.
-
-## Storage
-
-`localStorage`, key `voidrunner.scores.v1`, guarded by a probe because private
-browsing throws. Failure falls back to memory for the session. There is no
-server side; do not add one without being asked.
-
-## Audio
-
-Everything is synthesised, no files. The engine is filtered noise in three
-bands, never oscillators, or it sounds like a piston engine. The context is
-created on the first START click to satisfy autoplay policy. The crash builds a
-3 s convolution reverb on first use.
+- Anchor edits on unique strings and assert they exist before writing. Several
+  earlier sessions lost work because a multi-edit script failed halfway and
+  wrote nothing.
+- Re-read the file before a second edit to the same region. Line numbers move.
+- When a visual bug is reported, reproduce the geometry offline in Node before
+  changing the renderer. The camera, the trail and the chevrons were all fixed
+  that way, and two of the three had a cause unrelated to the first hypothesis.
 
 ## Deploying
 
 Cloudflare Pages, no build command, output directory `public`. `_headers` keeps
-`index.html` and `sw.js` uncached so updates land. Bump `VERSION` in `sw.js`
-whenever a cached asset changes, otherwise clients keep the old one.
+`index.html` and `sw.js` uncached. **Bump `VERSION` in `sw.js` whenever a cached
+asset changes**, otherwise clients keep the old build.

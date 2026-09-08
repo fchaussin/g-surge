@@ -69,6 +69,16 @@ panel, then add three.js r128 under Settings, JS, Add External Scripts:
 
 Fullscreen is refused inside the embedded preview but works in debug view.
 
+## Docs
+
+| File | What it answers |
+|---|---|
+| `CLAUDE.md` | Rules for an agent working on this repo, and the traps already paid for |
+| `docs/ARCHITECTURE.md` | How it works, and why the ship never moves |
+| `docs/TECH-DEBT.md` | Honest state of the codebase, measured |
+| `docs/ROADMAP.md` | What to do first, in order, without breaking things |
+| `docs/GAMEPLAY.md` | Scoring, difficulty, handling, and the constants that matter |
+
 ## Known constraints
 
 - three.js is pinned to r128 and loaded from cdnjs. The code relies on r128
