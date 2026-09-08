@@ -1,0 +1,4 @@
+# Le code est monté en volume, le contexte de build n'a besoin que de ceci.
+*
+!Dockerfile
+!docker/serve.json

@@ -14,6 +14,10 @@ Everything in `public/` is deployed as is.
 - **three.js is pinned to r128.** Behaviour differs in later versions and the
   code is calibrated on it. See the r128 traps below.
 - After any edit: `npm run check`.
+- A dockerised dev environment sits alongside, `Dockerfile` + `compose.yaml`.
+  It changes nothing to the sources: the repository is bind-mounted and served
+  as is. `docker compose run --rm tools npm run check` is the same check inside
+  the image. See the Docker section of the README.
 
 ## Where things live
 

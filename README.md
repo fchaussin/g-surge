@@ -24,6 +24,30 @@ scripts/
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.
 
+## Docker
+
+Même chose sans rien installer sur la machine, Node et le serveur statique
+vivent dans l'image :
+
+    docker compose up --build          # http://localhost:5173
+    docker compose run --rm tools npm run check
+    docker compose run --rm tools npm run build
+    docker compose down
+
+Les sources sont montées, pas copiées : une édition est servie au rechargement
+suivant, l'image n'est à reconstruire que si le `Dockerfile` change. Le port se
+change avec `VOIDRUNNER_PORT=8080`.
+
+Le démon local est en mode rootless, où l'uid 0 du conteneur est déjà
+l'utilisateur de l'hôte, et `compose.yaml` en tient compte. Sur un démon
+classique, lancer avec `VOIDRUNNER_USER="$(id -u):$(id -g)"` pour que `dist/` ne
+sorte pas en root.
+
+Le serveur force `Cache-Control: no-cache` (`docker/serve.json`), sans quoi le
+cache heuristique du navigateur sert un `engine.js` périmé. Le service worker,
+lui, garde sa propre copie : pendant une session de dev, cocher *Update on
+reload* dans l'onglet Application, ou bumper `VERSION` dans `sw.js`.
+
 ## Cloudflare Pages
 
 Connect the repository and set:

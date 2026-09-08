@@ -1,0 +1,40 @@
+# Sous Docker rootless — le cas ici — l'uid 0 du conteneur est déjà l'utilisateur
+# de l'hôte : c'est la valeur qui donne des fichiers montés lisibles et écrits
+# au bon propriétaire. Sur un démon classique (rootful), lancer plutôt avec
+#   VOIDRUNNER_USER="$(id -u):$(id -g)" docker compose up
+# sinon dist/ sort en root.
+
+name: void-runner
+
+services:
+  # Serveur statique de développement, sur http://localhost:5173
+  # Les sources sont montées, pas copiées : une édition sur l'hôte est servie au
+  # rechargement suivant, il n'y a rien à reconstruire.
+  dev:
+    build: .
+    image: void-runner-dev
+    init: true
+    user: "${VOIDRUNNER_USER:-0:0}"
+    ports:
+      - "${VOIDRUNNER_PORT:-5173}:5173"
+    volumes:
+      - .:/app
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Commandes ponctuelles dans la même image, sans démarrer de serveur :
+  #   docker compose run --rm tools npm run check
+  #   docker compose run --rm tools npm run build
+  # Le profil l'exclut de « docker compose up ».
+  tools:
+    build: .
+    image: void-runner-dev
+    profiles: ["tools"]
+    user: "${VOIDRUNNER_USER:-0:0}"
+    volumes:
+      - .:/app
+    command: ["npm", "run", "check"]
