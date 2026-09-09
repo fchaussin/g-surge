@@ -1,9 +1,9 @@
 'use strict';
-/* Void Runner — scène, piste, objets, vaisseau. À charger avant game.js. */
+/* G-SURGE — scène, piste, objets, vaisseau. À charger avant game.js. */
 
 
 if (typeof THREE === 'undefined'){
-  if (window.__vrFail) window.__vrFail('ENGINE UNAVAILABLE');
+  if (window.__gsFail) window.__gsFail('ENGINE UNAVAILABLE');
   throw new Error('three.js is required');
 }
 

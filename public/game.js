@@ -1,5 +1,5 @@
 'use strict';
-/* Void Runner — physique, interface, audio, boucle. Nécessite engine.js. */
+/* G-SURGE — physique, interface, audio, boucle. Nécessite engine.js. */
 
 if (typeof THREE === 'undefined') throw new Error('three.js is required');
 
@@ -206,14 +206,15 @@ function resetRun(){
 }
 
 /* ============================ 7. Classement ============================ */
-const KEY = 'voidrunner.scores.v1';
+const KEY = 'gsurge.scores.v1';
+const KEY_LEGACY = 'voidrunner.scores.v1';   // nom d'avant, repris une fois puis effacé
 let scores = [];
 
 /* localStorage peut lever : navigation privée, quota plein, cookies bloqués.
    Dans ce cas le classement reste en mémoire pour la session. */
 function storageOk(){
   try {
-    const k = '__vr_probe';
+    const k = '__gs_probe';
     window.localStorage.setItem(k, '1');
     window.localStorage.removeItem(k);
     return true;
@@ -224,7 +225,18 @@ const HAS_LS = storageOk();
 function loadScores(){
   if (HAS_LS){
     try {
-      const raw = window.localStorage.getItem(KEY);
+      let raw = window.localStorage.getItem(KEY);
+      // Reprise du classement écrit sous l'ancien nom du jeu. Une seule fois :
+      // on réécrit sous la nouvelle clé et on retire l'ancienne, pour qu'un
+      // classement effacé volontairement ne réapparaisse pas au rechargement.
+      if (raw === null){
+        const legacy = window.localStorage.getItem(KEY_LEGACY);
+        if (legacy !== null){
+          window.localStorage.setItem(KEY, legacy);
+          window.localStorage.removeItem(KEY_LEGACY);
+          raw = legacy;
+        }
+      }
       if (raw) scores = JSON.parse(raw) || [];
     } catch(e){ scores = []; }
   }
@@ -1196,5 +1208,5 @@ setMode('menu');                            // pose l'état de départ, dont la 
 if (window.matchMedia && window.matchMedia('(pointer: fine)').matches){
   navActive = true; navPaint();
 }
-if (window.__vrReady) window.__vrReady();   // la première image est prête
+if (window.__gsReady) window.__gsReady();   // la première image est prête
 requestAnimationFrame(frame);

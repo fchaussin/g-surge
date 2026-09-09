@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Void Runner",
-  "short_name": "Void Runner",
+  "name": "G-SURGE",
+  "short_name": "G-SURGE",
   "description": "Endless antigrav runner. Banked corners, corkscrews, jumps, and a multiplier fed by drifting.",
   "start_url": "./",
   "scope": "./",

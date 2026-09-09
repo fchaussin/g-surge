@@ -7,7 +7,7 @@ before the one above is merged; several of them touch the same lines.
 
 No architecture change. Pure gain.
 
-- **Persist settings.** One `localStorage` key, `voidrunner.prefs.v1`, holding
+- **Persist settings.** One `localStorage` key, `gsurge.prefs.v1`, holding
   difficulty, layout, sound, haptics, tips, sky quality, frame target, render
   scale. Reuse the existing write probe. This is the most visible gap today.
 - **Delete dead code.** `fmtM`, `TUNING.coinValue`.

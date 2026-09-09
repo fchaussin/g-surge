@@ -59,7 +59,7 @@ export const test = base.extend<{ game: GameHarness; page: Page }>({
       async boot(path = '/') {
         await page.goto(path);
         // L'écran de démarrage se retire au bout de 2 s minimum, par
-        // construction : c'est __vrReady qui pose la classe.
+        // construction : c'est __gsReady qui pose la classe.
         await expect(page.locator('#boot')).toHaveClass(/gone/, { timeout: 15_000 });
       },
       errors: () => errors.slice(),

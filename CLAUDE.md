@@ -1,4 +1,4 @@
-# Void Runner — instructions for Claude Code
+# G-SURGE — instructions for Claude Code
 
 Endless antigrav runner. Three.js r128, two classic scripts, no bundler.
 Everything in `public/` is deployed as is to Cloudflare Pages.

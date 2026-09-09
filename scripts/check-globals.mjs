@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 const files = ['public/engine.js', 'public/game.js'];
 const merged = files.map((f) => readFileSync(f, 'utf8')).join('\n');
-const tmp = join(tmpdir(), `void-runner-globals-${process.pid}.js`);
+const tmp = join(tmpdir(), `g-surge-globals-${process.pid}.js`);
 
 writeFileSync(tmp, merged);
 try {

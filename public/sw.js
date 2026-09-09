@@ -1,8 +1,8 @@
-/* Void Runner — service worker.
+/* G-SURGE — service worker.
    Coquille applicative : le HTML passe par le réseau d'abord pour que les mises
    à jour arrivent, le reste par le cache d'abord car ces fichiers sont versionnés
    par le nom du cache. */
-const VERSION = 'vr-v1';
+const VERSION = 'gs-v1';
 const ASSETS = [
   './',
   './index.html',

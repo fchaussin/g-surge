@@ -3,16 +3,16 @@ import { Rng } from '../src/sim/rng.js';
 
 describe('Rng', () => {
   it('rejoue la même séquence pour une même graine', () => {
-    const a = Rng.fromSeed('void-runner');
-    const b = Rng.fromSeed('void-runner');
+    const a = Rng.fromSeed('g-surge');
+    const b = Rng.fromSeed('g-surge');
     const left = Array.from({ length: 500 }, () => a.next());
     const right = Array.from({ length: 500 }, () => b.next());
     expect(left).toEqual(right);
   });
 
   it('sépare les flux issus de la même graine', () => {
-    const track = Rng.fromSeed('void-runner', 'track');
-    const items = Rng.fromSeed('void-runner', 'items');
+    const track = Rng.fromSeed('g-surge', 'track');
+    const items = Rng.fromSeed('g-surge', 'items');
     const left = Array.from({ length: 200 }, () => track.next());
     const right = Array.from({ length: 200 }, () => items.next());
     expect(left).not.toEqual(right);

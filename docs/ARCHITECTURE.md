@@ -112,6 +112,6 @@ buttons treated as a single stop.
 
 ## Storage
 
-`localStorage`, key `voidrunner.scores.v1`, top five runs with score, coin count,
+`localStorage`, key `gsurge.scores.v1`, top five runs with score, coin count,
 difficulty letter and date. Guarded by a write probe because private browsing
 throws on access. Settings are not persisted.

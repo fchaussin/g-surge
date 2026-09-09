@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Image de développement de Void Runner.
+# Image de développement de G-SURGE.
 # Elle porte Node et un serveur statique, pour que rien n'ait besoin d'être
 # installé sur l'hôte.
 #
@@ -21,7 +21,7 @@ RUN npm install --global serve@14.2.5
 # navigateur applique son cache heuristique : engine.js édité, page inchangée.
 # Le schéma de serve refuse les clés inconnues, ce fichier ne peut pas être
 # commenté de l'intérieur.
-COPY docker/serve.json /etc/void-runner/serve.json
+COPY docker/serve.json /etc/g-surge/serve.json
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ EXPOSE 5173
 # Pas de --single : le jeu est une page unique mais les 404 doivent rester des
 # 404, sinon une faute de frappe sur un chemin d'actif renvoie index.html.
 CMD ["serve", "public", \
-     "--config", "/etc/void-runner/serve.json", \
+     "--config", "/etc/g-surge/serve.json", \
      "--listen", "tcp://0.0.0.0:5173", \
      "--no-clipboard", \
      "--no-port-switching"]

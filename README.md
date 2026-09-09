@@ -1,4 +1,4 @@
-# Void Runner
+# G-SURGE
 
 Endless antigrav runner. Three.js r128, no build step, no framework.
 
@@ -57,11 +57,11 @@ vivent dans l'image :
 
 Les sources sont montées, pas copiées : une édition est servie au rechargement
 suivant, l'image n'est à reconstruire que si le `Dockerfile` change. Le port se
-change avec `VOIDRUNNER_PORT=8080`.
+change avec `GSURGE_PORT=8080`.
 
 Le démon local est en mode rootless, où l'uid 0 du conteneur est déjà
 l'utilisateur de l'hôte, et `compose.yaml` en tient compte. Sur un démon
-classique, lancer avec `VOIDRUNNER_USER="$(id -u):$(id -g)"` pour que `dist/` ne
+classique, lancer avec `GSURGE_USER="$(id -u):$(id -g)"` pour que `dist/` ne
 sorte pas en root.
 
 Le serveur force `Cache-Control: no-cache` (`docker/serve.json`), sans quoi le
@@ -104,6 +104,7 @@ Fullscreen is refused inside the embedded preview but works in debug view.
 
 - three.js is pinned to r128 and loaded from cdnjs. The code relies on r128
   behaviour, see CLAUDE.md before upgrading.
-- The leaderboard lives in `localStorage` under `voidrunner.scores.v1`. Private
-  browsing falls back to memory for the session.
+- The leaderboard lives in `localStorage` under `gsurge.scores.v1`. A board
+  written under the previous name, `voidrunner.scores.v1`, is picked up once and
+  the old key removed. Private browsing falls back to memory for the session.
 - `navigator.vibrate` does not exist on iOS, the haptics switch hides itself.
