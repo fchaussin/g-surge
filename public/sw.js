@@ -2,7 +2,7 @@
    Coquille applicative : le HTML passe par le réseau d'abord pour que les mises
    à jour arrivent, le reste par le cache d'abord car ces fichiers sont versionnés
    par le nom du cache. */
-const VERSION = 'gs-v3';
+const VERSION = 'gs-v4';
 const ASSETS = [
   './',
   './index.html',

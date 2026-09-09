@@ -48,6 +48,7 @@ interface GsDebug {
   makeRng(seed: string, stream: string): GsRng;
   defaults(): Record<string, number>;
   diff(): Record<string, { mul: number; set: Record<string, number> }>;
+  clock(): { hz: number; dt: number; maxFrame: number; eps: number };
   nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
   items(): Array<{ id: number; lat: number; type: number }>;
   trace(opts?: GsTraceOptions): {

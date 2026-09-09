@@ -357,9 +357,12 @@ function buildPath(cursor){
   }
 }
 
-/* point de la piste situé à `d` mètres devant le vaisseau, d négatif vers l'arrière */
-function sample(d, out){
-  let f = BACK + (state.cursor + d) / SEG;
+/* point de la piste situé à `d` mètres devant le vaisseau, d négatif vers l'arrière.
+   Le curseur est passé en argument et non lu dans `state` : le rendu interpole
+   entre deux pas de simulation, il échantillonne donc à une position que l'état
+   n'a jamais eue. Accessoirement, cela retire une lecture de `state` au moteur. */
+function sample(cursor, d, out){
+  let f = BACK + (cursor + d) / SEG;
   f = Math.max(0, Math.min(COUNT - 1.001, f));
   const i = Math.floor(f), t = f - i, j = i + 1;
   out.x = px[i] + (px[j] - px[i]) * t;
@@ -377,8 +380,8 @@ function sample(d, out){
 const SBACK = {}, SFRONT = {};
 
 /* pente de la piste à `d` mètres devant le vaisseau */
-function gradeAt(d){
-  let f = BACK + (state.cursor + d) / SEG;
+function gradeAt(cursor, d){
+  let f = BACK + (cursor + d) / SEG;
   f = Math.max(0, Math.min(COUNT - 1.001, f));
   const i = Math.floor(f), t = f - i;
   return ng[i] + (ng[i+1] - ng[i]) * t;
@@ -555,7 +558,7 @@ const POOL = 40, itemPool = [];
 
 const SITEM = {};
 let spin = 0;
-function updateItems(dt){
+function updateItems(dt, cursor){
   const tier = coinTier();
   spin += dt * (2.6 + tier * 1.6);
   if (coinMat) coinMat.color.setHex(COIN_TIER[tier].hex);
@@ -568,7 +571,7 @@ function updateItems(dt){
     const pool = itemPool[it.type];
     if (used[it.type] >= pool.length) continue;
     const g = pool[used[it.type]++];
-    const S = sample((i - BACK) * SEG - state.cursor, SITEM);
+    const S = sample(cursor, (i - BACK) * SEG - cursor, SITEM);
     g.visible = true;
     g.position.set(
       S.x + S.rx * it.lat + S.ux * 2.0,

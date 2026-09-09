@@ -74,7 +74,7 @@ function step(dt, attract){
   const bNow = nb[BACK] + (nb[BACK+1] - nb[BACK]) * (state.cursor / SEG);
 
   // décollage : la piste se dérobe plus vite que la gravité ne peut rabattre le vaisseau
-  const gNow = gradeAt(0), gAhead = gradeAt(22);
+  const gNow = gradeAt(state.cursor, 0), gAhead = gradeAt(state.cursor, 22);
   if (!state.air && !attract && state.speed > 45){
     const need = (gAhead - gNow) * state.speed * state.speed / 22;
     if (need < -9.81 * TUNING.airThresh){
@@ -199,6 +199,7 @@ function resetRun(){
   state.yaw = 0; state.drift = false; state.wrecked = false;
   state.coins = 0; state.superT = 0; state.slip = 0; state.halo = 0; state.haloPow = 1;
   state.mult = 1; state.multPeak = 1; state.score = 0; state.travel = 0;
+  simAcc = 0;            // pas de reliquat de la partie précédente
   clearSmoke();          // les bouffées gardaient l'ancienne distance parcourue
   tipsReset();
   seedTrack();
@@ -684,6 +685,25 @@ let showFps = false;
 /* Cible de cadence. requestAnimationFrame ne peut pas dépasser la fréquence de
    l'écran : une cible plus basse est tenue en sautant des trames, une cible plus
    haute que l'écran est inatteignable et donc signalée. */
+/* ---- Pas de simulation fixe -----------------------------------------------
+   La simulation tournait sur le delta brut entre deux images : deux machines
+   ne jouaient pas au même jeu, et le classement comparait des parties qui
+   n'avaient pas été simulées pareil. Mesuré, 6,6 m d'écart sur quinze secondes
+   entre 60 et 144 Hz, et à 30 Hz la trajectoire dévie assez pour ramasser
+   d'autres pièces.
+
+   720 est le plus petit entier divisible par 60, 72, 90, 120, 144 et 240. Une
+   image tombe donc toujours sur un état de simulation exact, jamais entre
+   deux : il n'y a rien à interpoler. Un pas coûte 0,45 µs mesuré, soit 0,03 %
+   d'un cœur à cette cadence.
+
+   Ces valeurs doublent src/sim/clock.ts, qui les documente ; un test compare
+   les deux. SIM_EPS absorbe le fait que 1/72 et 1/144 ne sont pas
+   représentables en binaire, sans quoi l'accumulateur rend périodiquement un
+   pas de moins et le saccadement revient. ---------------------------------- */
+const SIM_HZ = 720, SIM_DT = 1 / SIM_HZ, SIM_MAX_FRAME = 0.05, SIM_EPS = 1e-7;
+let simAcc = 0;
+
 let targetHz = 60, frameMin = 0, refreshHz = 0;
 function applyThrottle(){
   // on ne saute des trames que si le rapport est au moins de deux, sinon un écran
@@ -691,6 +711,35 @@ function applyThrottle(){
   if (!refreshHz){ frameMin = 0; return; }
   const n = Math.max(1, Math.round(refreshHz / targetHz));
   frameMin = n <= 1 ? 0 : (n - 0.5) / refreshHz;
+}
+/* Cibles réellement atteignables : la limitation ne sait que sauter une image
+   sur n, donc seules les divisions entières de la cadence d'écran sont
+   honnêtes. L'interface proposait 60, 120 et 240 quel que soit l'appareil, si
+   bien qu'un écran 144 Hz réglé sur « 120 » tournait en fait à 144. */
+function fpsOptions(){
+  if (!refreshHz) return [60, 120, 240];        // en attendant la détection
+  const out = [];
+  for (let n = 1; n <= 3; n++){
+    const hz = Math.round(refreshHz / n);
+    if (hz >= 30 && out.indexOf(hz) < 0) out.push(hz);
+  }
+  return out;
+}
+function buildFpsOptions(){
+  const opts = fpsOptions();
+  segFps.innerHTML = '';
+  opts.forEach(function(hz){
+    const b = document.createElement('button');
+    b.dataset.hz = String(hz);
+    b.textContent = String(hz);
+    segFps.appendChild(b);
+  });
+  // la cible doit rester dans la liste, sinon plus aucun bouton n'est allumé
+  const near = opts.reduce(function(best, v){
+    return Math.abs(v - targetHz) < Math.abs(best - targetHz) ? v : best;
+  }, opts[0]);
+  setTarget(near);
+  navBuild();                                   // ces boutons sont un arrêt clavier
 }
 function setTarget(hz){
   targetHz = hz;
@@ -708,7 +757,7 @@ function updateHzHint(){
     + (targetHz > refreshHz + 5 ? ', browser caps it here. Tap to re-detect.' : '. Tap to re-detect.');
 }
 function redetect(){
-  refreshHz = 0; hzSamples.length = 0; frameMin = 0; updateHzHint();
+  refreshHz = 0; hzSamples.length = 0; frameMin = 0; buildFpsOptions(); updateHzHint();
 }
 hzHint.style.cursor = 'pointer';
 hzHint.addEventListener('click', e => { e.stopPropagation(); redetect(); });
@@ -729,9 +778,9 @@ function detectHz(dt){
   const raw = 1 / med;
   refreshHz = [60, 75, 90, 120, 144, 165, 240].reduce(
     (best, v) => Math.abs(v - raw) < Math.abs(best - raw) ? v : best, 60);
-  // la détection ne choisit pas à la place du joueur : elle met à jour la
-  // limitation et grise les cibles hors de portée, la cible reste sur 60
-  setTarget(targetHz);
+  // la détection ne choisit pas à la place du joueur : elle remplace la liste
+  // par ce que l'appareil sait faire et garde la cible la plus proche
+  buildFpsOptions();
 }
 tglFps.addEventListener('click', () => {
   showFps = !showFps;
@@ -1082,18 +1131,30 @@ function frame(now){
   if (elapsed < frameMin) return;        // trame sautée pour tenir la cible
   let dt = elapsed; last = now;
   detectHz(dt);
-  if (dt > 0.05) dt = 0.05;
+  if (dt > SIM_MAX_FRAME) dt = SIM_MAX_FRAME;
   if (dt < 0) dt = 0;
 
+  // `dt` reste le delta réel de l'image : il pilote les lissages d'affichage
+  // plus bas, caméra, fumée, poussée. La simulation, elle, n'avance que par
+  // pas entiers de SIM_DT, et le reliquat attend l'image suivante.
+  simAcc += dt;
+  let simSteps = Math.floor((simAcc + SIM_EPS) / SIM_DT);
+  simAcc -= simSteps * SIM_DT;
+
   if (mode === 'run'){
-    bank = step(dt, false);
+    while (simSteps-- > 0){
+      bank = step(SIM_DT, false);
+      if (state.wrecked) break;
+    }
     if (state.wrecked){ state.shake = 1; SFX.over(); buzz([90, 60, 200]); gameOver(); }
-  } else if (mode === 'menu') bank = step(dt, true);
+  } else if (mode === 'menu'){
+    while (simSteps-- > 0) bank = step(SIM_DT, true);
+  }
 
   buildPath(state.cursor);
   updateRibbons();
   updateGantries();
-  updateItems(dt);
+  updateItems(dt, state.cursor);
   const thrustLevel = state.superT > 0 ? 2 : (state.boosting ? 1 : 0);
   updateThrust(dt, thrustLevel);
   updateSmoke(dt, thrustLevel);
@@ -1122,7 +1183,8 @@ function frame(now){
     halo.scale.setScalar(0.55 + (1 - k) * 2.3 * pw);
   } else if (halo.visible) halo.visible = false;
 
-  const B = sample(-TUNING.camDist, SBACK), F = sample(TUNING.lookAhead, SFRONT);
+  const B = sample(state.cursor, -TUNING.camDist, SBACK),
+        F = sample(state.cursor, TUNING.lookAhead, SFRONT);
   const offB = state.lat * 0.55, offF = state.lat * 0.25;
   const camH = TUNING.camHeight + state.hop * 0.6;
   camWant.set(
@@ -1217,6 +1279,10 @@ if (window.matchMedia && window.matchMedia('(pointer: fine)').matches){
    ce qui rend la trace comparable. La dette 4 reste entière par ailleurs. */
 /* Surcharges par difficulté, pour le contrôle croisé avec src/sim/tuning.ts.
    Seuls `mul` et `set` en sortent : libellé et description sont de l'interface. */
+window.__gs.clock = function(){
+  return { hz: SIM_HZ, dt: SIM_DT, maxFrame: SIM_MAX_FRAME, eps: SIM_EPS };
+};
+
 window.__gs.diff = function(){
   const out = {};
   for (const k in DIFF) out[k] = { mul: DIFF[k].mul, set: Object.assign({}, DIFF[k].set) };

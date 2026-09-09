@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { HZ, MAX_FRAME } from '../../src/sim/clock.js';
 import { DEFAULTS, DIFF } from '../../src/sim/tuning.js';
 import { Rng } from '../../src/sim/rng.js';
 import { digest } from '../helpers/digest.js';
@@ -76,6 +77,20 @@ test.describe('déterminisme de la simulation', () => {
       const mine = DIFF[name as keyof typeof DIFF];
       expect(def.mul, `coefficient de score, ${name}`).toBe(mine.mul);
       expect(def.set, `surcharges, ${name}`).toEqual(mine.set);
+    }
+  });
+
+  test('le pas de simulation du jeu est celui de src/sim/clock.ts', async ({ game, page }) => {
+    await game.boot();
+    const clock = await page.evaluate(() => window.__gs.clock());
+    expect(clock.hz).toBe(HZ);
+    expect(clock.maxFrame).toBe(MAX_FRAME);
+    expect(clock.dt).toBeCloseTo(1 / HZ, 15);
+
+    // 720 divise les cadences d'écran courantes : c'est ce qui permet de rendre
+    // sans interpoler, une image tombant toujours sur un état exact.
+    for (const refresh of [30, 60, 72, 90, 120, 144, 240]) {
+      expect(clock.hz % refresh, `${refresh} Hz`).toBe(0);
     }
   });
 

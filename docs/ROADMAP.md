@@ -62,9 +62,9 @@ Cloudflare Pages serves, and the frame time on a mid range phone has not moved.
 
 ## Phase 2 — Safety net, two days
 
-- **Fixed time step**, 120 Hz accumulator, render interpolated. Makes the
-  simulation deterministic and identical across machines, which the leaderboard
-  currently assumes but does not get.
+- ~~**Fixed time step**~~ Fait, mais à 720 Hz et sans interpolation : voir
+  `src/sim/clock.ts`. 120 Hz aurait imposé d'interpoler le rendu sur tout écran
+  qui n'est pas un multiple de 120, à commencer par 144.
 - **Vitest** on the pure parts: generator with a seeded RNG, `buildPath` and
   `sample` geometry, scoring integral, multiplier erosion, frame throttle ratios.
   Aim for the logic, not the rendering.

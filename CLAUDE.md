@@ -148,7 +148,18 @@ rebuilt in front of it every frame. Consequences:
 - **Auto quality never turns the background off** and needs several consecutive
   bad measurements. A single dip used to kill the visual signature.
 - **Frame rate throttling only skips on an integer ratio of at least two.**
-  A 144 Hz display targeting 120 dropped to 72 before that rule existed.
+  A 144 Hz display targeting 120 dropped to 72 before that rule existed. The
+  target list is now built from the detected refresh rate for that same reason:
+  only integer divisions of it are honestly reachable.
+- **The simulation runs at a fixed 720 Hz, the rendering does not.** In
+  `frame()`, `dt` stays the real frame delta and drives the display smoothing
+  — camera, smoke, thrust; the simulation only ever advances by whole `SIM_DT`
+  steps. Do not pass `dt` to `step()`, and do not pass `SIM_DT` to the
+  smoothing. 720 divides 60, 72, 90, 120, 144 and 240, which is why nothing is
+  interpolated; changing it breaks that property.
+- **`SIM_EPS` is not cosmetic.** `1/72` and `1/144` are not representable in
+  binary, so without it the accumulator periodically yields one step fewer and
+  the judder comes back. A test caught exactly that.
 
 ## Editing style that works here
 
