@@ -6,7 +6,17 @@ export default tseslint.config(
     // public/ reste en scripts classiques jusqu'à l'étape 6 : deux fichiers qui
     // partagent une portée globale, ce qu'aucune configuration de module ne sait
     // décrire honnêtement. Le garde-fou y reste « node --check » sur la concaténation.
-    ignores: ['dist/', 'node_modules/', 'public/**', 'scripts/**'],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'public/**',
+      'scripts/**',
+      // Copie de three.js r128 rejouée aux tests à la place du CDN : ce n'est
+      // pas notre source, et minifiée elle produit 1800 faux positifs.
+      'tests/e2e/vendor/**',
+      'test-results/**',
+      'playwright-report/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

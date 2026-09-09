@@ -14,7 +14,9 @@ public/            everything that gets deployed, as is
   icons/           MANQUANT : référencé par le manifeste et sw.js, absent du dépôt
 src/               le refactor en cours, pas encore servi
   sim/             noyau déterministe en TypeScript strict, sans DOM ni three.js
-tests/             Vitest
+tests/
+  rng.test.ts      Vitest, unitaire
+  e2e/             Playwright : démarrage, écrans, références visuelles
 scripts/
   build-codepen.mjs  splits the sources into three CodePen panels
   check-globals.mjs  détecte un nom déclaré dans engine.js et game.js à la fois
@@ -29,9 +31,16 @@ côté et ne sera branché qu'une fois le noyau à parité, voir `docs/ROADMAP.m
     npm run dev      # serves public/ on http://localhost:5173
     npm run verify   # syntaxe, collisions de noms, types, lint, tests
 
+    npm run test:e2e # Playwright : démarrage, écrans, références visuelles
+
 `npm run verify` est la commande à passer après toute modification. Les cinq
 étapes sont aussi appelables séparément : `check`, `check:globals`, `typecheck`,
-`lint`, `test`.
+`lint`, `test`. `npm run verify:all` y ajoute la suite Playwright.
+
+Les tests de bout en bout tournent sur l'hôte uniquement, l'image de dev ne
+contenant pas de navigateur. Ils rejouent three.js depuis une copie locale
+plutôt que depuis cdnjs, pour être exécutables hors ligne et pour qu'un échec
+désigne le jeu et pas le réseau.
 
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.

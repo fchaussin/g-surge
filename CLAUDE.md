@@ -55,6 +55,20 @@ It chains five checks, all cheap, and the first two have caught real breakage:
 
 Everything also runs in the image: `docker compose run --rm tools npm run verify`.
 
+End to end, on top, with a real browser:
+
+```
+npm run test:e2e            # Playwright, 33 tests, 3 profils, ~2 min
+npm run test:e2e:update     # régénère les références visuelles
+npm run verify:all          # verify + test:e2e
+```
+
+`test:e2e` ne tourne **que sur l'hôte** : l'image ne contient pas de navigateur.
+Les références visuelles sont comparées à zéro pixel de tolérance ; une montée
+de version de Playwright change l'anticrénelage du texte et impose de les
+régénérer sciemment. Ce que la suite couvre et, tout aussi important, ce qu'elle
+ne couvre pas, est écrit en tête de chaque fichier de `tests/e2e/`.
+
 ## Where things live
 
 `engine.js`
