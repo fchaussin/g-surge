@@ -11,15 +11,27 @@ public/            everything that gets deployed, as is
   game.js          physics, score, screens, input, audio, main loop
   sw.js            offline cache
   manifest.webmanifest
-  icons/
+  icons/           MANQUANT : référencé par le manifeste et sw.js, absent du dépôt
+src/               le refactor en cours, pas encore servi
+  sim/             noyau déterministe en TypeScript strict, sans DOM ni three.js
+tests/             Vitest
 scripts/
   build-codepen.mjs  splits the sources into three CodePen panels
+  check-globals.mjs  détecte un nom déclaré dans engine.js et game.js à la fois
 ```
+
+`public/` reste l'artefact déployé et fonctionne seul. `src/` est construit à
+côté et ne sera branché qu'une fois le noyau à parité, voir `docs/ROADMAP.md`.
 
 ## Local
 
+    npm install      # outillage de dev uniquement, le jeu n'a aucune dépendance
     npm run dev      # serves public/ on http://localhost:5173
-    npm run check    # syntax check on both scripts
+    npm run verify   # syntaxe, collisions de noms, types, lint, tests
+
+`npm run verify` est la commande à passer après toute modification. Les cinq
+étapes sont aussi appelables séparément : `check`, `check:globals`, `typecheck`,
+`lint`, `test`.
 
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.

@@ -1,9 +1,15 @@
 # syntax=docker/dockerfile:1
 
 # Image de développement de Void Runner.
-# Le projet n'a pas d'étape de build : elle ne sert qu'à porter Node et un
-# serveur statique, pour que rien n'ait besoin d'être installé sur l'hôte.
-FROM node:24-alpine
+# Elle porte Node et un serveur statique, pour que rien n'ait besoin d'être
+# installé sur l'hôte.
+#
+# Debian et non Alpine, délibérément. node_modules est monté depuis l'hôte, pas
+# installé dans l'image, et il contient depuis l'outillage TypeScript des
+# binaires natifs (rollup, esbuild) publiés séparément pour glibc et pour musl.
+# Sous node:*-alpine, un node_modules installé sur un hôte glibc échoue au
+# chargement avec un MODULE_NOT_FOUND sur @rollup/rollup-linux-x64-gnu.
+FROM node:24-slim
 
 # serve est épinglé et posé dans l'image plutôt que tiré par npx au démarrage :
 # le conteneur monte hors ligne et sert toujours la même version.

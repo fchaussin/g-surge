@@ -19,6 +19,15 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 - **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
   past r151 changes colour management and lighting defaults and is a re-tuning
   pass, not a version bump.
+- **`src/` is the refactor, `public/` is still the game.** The migration is
+  staged: `src/sim/` holds the deterministic core in TypeScript, `public/` keeps
+  running the shipped classic scripts until the client split lands. Both are
+  checked by `npm run verify`. Do not wire one into the other halfway.
+- **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
+  from `lib` and empties `types`, so `document`, `window` or `fetch` are
+  compile errors, not review comments. ESLint additionally rejects `Math.random`,
+  `Date.now` and any `three` import there. The core has to stay replayable in
+  Node; that is what makes it testable, and what keeps a server option open.
 - **A dockerised dev environment sits alongside**, `Dockerfile` + `compose.yaml`.
   It changes nothing to the sources: the repository is bind-mounted and served
   as is, so a change is a page reload away. The checks below also run inside the
@@ -31,12 +40,20 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 ## After any change
 
 ```
-npm run check                                     # syntax, both scripts
-cat public/engine.js public/game.js > /tmp/x.js
-node --check /tmp/x.js                            # no name collision
+npm run verify
 ```
 
-Both are cheap and both have caught real breakage.
+It chains five checks, all cheap, and the first two have caught real breakage:
+
+| | |
+|---|---|
+| `check` | `node --check` on both scripts |
+| `check:globals` | concatenates them and re-checks, to catch a name declared in both |
+| `typecheck` | `tsc -p src/sim` |
+| `lint` | `eslint .` |
+| `test` | `vitest run` |
+
+Everything also runs in the image: `docker compose run --rm tools npm run verify`.
 
 ## Where things live
 
