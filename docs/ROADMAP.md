@@ -80,7 +80,9 @@ Only after the above. Rough order of value:
   ship. The generator is already deterministic given a seed, which makes this
   cheaper than it sounds.
 - **Seeded daily track.** Same seed for everyone for 24 hours, with its own
-  leaderboard. Needs the generator to accept an injected RNG.
+  leaderboard. Le générateur accepte désormais une graine, `?seed=` dans l'URL,
+  donc il ne reste que la distribution de la graine du jour et le classement.
+  Attention : la piste dépend encore de la vitesse du joueur, voir plus bas.
 - **Server leaderboard** on Cloudflare Workers plus KV or D1. Note that scores
   are trivially forgeable from the console; either accept it, or submit the
   input trace and validate it server side against a headless simulation, which
@@ -90,6 +92,18 @@ Only after the above. Rough order of value:
 - **Ship progression.** Alternative hulls with different grip and boost curves,
   unlocked by score. The tuning system already supports per profile overrides.
 - **Localisation.** Extract strings first, see debt item 14.
+
+## Le blocage qui reste, et il n'est pas dans la liste ci-dessus
+
+La piste n'est pas une fonction de la graine et de l'identifiant de segment :
+`game.js` écrit `genSpeed = state.speed` à chaque pas, et `nextNode()` s'en sert
+pour borner la courbure et la pente. Deux joueurs sur la même graine, l'un qui
+boost et l'autre qui freine, obtiennent des géométries différentes.
+
+Tant que cela tient, ni ghost, ni piste quotidienne partagée, ni arbitrage
+serveur. Le remplacement est simple — dériver ces bornes du profil de vitesse
+nominal, qui est déjà déterministe — mais il change la piste engendrée, donc il
+doit se faire d'un bloc, avec régénération assumée des références.
 
 ## Explicitly out of scope for now
 

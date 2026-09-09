@@ -16,7 +16,8 @@
     "verify": "npm run check && npm run check:globals && npm run typecheck && npm run lint && npm run test",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots",
-    "verify:all": "npm run verify && npm run test:e2e"
+    "verify:all": "npm run verify && npm run test:e2e",
+    "fixtures:update": "UPDATE_FIXTURES=1 playwright test determinism --project=desktop"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

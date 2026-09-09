@@ -45,6 +45,10 @@ désigne le jeu et pas le réseau.
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.
 
+Le paramètre `?seed=` fige la piste : `http://localhost:5173/?seed=alpha` rejoue
+exactement la même génération à chaque chargement. Sans lui, chaque partie tire
+sa propre graine.
+
 ## Docker
 
 Même chose sans rien installer sur la machine, Node et le serveur statique

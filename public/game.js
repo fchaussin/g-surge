@@ -1208,5 +1208,56 @@ setMode('menu');                            // pose l'état de départ, dont la 
 if (window.matchMedia && window.matchMedia('(pointer: fine)').matches){
   navActive = true; navPaint();
 }
+/* Rejeu d'une partie à pas fixe, hors de la boucle de rendu.
+   Sert à figer le comportement actuel avant de l'extraire en TypeScript : la
+   même graine et le même script d'entrées doivent produire la même trace des
+   deux côtés. C'est le filet de l'étape 3 de docs/ROADMAP.md.
+
+   Le pas est fixe ici alors que le jeu tourne en pas variable : c'est justement
+   ce qui rend la trace comparable. La dette 4 reste entière par ailleurs. */
+window.__gs.trace = function(opts){
+  const o = opts || {};
+  const steps = o.steps || 1200;
+  const dt = o.dt || 1 / 120;
+  const every = o.every || 60;
+  const script = o.script || [];      // [{ from, steer, brake, boost }], from en indice de pas
+
+  applyDifficulty(o.diff || 'easy');
+  window.__gs.setSeed(o.seed === undefined ? 'trace' : o.seed);
+  resetRun();
+  keys.left = keys.right = false;
+
+  const r6 = function(v){ return Math.round(v * 1e6) / 1e6; };
+  const snap = function(i){
+    return { i: i,
+      dist: r6(state.dist), travel: r6(state.travel), cursor: r6(state.cursor),
+      speed: r6(state.speed), lat: r6(state.lat), latVel: r6(state.latVel),
+      yaw: r6(state.yaw), hop: r6(state.hop), vyRel: r6(state.vyRel),
+      energy: r6(state.energy), hull: r6(state.hull),
+      mult: r6(state.mult), score: r6(state.score), coins: state.coins,
+      air: state.air, drift: state.drift, wrecked: state.wrecked };
+  };
+
+  let si = 0, cur = { steer: 0, brake: false, boost: false };
+  const out = [snap(-1)];
+  let last = -1;
+  for (let i = 0; i < steps; i++){
+    while (si < script.length && script[si].from <= i){ cur = script[si]; si++; }
+    stickX = cur.steer || 0;
+    keys.brake = !!cur.brake;
+    keys.boost = !!cur.boost;
+    step(dt, false);
+    last = i;
+    // la boucle de rendu termine la partie dès que l'épave est déclarée ; sans
+    // cet arrêt la trace simulerait un état que le jeu n'atteint jamais, coque
+    // qui se régénère et score qui monte après la mort
+    if (state.wrecked){ out.push(snap(i)); break; }
+    if ((i + 1) % every === 0 || i === steps - 1) out.push(snap(i));
+  }
+  return { seed: window.__gs.seed(), diff: o.diff || 'easy',
+           steps: steps, ran: last + 1, dt: dt,
+           wrecked: state.wrecked, frames: out };
+};
+
 if (window.__gsReady) window.__gsReady();   // la première image est prête
 requestAnimationFrame(frame);

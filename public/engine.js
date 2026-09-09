@@ -34,6 +34,78 @@ window.TUNING = TUNING;
 
 const COUNT = 130, SEG = 12, BACK = 10, HALF = 11.5, SHIP = 1.9;
 
+/* ==================== 1b. Aléatoire déterministe ==================== */
+/* La piste était tirée d'une quinzaine de Math.random par nœud, donc
+   irreproductible d'un chargement à l'autre : ni test de non régression sur la
+   génération, ni rejeu d'une partie, ni piste partagée entre deux joueurs.
+
+   Tout ce qui influence la simulation passe désormais par un générateur seedé.
+   L'algorithme, sfc32 précédé du hachage cyrb128, est le même que celui de
+   src/sim/rng.ts, au tirage près : un test Playwright compare les deux
+   séquences, c'est ce qui garantira que l'extraction en TypeScript ne change
+   rien. Ne modifier l'un sans l'autre, le test le dira.
+
+   Restent volontairement sur Math.random, parce qu'ils ne touchent pas la
+   simulation et se renouvellent à chaque trame : le scintillement de tuyère
+   plus bas, le tremblement de caméra et les variations audio de game.js. */
+
+function rngExpandSeed(text){
+  let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+  for (let i = 0; i < text.length; i++){
+    const k = text.charCodeAt(i);
+    h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+    h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+    h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+    h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+  }
+  h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+  h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+  h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+  h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+  return [(h1 ^ h2 ^ h3 ^ h4) >>> 0, (h2 ^ h1) >>> 0, (h3 ^ h1) >>> 0, (h4 ^ h1) >>> 0];
+}
+
+/* `stream` sépare deux séquences issues d'une même graine : sans cela, changer
+   la fréquence des pièces déplacerait aussi les virages. */
+function makeRng(seed, stream){
+  const st = rngExpandSeed(seed + '/' + stream);
+  let a = st[0] | 0, b = st[1] | 0, c = st[2] | 0, d = st[3] | 0;
+  function next(){
+    const t = (((a + b) | 0) + d) | 0;
+    d = (d + 1) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  }
+  for (let i = 0; i < 12; i++) next();     // les premiers tirages portent encore la graine
+  return {
+    next: next,
+    chance: function(pr){ return next() < pr; },
+    sign: function(){ return next() < 0.5 ? -1 : 1; },
+    range: function(min, max){ return min + next() * (max - min); },
+    int: function(n){ return Math.floor(next() * n); },
+    centered: function(half){ return (next() - 0.5) * 2 * half; }
+  };
+}
+
+/* Graine épinglée par ?seed= dans l'URL, ou par __gs.setSeed depuis un test.
+   Sinon chaque partie en tire une nouvelle, le jeu reste varié. */
+let pinnedSeed = (function(){
+  try {
+    const v = new URLSearchParams(window.location.search).get('seed');
+    return v ? v : null;
+  } catch(e){ return null; }
+})();
+let runSeed = '';
+let trackRng = null, itemRng = null;
+
+function freshSeed(){
+  return Math.floor(Math.random() * 4294967296).toString(36)
+       + Math.floor(Math.random() * 4294967296).toString(36);
+}
+
 /* ============================ 2. Scène ============================ */
 const VOID = 0x05060a;
 const scene = new THREE.Scene();
@@ -140,10 +212,14 @@ skyGroup.add(skyMesh);
 let skyYaw = 0, skyOn = true;
 
 (function dust(){
+  // graine constante et non celle de la partie : le champ d'étoiles est construit
+  // une seule fois au chargement, et un ciel stable rend comparables les captures
+  // plein cadre à venir
+  const rng = makeRng('g-surge', 'dust');
   const n = 900, p = new Float32Array(n * 3);
   for (let i = 0; i < n; i++){
-    const r = 140 + Math.random() * 700, a = Math.random() * Math.PI * 2;
-    p[i*3] = Math.cos(a) * r; p[i*3+1] = (Math.random() - 0.45) * 460; p[i*3+2] = Math.sin(a) * r;
+    const r = rng.range(140, 840), a = rng.range(0, Math.PI * 2);
+    p[i*3] = Math.cos(a) * r; p[i*3+1] = (rng.next() - 0.45) * 460; p[i*3+2] = Math.sin(a) * r;
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
@@ -170,15 +246,15 @@ function nextNode(){
   const kMax = THREE.MathUtils.clamp(TUNING.curveLoad / (v2 * TUNING.centri),
                                      TUNING.curveMin, TUNING.curveMax);
   if (gen.kLeft <= 0){
-    if (Math.random() < TUNING.rollChance){
+    if (trackRng.chance(TUNING.rollChance)){
       gen.roll = Math.round(TUNING.rollNodes);
-      gen.rollDir = Math.random() < 0.5 ? -1 : 1;
+      gen.rollDir = trackRng.sign();
       gen.kTarget = 0;
       gen.kLeft = gen.roll + 10;                 // piste droite pendant la vrille
     } else {
-      gen.kTarget = Math.random() < 0.20 ? 0
-        : (0.35 + Math.random() * 0.65) * kMax * (Math.random() < 0.5 ? -1 : 1);
-      gen.kLeft = 10 + Math.floor(Math.random() * 26);
+      gen.kTarget = trackRng.chance(0.20) ? 0
+        : trackRng.range(0.35, 1) * kMax * trackRng.sign();
+      gen.kLeft = 10 + trackRng.int(26);
     }
   }
   gen.kLeft--;
@@ -188,16 +264,16 @@ function nextNode(){
   const gMax = TUNING.climbRate / Math.max(60, genSpeed);
   if (gen.gLeft <= 0){
     if (gen.crest){
-      gen.gTarget = -gMax * (0.75 + Math.random() * 0.25);
-      gen.gLerp = 0.55; gen.gLeft = 4 + Math.floor(Math.random() * 3);
+      gen.gTarget = -gMax * trackRng.range(0.75, 1);
+      gen.gLerp = 0.55; gen.gLeft = 4 + trackRng.int(3);
       gen.crest = false;
-    } else if (gen.roll <= 0 && Math.random() < 0.26){
-      gen.gTarget = gMax * (0.75 + Math.random() * 0.25);
-      gen.gLerp = 0.30; gen.gLeft = 6 + Math.floor(Math.random() * 4);
+    } else if (gen.roll <= 0 && trackRng.chance(0.26)){
+      gen.gTarget = gMax * trackRng.range(0.75, 1);
+      gen.gLerp = 0.30; gen.gLeft = 6 + trackRng.int(4);
       gen.crest = true;
     } else {
-      gen.gTarget = (Math.random() - 0.5) * 1.4 * gMax;
-      gen.gLerp = 0.09; gen.gLeft = 12 + Math.floor(Math.random() * 26);
+      gen.gTarget = (trackRng.next() - 0.5) * 1.4 * gMax;
+      gen.gLerp = 0.09; gen.gLeft = 12 + trackRng.int(26);
     }
   }
   gen.gLeft--;
@@ -222,6 +298,9 @@ function pushNode(){
   if (items.length && items[0].id < nid[0] - 2) items = items.filter(it => it.id >= nid[0] - 2);
 }
 function seedTrack(){
+  runSeed = pinnedSeed !== null ? pinnedSeed : freshSeed();
+  trackRng = makeRng(runSeed, 'track');
+  itemRng  = makeRng(runSeed, 'items');
   gen.k=gen.kTarget=gen.g=gen.gTarget=0; gen.kLeft=26; gen.gLeft=30; gen.gLerp=0.09;
   gen.crest=false; gen.roll=0; gen.rollPhase=0; gen.id=0;
   genSpeed = TUNING.speedStart;
@@ -232,6 +311,20 @@ function seedTrack(){
   }
 }
 seedTrack();
+
+/* Surface de mise au point, volontairement minuscule. Elle sert aux tests de
+   non régression et servira au rejeu d'une partie ; game.js y ajoute `trace`. */
+window.__gs = {
+  seed: function(){ return runSeed; },
+  setSeed: function(v){ pinnedSeed = (v === null || v === undefined) ? null : String(v); },
+  makeRng: makeRng,
+  nodes: function(){
+    return { k: Array.from(nk), g: Array.from(ng), b: Array.from(nb), id: Array.from(nid) };
+  },
+  items: function(){
+    return items.map(function(it){ return { id: it.id, lat: it.lat, type: it.type }; });
+  }
+};
 
 const px = new Float32Array(COUNT), py = new Float32Array(COUNT),
       pz = new Float32Array(COUNT), pyaw = new Float32Array(COUNT);
@@ -413,15 +506,15 @@ function spawnItems(id){
     items.push({ id, lat:coinRun.lat, type:ITEM_COIN, done:false, taken:false });
     return;
   }
-  const r = Math.random();
+  const r = itemRng.next();
   if (r < TUNING.supChance){
-    items.push({ id, lat:(Math.random()-0.5)*2*(HALF-3.5), type:ITEM_SUP, done:false, taken:false });
+    items.push({ id, lat:itemRng.centered(HALF-3.5), type:ITEM_SUP, done:false, taken:false });
   } else if (r < TUNING.supChance + TUNING.fixChance){
-    items.push({ id, lat:(Math.random()-0.5)*2*(HALF-3.5), type:ITEM_FIX, done:false, taken:false });
+    items.push({ id, lat:itemRng.centered(HALF-3.5), type:ITEM_FIX, done:false, taken:false });
   } else if (r < TUNING.supChance + TUNING.fixChance + TUNING.coinChance){
-    coinRun.left = 5 + Math.floor(Math.random()*6);
-    coinRun.lat = (Math.random()-0.5)*2*(HALF-4);
-    coinRun.drift = (Math.random()-0.5)*1.6;
+    coinRun.left = 5 + itemRng.int(6);
+    coinRun.lat = itemRng.centered(HALF-4);
+    coinRun.drift = itemRng.centered(0.8);
   }
 }
 

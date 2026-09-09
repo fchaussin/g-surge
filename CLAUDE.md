@@ -34,8 +34,19 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
   image with `docker compose run --rm tools <command>`. Note that Phase 1 of the
   roadmap replaces the static server with Vite: `compose.yaml` is part of that
   phase, not a follow-up to it.
+- **The simulation is seeded.** Track generation and pickup placement go
+  through `makeRng` in `engine.js`, section « 1b ». A run picks a fresh seed
+  unless `?seed=` pins one. Never reintroduce `Math.random` there: the frozen
+  references depend on it, and so does every replay feature to come. What stays
+  on `Math.random` on purpose is listed in that same section.
+- **`makeRng` and `src/sim/rng.ts` are the same algorithm twice.** A Playwright
+  test compares three hundred draws from each. Change one without the other and
+  it fails, which is exactly the point — it is what will prove the TypeScript
+  extraction changes nothing.
 - **Verify before claiming.** This codebase has produced several bugs whose
-  obvious explanation was wrong. Measure, do not reason from the symptom.
+  obvious explanation was wrong. Measure, do not reason from the symptom. Every
+  guard rail here was checked by breaking what it protects; three of them were
+  found to test nothing at all that way.
 
 ## After any change
 
@@ -62,6 +73,10 @@ npm run test:e2e            # Playwright, 33 tests, 3 profils, ~2 min
 npm run test:e2e:update     # régénère les références visuelles
 npm run verify:all          # verify + test:e2e
 ```
+
+Les références figées de simulation vivent dans `tests/e2e/fixtures/` et se
+régénèrent avec `npm run fixtures:update`, jamais à la légère : elles décrivent
+la piste sur soixante graines et la physique sur trois difficultés.
 
 `test:e2e` ne tourne **que sur l'hôte** : l'image ne contient pas de navigateur.
 Les références visuelles sont comparées à zéro pixel de tolérance ; une montée
