@@ -23,6 +23,11 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
   staged: `src/sim/` holds the deterministic core in TypeScript, `public/` keeps
   running the shipped classic scripts until the client split lands. Both are
   checked by `npm run verify`. Do not wire one into the other halfway.
+- **The core is ported but not yet plugged in.** `src/sim/` reproduces tuning,
+  track generation and `step()` exactly; `tests/sim-parity.test.ts` replays the
+  frozen references against it in Node and they match to the digit. Until the
+  client split, a change to the simulation has to land on **both sides** — the
+  parity test is what says so, immediately.
 - **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
   from `lib` and empties `types`, so `document`, `window` or `fetch` are
   compile errors, not review comments. ESLint additionally rejects `Math.random`,

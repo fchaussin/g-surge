@@ -1215,11 +1215,22 @@ if (window.matchMedia && window.matchMedia('(pointer: fine)').matches){
 
    Le pas est fixe ici alors que le jeu tourne en pas variable : c'est justement
    ce qui rend la trace comparable. La dette 4 reste entière par ailleurs. */
+/* Surcharges par difficulté, pour le contrôle croisé avec src/sim/tuning.ts.
+   Seuls `mul` et `set` en sortent : libellé et description sont de l'interface. */
+window.__gs.diff = function(){
+  const out = {};
+  for (const k in DIFF) out[k] = { mul: DIFF[k].mul, set: Object.assign({}, DIFF[k].set) };
+  return out;
+};
+
 window.__gs.trace = function(opts){
   const o = opts || {};
-  const steps = o.steps || 1200;
-  const dt = o.dt || 1 / 120;
-  const every = o.every || 60;
+  // `|| ` avalerait un zéro : trace({steps: 0}) rejouait 1200 pas en silence, et
+  // une capture censée montrer une piste fraîche décrivait en fait la piste
+  // après vingt secondes de jeu.
+  const steps = o.steps === undefined ? 1200 : o.steps;
+  const dt = o.dt === undefined ? 1 / 120 : o.dt;
+  const every = o.every === undefined ? 60 : o.every;
   const script = o.script || [];      // [{ from, steer, brake, boost }], from en indice de pas
 
   applyDifficulty(o.diff || 'easy');
@@ -1243,7 +1254,7 @@ window.__gs.trace = function(opts){
   let last = -1;
   for (let i = 0; i < steps; i++){
     while (si < script.length && script[si].from <= i){ cur = script[si]; si++; }
-    stickX = cur.steer || 0;
+    stickX = cur.steer === undefined ? 0 : cur.steer;
     keys.brake = !!cur.brake;
     keys.boost = !!cur.boost;
     step(dt, false);

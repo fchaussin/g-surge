@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULTS, DIFF } from '../../src/sim/tuning.js';
 import { Rng } from '../../src/sim/rng.js';
+import { digest } from '../helpers/digest.js';
 import { expect, test } from './fixtures.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -55,6 +57,25 @@ test.describe('déterminisme de la simulation', () => {
       const fromNode = Array.from({ length: 300 }, () => node.next());
 
       expect(fromBrowser, `graine ${seed}, flux ${stream}`).toEqual(fromNode);
+    }
+  });
+
+  /**
+   * Soixante-dix constantes recopiées à la main dans src/sim/tuning.ts. Une
+   * seule erreur de transcription déplacerait la simulation en silence, et
+   * aucune trace figée ne dirait pourquoi. On compare donc les deux tables.
+   */
+  test('le réglage de src/sim est celui du jeu, valeur par valeur', async ({ game, page }) => {
+    await game.boot();
+
+    expect(await page.evaluate(() => window.__gs.defaults())).toEqual(DEFAULTS);
+
+    const browserDiff = await page.evaluate(() => window.__gs.diff());
+    expect(Object.keys(browserDiff).sort()).toEqual(Object.keys(DIFF).sort());
+    for (const [name, def] of Object.entries(browserDiff)) {
+      const mine = DIFF[name as keyof typeof DIFF];
+      expect(def.mul, `coefficient de score, ${name}`).toBe(mine.mul);
+      expect(def.set, `surcharges, ${name}`).toEqual(mine.set);
     }
   });
 
@@ -125,17 +146,6 @@ test.describe('déterminisme de la simulation', () => {
     expect(second.seed).not.toBe(first.seed);
     expect(second.nodes).not.toEqual(first.nodes);
   });
-
-  /** FNV-1a sur la sérialisation : stable, compact, sans dépendance. */
-  function digest(value: unknown): string {
-    const text = JSON.stringify(value);
-    let h = 0x811c9dc5;
-    for (let i = 0; i < text.length; i++) {
-      h ^= text.charCodeAt(i);
-      h = Math.imul(h, 0x01000193);
-    }
-    return (h >>> 0).toString(16).padStart(8, '0');
-  }
 
   /**
    * Soixante graines, pas une seule.

@@ -318,6 +318,7 @@ window.__gs = {
   seed: function(){ return runSeed; },
   setSeed: function(v){ pinnedSeed = (v === null || v === undefined) ? null : String(v); },
   makeRng: makeRng,
+  defaults: function(){ return Object.assign({}, DEFAULTS); },
   nodes: function(){
     return { k: Array.from(nk), g: Array.from(ng), b: Array.from(nb), id: Array.from(nid) };
   },
