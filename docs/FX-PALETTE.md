@@ -85,7 +85,9 @@ qu'un document a porté un chiffre faux pendant des mois.
 - **N'existent pas du tout, et sont des mécaniques, pas des FX** : la chaîne de
   drift, le stock de superboost avec sa disponibilité et son activation — le
   pickup déclenche l'effet immédiatement — la phase de recovery, et l'état
-  `G_SURGE`. Le jeu porte le nom d'un état qu'il n'a pas encore.
+  `G_SURGE`. Le jeu porte toujours le nom d'un état qu'il n'a pas, mais la §16
+  dit maintenant lequel : ce qu'il exige, ce qu'il coûte, et ce qui reste à
+  trancher avant d'en écrire une ligne.
 
 ## 1. Concepts, et leur référent dans le code
 
@@ -94,14 +96,14 @@ qu'un document a porté un chiffre faux pendant des mois.
 | `DRIFT` | `state.drift` | existe |
 | `DRIFT_ANGLE` | `state.slip`, en m/s et non en radians | existe, à convertir |
 | `DRIFT_CHARGE` | `driftCharge` → `state.energy` | existe, confondu avec la réserve de boost |
-| `DRIFT_CHAIN` | — | **n'existe pas** — mécanique, classe C |
+| `DRIFT_CHAIN` | — | **n'existe pas** — spécifiée en §16, c'est la condition d'entrée du G-SURGE |
 | `SUPERBOOST_PICKUP` | événement `pickup` de `kind: 'sup'` | existe |
 | `SUPERBOOST` | `state.superT`, `supTime`, `supFactor` | existe |
 | `SUPERBOOST_CHARGE` | — | **n'existe pas** : pas de stock |
 | `SUPERBOOST_START` | — | **n'existe pas** : le ramassage déclenche |
 | `SUPERBOOST_END` | événement `supEnd` | existe depuis l'étape 2 |
 | `RECOVERY` | — | **n'existe pas** |
-| `G_SURGE` | — | **n'existe pas** |
+| `G_SURGE` | — | **n'existe pas**, spécifié en §16 |
 | `RTPC` | les paramètres de `audio.update()`, `sky.update()` | voir §12 |
 | `Trigger Tag` | les variantes de `SimEvent` dans `events.ts` | voir §3 |
 | `Bundle` | rien — regroupement de rédaction, conservé tel quel | — |
@@ -119,7 +121,7 @@ recopié à deux endroits de `main.ts` et personne d'autre ne le voyait.
 | 1 | `FAST` | — confondu avec 0, seule la vitesse change | absent |
 | 2 | `BOOST` | palier 1, `state.boosting` | existe |
 | 3 | `SUPERBOOST` | palier 2, `state.superT` | existe, différencié |
-| 4 | `G_SURGE` | — | absent |
+| 4 | `G_SURGE` | — | absent, spécifié en §16 |
 
 Le joueur doit pouvoir identifier chaque niveau sans regarder l'interface. Le
 palier 3 se distingue maintenant du 2 par le champ, la caméra, le ciel et le
@@ -331,7 +333,143 @@ L'objectif est que le joueur ressente :
 
 **« plus mon drift est maîtrisé, plus mon vaisseau accumule de puissance. »**
 
-## 15. Principe de différenciation du superboost
+## 16. Spécification du G-SURGE
+
+**Écrit à l'étape 6 de la roadmap, et rien n'en est implémenté.** C'est une
+spécification, pas un engagement : elle existe pour que la décision d'implémenter
+puisse être prise en connaissance de cause, ce qui n'était pas possible tant que
+le G-SURGE n'était qu'un nom.
+
+## Ce que la mesure a déjà tranché
+
+Deux choses ne sont plus ouvertes, et aucune des deux n'est un avis.
+
+**Le G-SURGE ne peut pas être « encore plus vite ».** Le superboost atteint
+1 473 km/h et `audio.ts` borne le rapport du moteur à `ENGINE_R_MAX` = 1,7, soit
+1 579 km/h. Il reste **7,2 %** de marge. Au-delà, toutes les couches sonores
+cessent de bouger pendant que le vaisseau accélère encore : le palier suprême
+sonnerait comme le précédent. Monter le plafond est possible mais c'est un
+re-réglage complet de la courbe du moteur, pas une constante à pousser.
+
+C'est exactement ce que la §15 disait déjà par le design — « altération complète
+de la perception de vitesse » et non « accélération » — et les deux raisons sont
+indépendantes. Quand la contrainte du code et le principe de conception
+désignent la même sortie, la sortie est probablement la bonne.
+
+**La condition d'entrée ne peut pas reposer sur le multiplicateur, la vitesse ni
+le superboost.** Mesuré sur 180 s avec un pilote qui va chercher les objets :
+
+| | facile | moyen | difficile |
+|---|---|---|---|
+| Multiplicateur crête | 30 (plafond) | 18,2 | 5,7 |
+| Temps au palier 3 de vitesse | 62 % | 42 % | 7 % |
+| Fins de superboost propres au palier 3 | 4 | 2 | 1 |
+| **Drifts** | **24** | **25** | **23** |
+| **Drifts tenus ≥ 0,6 s** | **4** | **10** | **13** |
+
+Tout s'effondre en difficile sauf le drift, qui est plat en nombre et
+*s'améliore* en durée — `gripLimit` y vaut 29 contre 34, donc on décroche plus
+tôt et on reste décroché plus longtemps. Un seuil absolu sur le multiplicateur
+serait atteint en permanence en facile et jamais en difficile.
+
+## Entrée : le haut de la chaîne de drift
+
+Le G-SURGE se gagne par la chaîne de drift, ce qui fait d'une pierre deux coups :
+`DRIFT_CHAIN` est listé absent depuis le début de ce document, et c'est la seule
+grandeur candidate qui résiste à la difficulté.
+
+- `state.chain` monte pendant un drift, proportionnellement à `driftIntensity`,
+  et redescend lentement hors drift. Elle est remise à zéro par un contact de
+  mur ou une réception hors piste — la chaîne récompense la propreté, pas
+  l'obstination.
+- Le G-SURGE s'arme quand `chain` franchit `surgeHold`. Ordre de grandeur à
+  régler : les drifts font 104 / 189 / 853 ms de médiane et 772 / 1 322 /
+  1 457 ms au neuvième décile, donc une chaîne de l'ordre de deux à trois
+  secondes cumulées est un exploit dans les trois difficultés sans être hors
+  d'atteinte dans aucune.
+- **`surgeHold` est un candidat à une surcharge par difficulté**, comme
+  `gripLimit`. Les tables de `DIFF` sont faites pour ça.
+
+Une variante à considérer, plus lisible pour le joueur et plus chère : exiger en
+plus le palier 3 de vitesse. Elle rendrait le G-SURGE presque inatteignable en
+difficile, où le palier 3 n'occupe que 7 % du temps. À trancher, pas à supposer.
+
+## Durée, sortie, recovery
+
+- Durée fixe, `surgeTime`, de l'ordre de la seconde et demie à trois secondes —
+  plus court que le superboost serait incohérent, beaucoup plus long userait
+  l'effet. À régler une fois le retour en place, jamais avant : c'est la leçon
+  de l'étape 5.
+- La sortie est un événement, `surgeEnd`, sur le modèle de `supEnd` : c'est le
+  seul instant que le client ne peut pas retrouver seul.
+- La phase de recovery de la §7 reste hors périmètre. Le superboost s'est
+  finalement passé de la sienne, et rien ne prouve que celle-ci soit nécessaire
+  avant d'avoir vu l'état tourner.
+
+## Ce qu'il fait, palier par palier
+
+L'échelle de `src/client/thrust.ts` passe de trois paliers à quatre. Chaque table
+indexée par palier gagne une case, et l'invariant tenu depuis l'étape 1
+s'applique : **les indices existants ne bougent pas**, seul le nouveau est neuf.
+
+| Table | Fichier | Aujourd'hui | Case à ajouter |
+|---|---|---|---|
+| `FOV_KICK`, `FOV_EASE`, `LAG_SCALE` | camera.ts | 0, 7, 18 | champ très large, convergence brutale, caméra qui décroche franchement |
+| `WARP_BY_TIER`, `uStreak` | sky.ts | 0, 1, 1,35 | filé maximal, et c'est le seul palier qui mérite une vraie distorsion |
+| `DRIVE_BY_TIER`, `WIND_BY_TIER` | audio.ts | 0, 1, 2 / 0, 0, 1 | **bloqué par `ENGINE_R_MAX`** — voir plus haut |
+| `THRUST_LEVELS` | ship.ts | trois paliers de plume | quatrième palier, couleur signature |
+
+Le mix audio est le point dur. La §10 demande une « recomposition complète du
+mix », ce qui est la seule façon de différencier un palier quand le rapport de
+vitesse est déjà au plafond : baisser le moteur et le vent au lieu de les
+monter, et laisser la place à autre chose. C'est un travail de conception
+sonore, pas un réglage de table.
+
+## Empilement
+
+Les lignes correspondantes de la §11, tranchées :
+
+| Combinaison | Décision |
+|---|---|
+| drift + G-SURGE | **autorisé** — le drift est ce qui y mène, l'interdire serait absurde |
+| boost + G-SURGE | le G-SURGE prime, comme le superboost prime sur le boost |
+| superboost + G-SURGE | **interdit**, et l'ordre importe : un superboost ramassé pendant un G-SURGE est mis en attente, pas perdu |
+| collision + G-SURGE | la collision sort du G-SURGE, et remet la chaîne à zéro |
+
+## Ce que ça coûte, en références figées
+
+C'est la partie que l'étape 6 devait établir, et le résultat est meilleur que
+prévu.
+
+- **`state.chain` est de classe B.** La trace enregistre une liste blanche de
+  dix-sept champs qui ne la contient pas, exactement comme `driftHeld`. Tant que
+  la chaîne ne fait que *conditionner* le G-SURGE, elle ne déplace rien.
+- **Les événements `surgeStart` et `surgeEnd` sont de classe B.** Aucun
+  événement n'est enregistré.
+- **Toute la couche sensorielle est de classe A**, comme les étapes 1 et 4.
+- **Seul le G-SURGE lui-même est de classe C**, et seulement s'il touche la
+  vitesse, le multiplicateur ou le score — trois champs de la liste blanche. S'il
+  ne touche que la perception, ce que la §15 demande, **il ne déplace aucune
+  référence**.
+
+Avec une réserve à écrire noir sur blanc : les traces figées couvrent 1 345 m et
+ne rencontrent ni superboost ni chaîne de drift longue, donc **elles ne
+verraient pas non plus une erreur** dans cette branche. C'est le trou consigné
+dans `TECH-DEBT.md` §3. Un G-SURGE de classe C devra venir avec ses propres
+tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 5.
+
+## Ce qui reste ouvert, et doit être décidé avant d'écrire une ligne
+
+1. Le palier 3 de vitesse est-il exigé en plus de la chaîne ? Il rendrait l'état
+   presque inatteignable en difficile.
+2. Le G-SURGE paie-t-il autre chose que de la perception — un bonus de score,
+   par exemple ? C'est ce qui fait basculer tout le projet en classe C.
+3. `ENGINE_R_MAX` est-il relevé, avec le re-réglage du moteur que cela implique,
+   ou le palier suprême se différencie-t-il en *retirant* du son plutôt qu'en en
+   ajoutant ?
+4. `surgeHold` est-il surchargé par difficulté ?
+
+# 15. Principe de différenciation du superboost
 
 Le superboost ne doit pas être un boost multiplié. Il doit avoir sa signature.
 

@@ -246,7 +246,7 @@ compute against the true top speed instead of the boost — the chevron margin w
 being stated against 335 m/s while the game reached 362, quietly wrong before
 this step and less quietly after.
 
-### Step 6 — specify `G_SURGE` — 1 day, no code
+### Step 6 — specify `G_SURGE` — done, no code
 
 The palette wants a five-tier ladder. The code has three, carried by one
 variable. `G_SURGE` is a mechanic, entirely class C, and the game is named after
@@ -259,6 +259,31 @@ state the trace does not record.
 
 Implementation is not in this roadmap. The specification is what lets the next
 one decide.
+
+It is §16 of the palette, and measuring first settled two things that were not
+opinions. The super boost reaches 1 473 km/h and `audio.ts` clamps the engine at
+1 579, so there is 7.2 % of speed left: `G_SURGE` cannot be "faster" without
+retuning the whole engine curve. Which is what §15 of the palette already said
+by design — an altered perception, not an acceleration — and two independent
+reasons pointing at one answer is worth more than either.
+
+And the entry condition cannot rest on the multiplier, the speed tier or the
+super boost. Over 180 s with a pilot that goes for the pickups, peak multiplier
+runs 30 / 18.2 / 5.7 across the difficulties and time at the top speed tier 62 /
+42 / 7 per cent. Everything collapses on hard except the drift: 24 / 25 / 23
+drifts, and drifts held past 0.6 s going 4 / 10 / 13 — it *improves*, because
+`gripLimit` is lower there. So the gate is the drift chain, which also closes the
+one palette entry that has been marked absent since the beginning.
+
+The costing is better than expected. `state.chain` and the two events are class
+B, the whole sensory layer is class A, and only the state itself is class C —
+and only if it touches speed, multiplier or score. A `G_SURGE` that changes
+perception alone moves no reference at all. With the caveat that the traces
+would not catch an error there either, which is the gap recorded in TECH-DEBT
+§3.
+
+Four choices are left open rather than guessed, and they are named at the end of
+§16.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
