@@ -6,7 +6,9 @@ Endless antigrav runner. TypeScript, Vite, three.js pinned to r128.
 Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 `docs/TECH-DEBT.md` is the honest state of the codebase.
 `docs/ROADMAP.md` says what to do first and in what order.
-`docs/GAMEPLAY.md` is the design reference; do not re-derive the numbers.
+`docs/GAMEPLAY.md` is the design reference. Its tables are generated from
+`src/sim/tuning.ts` by `npm run docs:tuning` and a test fails if they drift —
+do not edit them by hand.
 
 ## Ground rules
 

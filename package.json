@@ -18,7 +18,8 @@
     "fixtures:update": "UPDATE_FIXTURES=1 vitest run tests/sim-parity.test.ts",
     "preview": "vite preview",
     "icons": "node scripts/make-icons.mjs",
-    "test:e2e:host": "playwright test"
+    "test:e2e:host": "playwright test",
+    "docs:tuning": "UPDATE_DOCS=1 vitest run tests/gameplay-doc.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

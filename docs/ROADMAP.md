@@ -124,11 +124,17 @@ in a commit that does nothing else, after checking by eye.
 
 Unblocks: run replay, shared daily track, server-side validation.
 
-### Step 8 — generated documents — ½ d
+### Step 8 — generated documents — done
 
-The tables in `GAMEPLAY.md` computed from `src/sim/tuning.ts` by
-`npm run docs:tuning`, and checked in a test. The 62/80/98 % could not have
-happened.
+The tables in `GAMEPLAY.md` are computed from `src/sim/tuning.ts` by
+`npm run docs:tuning` and a test fails if they drift. The 62/80/98 % could not
+have happened.
+
+Two things were removed rather than generated: a "measured outcomes at
+equilibrium" table and a "stable multiplier" row. Both depended on how someone
+happened to be driving, neither could be derived from the tuning, and they
+were the same species as the figure that started all this. Anyone who wants
+them can measure a run with `window.__gsNext.trace`.
 
 ### Step 9 — continuous integration — done
 

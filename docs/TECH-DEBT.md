@@ -30,6 +30,7 @@ classic scripts, and those are gone.
 | 12 | Dead code | — | **gone with the legacy** |
 | 13 | No lint, no formatter, no CI | Low | CI done, no formatter |
 | 14 | All strings hardcoded in English | Low | open |
+| 19 | Documents state figures nothing checks | — | **closed for GAMEPLAY.md** |
 | 15 | Reverb built on the main thread | — | **done**, built on the first gesture |
 | 16 | Missing PWA icons | — | **done** |
 | 17 | `Math.cos` is not bit-identical across engines | Medium | measured, blocks server validation |
@@ -244,6 +245,20 @@ changes. That retires the rule that used to sit in `CLAUDE.md` — there is no
 One bug worth remembering from writing it: the dotfile filter ran on paths that
 had already been prefixed with `./`, so every path looked like a dotfile and
 the list came out empty. The build reported success.
+
+## 19. Documents that state figures nothing checks
+
+The whole reason this list exists in its current form: an audit found that
+`GAMEPLAY.md` gave a ratio divided by a figure appearing nowhere in the code,
+`TECH-DEBT.md` counted declaration statements and called them bindings, and
+`ARCHITECTURE.md` was off by fourteen lines on a seventy-four line file. None
+of it was checkable, so none of it was wrong for long enough to notice.
+
+`GAMEPLAY.md` is now generated from `src/sim/tuning.ts` between markers, with
+a test that fails on drift. The rest of `docs/` is prose and counts that are
+still typed: they were all re-measured, but nothing stops them rotting again.
+Generating a handful of them — line counts, the tuning coverage figures — would
+be cheap, and is the obvious next move if this recurs.
 
 ## What is deliberately not debt
 
