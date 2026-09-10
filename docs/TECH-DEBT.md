@@ -51,14 +51,22 @@ There were none. There is now a net:
 - Vitest on `src/sim/`: the PRNG, the clock, and parity against those
   references.
 
+Formerly listed as missing, and closed since:
+
+- `buildPath` and `sample` are pinned directly by the `track-geometry`
+  reference, replayed in Node against the source.
+- The frame rate governor has fifteen tests — the target list, the
+  integer-ratio throttle including the historical 144-asked-for-120-got-72
+  case, the median-based detection, and the quality stepping with its floor
+  and ordering. Validated by mutation: `ceil` for `round`, a mean for the
+  median, and cutting the background all fail by name.
+- Full-frame pixel references of the 3D rendering exist, at zero tolerance,
+  via `__gsNext.freeze`.
+
 Still missing:
 
-- `buildPath` and `sample`, the geometric core, are only covered indirectly.
-- The frame rate governor, which already had the bug where a 144 Hz display
-  targeting 120 dropped to 72, is not covered at all.
-- No pixel reference of the 3D rendering: the canvas is excluded from the
-  screenshots. That is now only a matter of adding a hook that renders after a
-  fixed number of steps, since the simulation itself is deterministic.
+- The interface modules — settings, HUD, screens — are covered only through
+  the browser, never in isolation.
 
 A known resolution limit, measured: swapping the two lateral terms of `step` — a
 pure floating point reassociation — shifts `latVel` by about 4e-16 over 1800
