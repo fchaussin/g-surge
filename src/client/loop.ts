@@ -46,13 +46,25 @@ export class Loop {
     this.last = performance.now();
   }
 
+  /**
+   * Minimum seconds between rendered frames, to hold a lower target than the
+   * display. Zero disables it. Only ever an integer division of the refresh
+   * rate — see `performance.ts` for why anything else makes it worse.
+   */
+  frameMin = 0;
+
   private readonly tick = (now: number): void => {
     if (!this.running) return;
     this.handle = requestAnimationFrame(this.tick);
 
+    const since = (now - this.last) / 1000;
+    // Skipped for the target, without touching `last`: the time still counts
+    // and arrives with the next frame, so the simulation loses nothing.
+    if (since < this.frameMin) return;
+
     // Clamped so a long frame — backgrounded tab, shader compile, collection
     // pause — slows the game down instead of asking for thousands of steps.
-    const frameDt = Math.min(Math.max((now - this.last) / 1000, 0), MAX_FRAME);
+    const frameDt = Math.min(Math.max(since, 0), MAX_FRAME);
     this.last = now;
 
     const steps = this.clock.advance(frameDt);

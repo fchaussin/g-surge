@@ -151,11 +151,18 @@ functions of the track buffers and have no business in the rendering layer.
 Acceptance: track, ship and sky render from `src/sim/`, with no call into the
 legacy.
 
-### Step 3 — port the game client — 1 to 2 d
+### Step 3 — port the game client — done
 
 From `game.js`: loop and clock, HUD, screens and keyboard navigation, settings,
-audio, haptics, input. All of it consuming the events from `src/sim/events.ts`
+audio, haptics, input, leaderboard, score screen, fullscreen, refresh detection
+and automatic quality. All of it consuming the events from `src/sim/events.ts`
 instead of the calls that used to sit inside `step()`.
+
+Accessibility landed here rather than at step 6, which is why it was moved:
+`aria-pressed` on the eight toggles, `role="radiogroup"` and `role="radio"` with
+labels on the two segmented controls, and a `prefers-reduced-motion` block.
+Writing it alongside the markup cost an hour; retrofitting it would have cost a
+day.
 
 The CSS carries over as the starting point rather than as a constraint. It is
 good and it is tuned; where accessibility, reduced-motion or a cleaner
