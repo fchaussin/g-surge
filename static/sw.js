@@ -13,60 +13,77 @@
    Les valeurs ci-dessous sont celles du mode développement, où le service
    worker ne s'enregistre pas — il est conditionné à https. Elles restent du
    JavaScript valide pour que le fichier soit lisible tel quel. */
+/* Une ligne chacun, et le formateur n'y touche pas : le plugin de build les
+   remplace par une expression régulière qui s'arrête au saut de ligne. */
+// prettier-ignore
 /* build:version */ const VERSION = 'dev';
+// prettier-ignore
 /* build:assets */ const ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
-self.addEventListener('install', e => {
-  e.waitUntil((async () => {
-    const cache = await caches.open(VERSION);
-    // Chaque actif à part : un seul manquant ne doit pas faire échouer
-    // l'installation entière, ce que ferait cache.addAll.
-    await Promise.all(ASSETS.map(async url => {
-      try { await cache.add(url); }
-      catch (err) { /* actif absent : on continue */ }
-    }));
-    self.skipWaiting();
-  })());
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    (async () => {
+      const cache = await caches.open(VERSION);
+      // Chaque actif à part : un seul manquant ne doit pas faire échouer
+      // l'installation entière, ce que ferait cache.addAll.
+      await Promise.all(
+        ASSETS.map(async (url) => {
+          try {
+            await cache.add(url);
+          } catch (err) {
+            /* actif absent : on continue */
+          }
+        }),
+      );
+      self.skipWaiting();
+    })(),
+  );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)));
-    await self.clients.claim();
-  })());
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)));
+      await self.clients.claim();
+    })(),
+  );
 });
 
-self.addEventListener('fetch', e => {
+self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
 
-  if (req.mode === 'navigate'){
-    e.respondWith((async () => {
-      try {
-        const fresh = await fetch(req);
-        const cache = await caches.open(VERSION);
-        cache.put('./index.html', fresh.clone());
-        return fresh;
-      } catch (err) {
-        return (await caches.match('./index.html')) || Response.error();
-      }
-    })());
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      (async () => {
+        try {
+          const fresh = await fetch(req);
+          const cache = await caches.open(VERSION);
+          cache.put('./index.html', fresh.clone());
+          return fresh;
+        } catch (err) {
+          return (await caches.match('./index.html')) || Response.error();
+        }
+      })(),
+    );
     return;
   }
 
-  e.respondWith((async () => {
-    const hit = await caches.match(req, { ignoreSearch: true });
-    if (hit) return hit;
-    try {
-      const res = await fetch(req);
-      if (res && res.ok && (res.type === 'basic' || res.type === 'cors')){
-        const cache = await caches.open(VERSION);
-        cache.put(req, res.clone());
+  e.respondWith(
+    (async () => {
+      const hit = await caches.match(req, { ignoreSearch: true });
+      if (hit) return hit;
+      try {
+        const res = await fetch(req);
+        if (res && res.ok && (res.type === 'basic' || res.type === 'cors')) {
+          const cache = await caches.open(VERSION);
+          cache.put(req, res.clone());
+        }
+        return res;
+      } catch (err) {
+        return Response.error();
       }
-      return res;
-    } catch (err) {
-      return Response.error();
-    }
-  })());
+    })(),
+  );
 });

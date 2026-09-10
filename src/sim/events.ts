@@ -21,7 +21,12 @@ export type SimEvent =
   /** Frottement prolongé le long d'un mur, émis à chaque pas de contact. */
   | { readonly type: 'scrape' }
   /** Pièce ramassée. `tier` vaut 0, 1 ou 2 selon le palier de vitesse. */
-  | { readonly type: 'pickup'; readonly kind: 'coin'; readonly tier: 0 | 1 | 2; readonly gain: number }
+  | {
+      readonly type: 'pickup';
+      readonly kind: 'coin';
+      readonly tier: 0 | 1 | 2;
+      readonly gain: number;
+    }
   /** Réparation ramassée. */
   | { readonly type: 'pickup'; readonly kind: 'fix' }
   /** Super boost ramassé. */

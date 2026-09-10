@@ -1,0 +1,24 @@
+# Sorties de build et dépendances
+public/
+node_modules/
+test-results/
+playwright-report/
+
+# Le balisage et les documents ont leur propre discipline : GAMEPLAY.md est
+# engendré entre marqueurs, et reformater index.html produirait un diff de
+# six cents lignes sans valeur.
+*.md
+index.html
+
+# Références figées : comparées après parsing, mais les réécrire ferait du
+# bruit dans git pour rien.
+tests/e2e/fixtures/
+tests/e2e/**/*-snapshots/
+
+# Générées par npm run icons
+static/icons/
+
+package-lock.json
+
+# Copie de three.js rejouée aux tests : pas notre source.
+tests/e2e/vendor/

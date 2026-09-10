@@ -24,8 +24,12 @@ export default tseslint.config(
     files: ['static/sw.js'],
     languageOptions: {
       globals: {
-        self: 'readonly', caches: 'readonly', clients: 'readonly',
-        fetch: 'readonly', Request: 'readonly', Response: 'readonly',
+        self: 'readonly',
+        caches: 'readonly',
+        clients: 'readonly',
+        fetch: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
         console: 'readonly',
       },
     },
@@ -42,15 +46,30 @@ export default tseslint.config(
       // et arbitrable côté serveur. Il se perd en une ligne, donc il est vérifié.
       'no-restricted-properties': [
         'error',
-        { object: 'Math', property: 'random', message: 'sim/ doit être déterministe : passer par le PRNG injecté (rng.ts).' },
-        { object: 'Date', property: 'now', message: 'sim/ doit être déterministe : le temps est un paramètre, pas une lecture d\'horloge.' },
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'sim/ doit être déterministe : passer par le PRNG injecté (rng.ts).',
+        },
+        {
+          object: 'Date',
+          property: 'now',
+          message:
+            "sim/ doit être déterministe : le temps est un paramètre, pas une lecture d'horloge.",
+        },
       ],
       'no-restricted-imports': [
         'error',
         {
           patterns: [
-            { group: ['three', 'three/*'], message: 'sim/ ne doit pas dépendre de three.js : il doit tourner sans WebGL.' },
-            { group: ['**/client/**'], message: 'La dépendance va client → sim, jamais l\'inverse.' },
+            {
+              group: ['three', 'three/*'],
+              message: 'sim/ ne doit pas dépendre de three.js : il doit tourner sans WebGL.',
+            },
+            {
+              group: ['**/client/**'],
+              message: "La dépendance va client → sim, jamais l'inverse.",
+            },
           ],
         },
       ],

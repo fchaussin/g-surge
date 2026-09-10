@@ -16,7 +16,7 @@ const TIER_CSS = ['#e0913f', '#ffc24a', '#dff4ff'] as const;
 
 /** How long the multiplier flashes after a change, in seconds. */
 const PULSE_UP = 0.16;
-const PULSE_CUT = 0.20;
+const PULSE_CUT = 0.2;
 
 const byId = (id: string) => document.getElementById(id);
 

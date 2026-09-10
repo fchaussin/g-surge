@@ -14,13 +14,13 @@ services:
     build: .
     image: g-surge-dev
     init: true
-    user: "${GSURGE_USER:-0:0}"
+    user: '${GSURGE_USER:-0:0}'
     ports:
-      - "${GSURGE_PORT:-5173}:5173"
+      - '${GSURGE_PORT:-5173}:5173'
     volumes:
       - .:/app
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:5173/']
       interval: 10s
       timeout: 3s
       retries: 3
@@ -42,20 +42,20 @@ services:
   # d'un conteneur et se ferme en plein test.
   e2e:
     image: mcr.microsoft.com/playwright:v1.63.0-noble
-    profiles: ["tools"]
+    profiles: ['tools']
     init: true
     ipc: host
-    user: "${GSURGE_USER:-0:0}"
+    user: '${GSURGE_USER:-0:0}'
     working_dir: /app
     volumes:
       - .:/app
-    command: ["npx", "playwright", "test"]
+    command: ['npx', 'playwright', 'test']
 
   tools:
     build: .
     image: g-surge-dev
-    profiles: ["tools"]
-    user: "${GSURGE_USER:-0:0}"
+    profiles: ['tools']
+    user: '${GSURGE_USER:-0:0}'
     volumes:
       - .:/app
-    command: ["npm", "run", "verify"]
+    command: ['npm', 'run', 'verify']

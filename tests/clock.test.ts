@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Clock, DT, HZ, MAX_FRAME, MAX_STEPS } from '../src/sim/clock.js';
 
 describe('Clock', () => {
-  it('720 divise les cadences d\'écran courantes, ce qui évite l\'interpolation', () => {
+  it("720 divise les cadences d'écran courantes, ce qui évite l'interpolation", () => {
     for (const refresh of [30, 60, 72, 90, 120, 144, 240, 360]) {
       expect(HZ % refresh, `${refresh} Hz`).toBe(0);
     }
@@ -45,7 +45,7 @@ describe('Clock', () => {
     expect(clock.advance(60)).toBe(MAX_STEPS);
   });
 
-  it('ignore un delta absurde sans casser l\'accumulateur', () => {
+  it("ignore un delta absurde sans casser l'accumulateur", () => {
     const clock = new Clock();
     expect(clock.advance(-1)).toBe(0);
     expect(clock.advance(Number.NaN)).toBe(0);

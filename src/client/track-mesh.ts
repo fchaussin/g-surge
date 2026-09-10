@@ -16,8 +16,18 @@
  * which reads as a frame rate problem and is not one.
  */
 import {
-  BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, DoubleSide,
-  Group, Mesh, MeshBasicMaterial, Object3D, RepeatWrapping, type Texture,
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  CanvasTexture,
+  Color,
+  DoubleSide,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  RepeatWrapping,
+  type Texture,
   type WebGLRenderer,
 } from 'three';
 import { COUNT, HALF, type Track } from '../sim/index.js';
@@ -39,22 +49,30 @@ const GANTRY_EVERY = 12;
 function setPair(
   a: ArrayLike<number> & { [i: number]: number },
   i: number,
-  ax: number, ay: number, az: number,
-  bx: number, by: number, bz: number,
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number,
 ): void {
   const o = i * 6;
-  a[o] = ax; a[o + 1] = ay; a[o + 2] = az;
-  a[o + 3] = bx; a[o + 4] = by; a[o + 5] = bz;
+  a[o] = ax;
+  a[o + 1] = ay;
+  a[o + 2] = az;
+  a[o + 3] = bx;
+  a[o + 4] = by;
+  a[o + 5] = bz;
 }
 
-function setColorPair(
-  a: ArrayLike<number> & { [i: number]: number },
-  i: number,
-  c: Color,
-): void {
+function setColorPair(a: ArrayLike<number> & { [i: number]: number }, i: number, c: Color): void {
   const o = i * 6;
-  a[o] = c.r; a[o + 1] = c.g; a[o + 2] = c.b;
-  a[o + 3] = c.r; a[o + 4] = c.g; a[o + 5] = c.b;
+  a[o] = c.r;
+  a[o + 1] = c.g;
+  a[o + 2] = c.b;
+  a[o + 3] = c.r;
+  a[o + 4] = c.g;
+  a[o + 5] = c.b;
 }
 
 /**
@@ -79,13 +97,13 @@ function roadTexture(renderer: WebGLRenderer): Texture {
   g.strokeStyle = '#8a8a8a';
   g.lineWidth = S * 0.17;
   g.beginPath();
-  g.moveTo(-S * 0.02, S * 0.10);
+  g.moveTo(-S * 0.02, S * 0.1);
   g.lineTo(S * 0.5, S * 0.46);
-  g.lineTo(S * 1.02, S * 0.10);
+  g.lineTo(S * 1.02, S * 0.1);
   g.stroke();
 
   g.strokeStyle = '#ffffff';
-  g.lineWidth = S * 0.10;
+  g.lineWidth = S * 0.1;
   g.beginPath();
   g.moveTo(-S * 0.02, S * 0.08);
   g.lineTo(S * 0.5, S * 0.42);
@@ -174,36 +192,72 @@ export class TrackMesh {
     for (let i = 0; i < COUNT; i++) {
       const yaw = pyaw[i]!;
       const b = nb[i]!;
-      const cy = Math.cos(yaw), sy = Math.sin(yaw);
-      const cb = Math.cos(b), sb = Math.sin(b);
-      const rx = cy * cb, ry = sb, rz = -sy * cb;
-      const ux = -cy * sb, uy = cb, uz = sy * sb;
-      const X = px[i]!, Y = py[i]!, Z = pz[i]!;
+      const cy = Math.cos(yaw),
+        sy = Math.sin(yaw);
+      const cb = Math.cos(b),
+        sb = Math.sin(b);
+      const rx = cy * cb,
+        ry = sb,
+        rz = -sy * cb;
+      const ux = -cy * sb,
+        uy = cb,
+        uz = sy * sb;
+      const X = px[i]!,
+        Y = py[i]!,
+        Z = pz[i]!;
       const id = nid[i]!;
 
-      setPair(rp, i, X - rx * HALF, Y - ry * HALF, Z - rz * HALF,
-                     X + rx * HALF, Y + ry * HALF, Z + rz * HALF);
+      setPair(
+        rp,
+        i,
+        X - rx * HALF,
+        Y - ry * HALF,
+        Z - rz * HALF,
+        X + rx * HALF,
+        Y + ry * HALF,
+        Z + rz * HALF,
+      );
       setColorPair(rc, i, id % 8 < 4 ? ROAD_A : ROAD_B);
 
       // V driven by the absolute segment id, so the markings ride the track
       const v = id * inv;
       const o4 = i * 4;
-      ru[o4] = 0; ru[o4 + 1] = v; ru[o4 + 2] = 1; ru[o4 + 3] = v;
+      ru[o4] = 0;
+      ru[o4 + 1] = v;
+      ru[o4 + 2] = 1;
+      ru[o4 + 3] = v;
 
-      const l1 = -HALF - LIP, l2 = -HALF, r1 = HALF, r2 = HALF + LIP;
-      setPair(lp, i, X + rx * l1, Y + ry * l1, Z + rz * l1,
-                     X + rx * l2, Y + ry * l2, Z + rz * l2);
-      setPair(qp, i, X + rx * r1, Y + ry * r1, Z + rz * r1,
-                     X + rx * r2, Y + ry * r2, Z + rz * r2);
+      const l1 = -HALF - LIP,
+        l2 = -HALF,
+        r1 = HALF,
+        r2 = HALF + LIP;
+      setPair(lp, i, X + rx * l1, Y + ry * l1, Z + rz * l1, X + rx * l2, Y + ry * l2, Z + rz * l2);
+      setPair(qp, i, X + rx * r1, Y + ry * r1, Z + rz * r1, X + rx * r2, Y + ry * r2, Z + rz * r2);
 
       const c = id % GANTRY_EVERY === 0 ? HOT : id % 6 < 3 ? NEON_A : NEON_B;
       setColorPair(lc, i, c);
       setColorPair(qc, i, c);
 
-      setPair(sl, i, X + rx * l1, Y + ry * l1, Z + rz * l1,
-                     X + rx * l1 - ux * DROP, Y + ry * l1 - uy * DROP, Z + rz * l1 - uz * DROP);
-      setPair(sr, i, X + rx * r2, Y + ry * r2, Z + rz * r2,
-                     X + rx * r2 - ux * DROP, Y + ry * r2 - uy * DROP, Z + rz * r2 - uz * DROP);
+      setPair(
+        sl,
+        i,
+        X + rx * l1,
+        Y + ry * l1,
+        Z + rz * l1,
+        X + rx * l1 - ux * DROP,
+        Y + ry * l1 - uy * DROP,
+        Z + rz * l1 - uz * DROP,
+      );
+      setPair(
+        sr,
+        i,
+        X + rx * r2,
+        Y + ry * r2,
+        Z + rz * r2,
+        X + rx * r2 - ux * DROP,
+        Y + ry * r2 - uy * DROP,
+        Z + rz * r2 - uz * DROP,
+      );
     }
 
     for (const m of [this.road, this.edgeL, this.edgeR]) {

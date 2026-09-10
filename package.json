@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run typecheck && npm run lint && npm run test",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "test:e2e": "docker compose --profile tools run --rm e2e",
     "test:e2e:update": "docker compose --profile tools run --rm e2e npx playwright test --update-snapshots",
     "verify:all": "npm run verify && npm run test:e2e",
@@ -19,7 +19,9 @@
     "preview": "vite preview",
     "icons": "node scripts/make-icons.mjs",
     "test:e2e:host": "playwright test",
-    "docs:tuning": "UPDATE_DOCS=1 vitest run tests/gameplay-doc.test.ts"
+    "docs:tuning": "UPDATE_DOCS=1 vitest run tests/gameplay-doc.test.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -27,6 +29,7 @@
     "@types/node": "^26.5.0",
     "@types/three": "^0.128.0",
     "eslint": "^9.39.5",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
     "vite": "^6.4.3",

@@ -101,8 +101,18 @@ export class Track {
   readonly pyaw = new Float32Array(COUNT);
 
   private readonly gen: GenState = {
-    k: 0, kTarget: 0, kLeft: 0, g: 0, gTarget: 0, gLeft: 0, gLerp: 0.09,
-    crest: false, roll: 0, rollDir: 1, rollPhase: 0, id: 0,
+    k: 0,
+    kTarget: 0,
+    kLeft: 0,
+    g: 0,
+    gTarget: 0,
+    gLeft: 0,
+    gLerp: 0.09,
+    crest: false,
+    roll: 0,
+    rollDir: 1,
+    rollPhase: 0,
+    id: 0,
   };
 
   private readonly coinRun = { left: 0, lat: 0, drift: 0 };
@@ -234,7 +244,9 @@ export class Track {
     const t = f - i;
     const j = i + 1;
 
-    const x0 = this.px[i]!, y0 = this.py[i]!, z0 = this.pz[i]!;
+    const x0 = this.px[i]!,
+      y0 = this.py[i]!,
+      z0 = this.pz[i]!;
     out.x = x0 + (this.px[j]! - x0) * t;
     out.y = y0 + (this.py[j]! - y0) * t;
     out.z = z0 + (this.pz[j]! - z0) * t;
@@ -246,10 +258,16 @@ export class Track {
     out.yaw = yaw;
     out.bank = b;
 
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cb = Math.cos(b), sb = Math.sin(b);
-    out.rx = cy * cb; out.ry = sb; out.rz = -sy * cb;      // droite, inclinée par le dévers
-    out.ux = -cy * sb; out.uy = cb; out.uz = sy * sb;      // normale à la piste
+    const cy = Math.cos(yaw),
+      sy = Math.sin(yaw);
+    const cb = Math.cos(b),
+      sb = Math.sin(b);
+    out.rx = cy * cb;
+    out.ry = sb;
+    out.rz = -sy * cb; // droite, inclinée par le dévers
+    out.ux = -cy * sb;
+    out.uy = cb;
+    out.uz = sy * sb; // normale à la piste
     return out;
   }
 
@@ -300,7 +318,7 @@ export class Track {
         gen.kTarget = 0;
         gen.kLeft = gen.roll + 10; // piste droite pendant la vrille
       } else {
-        gen.kTarget = rng.chance(0.20) ? 0 : rng.range(0.35, 1) * kMax * rng.sign();
+        gen.kTarget = rng.chance(0.2) ? 0 : rng.range(0.35, 1) * kMax * rng.sign();
         gen.kLeft = 10 + rng.int(26);
       }
     }
@@ -317,7 +335,7 @@ export class Track {
         gen.crest = false;
       } else if (gen.roll <= 0 && rng.chance(0.26)) {
         gen.gTarget = gMax * rng.range(0.75, 1);
-        gen.gLerp = 0.30;
+        gen.gLerp = 0.3;
         gen.gLeft = 6 + rng.int(4);
         gen.crest = true;
       } else {
@@ -355,9 +373,21 @@ export class Track {
 
     const r = rng.next();
     if (r < T.supChance) {
-      this.items.push({ id, lat: rng.centered(HALF - 3.5), type: ITEM_SUP, done: false, taken: false });
+      this.items.push({
+        id,
+        lat: rng.centered(HALF - 3.5),
+        type: ITEM_SUP,
+        done: false,
+        taken: false,
+      });
     } else if (r < T.supChance + T.fixChance) {
-      this.items.push({ id, lat: rng.centered(HALF - 3.5), type: ITEM_FIX, done: false, taken: false });
+      this.items.push({
+        id,
+        lat: rng.centered(HALF - 3.5),
+        type: ITEM_FIX,
+        done: false,
+        taken: false,
+      });
     } else if (r < T.supChance + T.fixChance + T.coinChance) {
       run.left = 5 + rng.int(6);
       run.lat = rng.centered(HALF - 4);

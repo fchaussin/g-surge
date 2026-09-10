@@ -18,10 +18,17 @@ import type { Input } from '../sim/index.js';
 
 /** Physical keys, by `KeyboardEvent.code` so the layout does not matter. */
 const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
-  ArrowLeft: 'left', KeyA: 'left', KeyQ: 'left',
-  ArrowRight: 'right', KeyD: 'right',
-  ArrowDown: 'brake', KeyS: 'brake',
-  Space: 'boost', ArrowUp: 'boost', KeyW: 'boost', KeyZ: 'boost',
+  ArrowLeft: 'left',
+  KeyA: 'left',
+  KeyQ: 'left',
+  ArrowRight: 'right',
+  KeyD: 'right',
+  ArrowDown: 'brake',
+  KeyS: 'brake',
+  Space: 'boost',
+  ArrowUp: 'boost',
+  KeyW: 'boost',
+  KeyZ: 'boost',
 };
 
 const STICK_RADIUS = 46;

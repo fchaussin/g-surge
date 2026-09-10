@@ -56,7 +56,12 @@ export class Scores {
    * Adds a run and returns whether it took the top spot, plus what the top
    * spot was before — the score screen shows both.
    */
-  submit(score: number, coins: number, difficulty: Difficulty, now: number): {
+  submit(
+    score: number,
+    coins: number,
+    difficulty: Difficulty,
+    now: number,
+  ): {
     accepted: boolean;
     wasBest: boolean;
     previousBest: number;

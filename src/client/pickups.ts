@@ -10,12 +10,15 @@
  * being visible at all: bronze under 500 km/h, gold to 1000, white above.
  */
 import {
-  ConeGeometry, Group, Mesh, MeshBasicMaterial, Object3D, OctahedronGeometry,
+  ConeGeometry,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  OctahedronGeometry,
   TorusGeometry,
 } from 'three';
-import {
-  BACK, COUNT, ITEM_COIN, ITEM_SUP, SEG, trackPoint, type Track,
-} from '../sim/index.js';
+import { BACK, COUNT, ITEM_COIN, ITEM_SUP, SEG, trackPoint, type Track } from '../sim/index.js';
 
 /** Bronze, gold, white. Indexed by speed tier, same order as `COIN_GAIN`. */
 export const COIN_COLOURS = [0xc47a2e, 0xffc24a, 0xdff4ff] as const;

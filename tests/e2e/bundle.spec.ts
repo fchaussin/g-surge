@@ -81,7 +81,12 @@ test.describe('the shipped bundle', () => {
             // happens to call it at is a separate decision.
             dt: 1 / 120,
             every: 120,
-            script: script as Array<{ from: number; steer: number; brake: boolean; boost: boolean }>,
+            script: script as Array<{
+              from: number;
+              steer: number;
+              brake: boolean;
+              boost: boolean;
+            }>,
           }),
         [diff, REFERENCE_SCRIPT] as const,
       );

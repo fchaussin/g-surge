@@ -55,7 +55,7 @@ export function step(
   let boost: boolean;
   if (attract) {
     // pilote automatique de l'écran d'accueil : il se recentre, rien de plus
-    steer = clamp(-(state.lat * 0.10 + state.latVel * 0.55), -1, 1);
+    steer = clamp(-(state.lat * 0.1 + state.latVel * 0.55), -1, 1);
     brake = false;
     boost = false;
   } else {
@@ -152,11 +152,8 @@ export function step(
 
   // le manche commande un angle de lacet, pas directement une accélération latérale
   const yawMax =
-    clamp(
-      (T.yawBase * T.yawSpeedRef) / Math.max(40, state.speed),
-      T.yawMin,
-      T.yawBase,
-    ) * (1 - dmg * T.damageSteer);
+    clamp((T.yawBase * T.yawSpeedRef) / Math.max(40, state.speed), T.yawMin, T.yawBase) *
+    (1 - dmg * T.damageSteer);
   state.yaw += (steer * yawMax - state.yaw) * Math.min(1, dt * T.yawResponse);
 
   // vitesse latérale que le nez réclame, et écart réellement encaissé par les appuis
@@ -194,7 +191,7 @@ export function step(
           state.hull = Math.max(0, state.hull - hit);
           state.shake = Math.min(1, hit / 26);
           state.mult = 1 + (state.mult - 1) * T.multWallCut;
-          state.speed *= 1 - Math.min(0.30, hit / 140);
+          state.speed *= 1 - Math.min(0.3, hit / 140);
           out.push({ type: 'wallImpact', force: state.shake });
         }
       }

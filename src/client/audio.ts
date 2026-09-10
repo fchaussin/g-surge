@@ -93,16 +93,25 @@ export class Audio {
     if (!this.ctx || this.muted) return;
     for (const e of events) {
       switch (e.type) {
-        case 'land': this.thud(0.16, 700); break;
-        case 'badLanding': this.thud(0.5, 1400); break;
-        case 'wallImpact': this.thud(Math.min(0.5, 0.12 + e.force * 0.4), 1400); break;
+        case 'land':
+          this.thud(0.16, 700);
+          break;
+        case 'badLanding':
+          this.thud(0.5, 1400);
+          break;
+        case 'wallImpact':
+          this.thud(Math.min(0.5, 0.12 + e.force * 0.4), 1400);
+          break;
         case 'pickup':
           if (e.kind === 'coin') this.coin(1 + e.gain * 3);
           else if (e.kind === 'fix') this.fix();
           else this.superBoost();
           break;
-        case 'wreck': this.crash(); break;
-        default: break;
+        case 'wreck':
+          this.crash();
+          break;
+        default:
+          break;
       }
     }
   }
@@ -113,7 +122,13 @@ export class Audio {
    * `setTargetAtTime` rather than direct assignment: a step change on a gain
    * at audio rate is an audible click, and there is one of these per frame.
    */
-  update(playing: boolean, speed: number, speedMax: number, boosting: boolean, drifting: boolean): void {
+  update(
+    playing: boolean,
+    speed: number,
+    speedMax: number,
+    boosting: boolean,
+    drifting: boolean,
+  ): void {
     const ctx = this.ctx;
     const eng = this.engine;
     if (!ctx || !eng || !this.wind || !this.driftNoise) return;
@@ -123,27 +138,28 @@ export class Audio {
     const r = Math.min(1.7, speed / speedMax);
     const bst = boosting ? 1 : 0;
 
-    eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.10);
-    eng.rumble.gain.gain.setTargetAtTime(playing ? 0.13 + r * 0.20 : 0, t, 0.18);
+    eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.1);
+    eng.rumble.gain.gain.setTargetAtTime(playing ? 0.13 + r * 0.2 : 0, t, 0.18);
 
-    eng.body.filter.frequency.setTargetAtTime(250 + r * 850 + bst * 380, t, 0.10);
+    eng.body.filter.frequency.setTargetAtTime(250 + r * 850 + bst * 380, t, 0.1);
     eng.body.gain.gain.setTargetAtTime(playing ? 0.05 + r * 0.12 + bst * 0.05 : 0, t, 0.16);
 
     eng.hiss.filter.frequency.setTargetAtTime(2600 + r * 2400, t, 0.14);
     eng.hiss.gain.gain.setTargetAtTime(playing ? 0.012 + r * 0.055 + bst * 0.02 : 0, t, 0.18);
 
     eng.whine.frequency.setTargetAtTime(430 + r * 2000, t, 0.12);
-    eng.whineGain.gain.setTargetAtTime(playing ? 0.004 + r * 0.016 + bst * 0.008 : 0, t, 0.20);
+    eng.whineGain.gain.setTargetAtTime(playing ? 0.004 + r * 0.016 + bst * 0.008 : 0, t, 0.2);
 
     this.wind.filter.frequency.setTargetAtTime(650 + r * 1500, t, 0.25);
-    this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.10 : 0, t, 0.18);
+    this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.1 : 0, t, 0.18);
 
     this.driftNoise.gain.gain.setTargetAtTime(playing && drifting ? 0.09 : 0, t, 0.07);
   }
 
   private init(): void {
     if (this.ctx) return;
-    const Ctor = window.AudioContext ??
+    const Ctor =
+      window.AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
     try {
@@ -208,8 +224,14 @@ export class Audio {
     return { filter, gain };
   }
 
-  private blip(freq: number, dur: number, type: OscillatorType, vol: number,
-               sweep = 0, delay = 0): void {
+  private blip(
+    freq: number,
+    dur: number,
+    type: OscillatorType,
+    vol: number,
+    sweep = 0,
+    delay = 0,
+  ): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
     const t = ctx.currentTime + delay;
@@ -248,8 +270,16 @@ export class Audio {
     src.stop(t + 0.32);
   }
 
-  private noiseHit(t0: number, vol: number, type: BiquadFilterType, f0: number, f1: number,
-                   q: number, dur: number, send: boolean): void {
+  private noiseHit(
+    t0: number,
+    vol: number,
+    type: BiquadFilterType,
+    f0: number,
+    f1: number,
+    q: number,
+    dur: number,
+    send: boolean,
+  ): void {
     const ctx = this.ctx;
     if (!ctx || this.muted || !this.noise) return;
     const src = ctx.createBufferSource();
@@ -304,18 +334,18 @@ export class Audio {
 
   private coin(mul: number): void {
     const k = 1 + (mul - 1) * 0.16;
-    this.blip(1180 * k, 0.07, 'square', 0.10);
-    this.blip(1760 * k, 0.10, 'square', 0.09, 0, 0.055);
+    this.blip(1180 * k, 0.07, 'square', 0.1);
+    this.blip(1760 * k, 0.1, 'square', 0.09, 0, 0.055);
     if (mul > 2) this.blip(2400 * k, 0.12, 'square', 0.07, 0, 0.11);
   }
 
   private fix(): void {
     this.blip(520, 0.12, 'triangle', 0.18);
-    this.blip(780, 0.20, 'triangle', 0.16, 0, 0.10);
+    this.blip(780, 0.2, 'triangle', 0.16, 0, 0.1);
   }
 
   private superBoost(): void {
-    this.blip(180, 0.55, 'sawtooth', 0.20, 1500);
+    this.blip(180, 0.55, 'sawtooth', 0.2, 1500);
     this.blip(360, 0.5, 'square', 0.07, 2400, 0.04);
   }
 
@@ -324,16 +354,16 @@ export class Audio {
     if (!ctx || this.muted) return;
     const t = ctx.currentTime;
     this.reverb();
-    this.noiseHit(t, 0.35, 'highpass', 2400, 900, 0.7, 0.09, true);      // sheet metal
-    this.noiseHit(t, 0.45, 'lowpass', 2600, 90, 1.0, 0.40, true);        // impact
-    this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true);  // low tail
+    this.noiseHit(t, 0.35, 'highpass', 2400, 900, 0.7, 0.09, true); // sheet metal
+    this.noiseHit(t, 0.45, 'lowpass', 2600, 90, 1.0, 0.4, true); // impact
+    this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true); // low tail
 
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(115, t);
     o.frequency.exponentialRampToValueAtTime(32, t + 0.32);
-    g.gain.setValueAtTime(0.40, t);
+    g.gain.setValueAtTime(0.4, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
     o.connect(g);
     g.connect(this.master!);
@@ -346,8 +376,12 @@ export class Audio {
       this.noiseHit(
         t + 0.04 + Math.random() * 0.5,
         0.07 + Math.random() * 0.06,
-        'bandpass', 900 + Math.random() * 2800, 0, 7,
-        0.09 + Math.random() * 0.13, true,
+        'bandpass',
+        900 + Math.random() * 2800,
+        0,
+        7,
+        0.09 + Math.random() * 0.13,
+        true,
       );
     }
   }

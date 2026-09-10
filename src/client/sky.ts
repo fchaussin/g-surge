@@ -16,8 +16,16 @@
  *   would show no lateral motion at all.
  */
 import {
-  BackSide, BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, Points,
-  PointsMaterial, ShaderMaterial, SphereGeometry,
+  BackSide,
+  BufferGeometry,
+  Color,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  Points,
+  PointsMaterial,
+  ShaderMaterial,
+  SphereGeometry,
 } from 'three';
 import { Rng } from '../sim/index.js';
 

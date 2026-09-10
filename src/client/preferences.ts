@@ -45,8 +45,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   renderScale: 1,
 };
 
-const bool = (v: unknown, fallback: boolean): boolean =>
-  typeof v === 'boolean' ? v : fallback;
+const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
 
 const number = (v: unknown, fallback: number, min: number, max: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fallback;

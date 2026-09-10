@@ -17,14 +17,28 @@
  *   two and cannot cross.
  */
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CircleGeometry, Color,
-  ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, SphereGeometry, Sprite, SpriteMaterial,
+  AdditiveBlending,
+  BoxGeometry,
+  BufferGeometry,
+  CanvasTexture,
+  CircleGeometry,
+  Color,
+  ConeGeometry,
+  CylinderGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+  SphereGeometry,
+  Sprite,
+  SpriteMaterial,
 } from 'three';
 
 /** Thrust tiers: cruising, boosting, super boost. */
 const THRUST_LEVELS = [
-  { len: 1.1, rad: 0.30, opacity: 0.35, colour: 0x5fd8ff },
+  { len: 1.1, rad: 0.3, opacity: 0.35, colour: 0x5fd8ff },
   { len: 3.0, rad: 0.44, opacity: 0.75, colour: 0xbdf0ff },
   { len: 5.0, rad: 0.56, opacity: 0.95, colour: 0xff8ae0 },
 ] as const;
@@ -35,8 +49,10 @@ const TRAIL_LENGTH = 11;
 type Point3 = readonly [number, number, number];
 
 /** Loose triangles, so the geometry is flat shaded without asking for it. */
-function poly(faces: readonly (readonly [string, string, string])[],
-              points: Record<string, Point3>): BufferGeometry {
+function poly(
+  faces: readonly (readonly [string, string, string])[],
+  points: Record<string, Point3>,
+): BufferGeometry {
   const v: number[] = [];
   for (const [a, b, c] of faces) v.push(...points[a]!, ...points[b]!, ...points[c]!);
   const g = new BufferGeometry();
@@ -69,8 +85,11 @@ export class Ship {
     ({ outer: this.flameOuter, core: this.flameCore } = this.buildPlumes());
 
     this.haloMaterial = new MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0,
-      blending: AdditiveBlending, depthWrite: false,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: AdditiveBlending,
+      depthWrite: false,
     });
     this.halo = new Mesh(new SphereGeometry(2.6, 14, 10), this.haloMaterial);
     this.halo.position.y = 0.8;
@@ -82,7 +101,8 @@ export class Ship {
 
   /** Places the ship in the track frame. `bank` comes from the simulation. */
   setPose(lat: number, hop: number, bank: number): void {
-    const cb = Math.cos(bank), sb = Math.sin(bank);
+    const cb = Math.cos(bank),
+      sb = Math.sin(bank);
     const hover = 1.35 + hop;
     this.group.position.set(cb * lat - sb * hover, sb * lat + cb * hover, 0);
     this.group.rotation.z = bank;
@@ -154,7 +174,7 @@ export class Ship {
     }
     this.smokePhase = (this.smokePhase + (speed * frameDt) / TRAIL_LENGTH) % 1;
     const half = SMOKE_COUNT / 2;
-    const base = 0.20 + level * 0.11;
+    const base = 0.2 + level * 0.11;
 
     for (let i = 0; i < SMOKE_COUNT; i++) {
       const sp = this.smoke[i]!;
@@ -197,29 +217,54 @@ export class Ship {
   private buildHull(): void {
     const P: Record<string, Point3> = {
       N: [0, 0.52, 2.9],
-      T: [0, 1.05, -0.2], L: [-0.62, 0.46, -0.2], R: [0.62, 0.46, -0.2], B: [0, -0.02, -0.2],
-      T2: [0, 0.86, -2.4], L2: [-0.48, 0.46, -2.4], R2: [0.48, 0.46, -2.4], B2: [0, 0.12, -2.4],
+      T: [0, 1.05, -0.2],
+      L: [-0.62, 0.46, -0.2],
+      R: [0.62, 0.46, -0.2],
+      B: [0, -0.02, -0.2],
+      T2: [0, 0.86, -2.4],
+      L2: [-0.48, 0.46, -2.4],
+      R2: [0.48, 0.46, -2.4],
+      B2: [0, 0.12, -2.4],
     };
     const hull = new Mesh(
-      poly([
-        ['N', 'T', 'R'], ['N', 'R', 'B'], ['N', 'B', 'L'], ['N', 'L', 'T'],
-        ['T', 'L', 'L2'], ['T', 'L2', 'T2'], ['R', 'T', 'T2'], ['R', 'T2', 'R2'],
-        ['B', 'R', 'R2'], ['B', 'R2', 'B2'], ['L', 'B', 'B2'], ['L', 'B2', 'L2'],
-        ['T2', 'L2', 'B2'], ['T2', 'B2', 'R2'],
-      ], P),
+      poly(
+        [
+          ['N', 'T', 'R'],
+          ['N', 'R', 'B'],
+          ['N', 'B', 'L'],
+          ['N', 'L', 'T'],
+          ['T', 'L', 'L2'],
+          ['T', 'L2', 'T2'],
+          ['R', 'T', 'T2'],
+          ['R', 'T2', 'R2'],
+          ['B', 'R', 'R2'],
+          ['B', 'R2', 'B2'],
+          ['L', 'B', 'B2'],
+          ['L', 'B2', 'L2'],
+          ['T2', 'L2', 'B2'],
+          ['T2', 'B2', 'R2'],
+        ],
+        P,
+      ),
       new MeshLambertMaterial({ color: 0x36485f, side: DoubleSide }),
     );
 
     // swept wing, low root and raised tip
     const W: Record<string, Point3> = {
-      A: [0.52, 0.44, 1.00], B: [0.52, 0.44, -1.90],
-      K1: [1.50, 1.30, -0.15], K2: [1.52, 1.30, -2.15],
-      T1: [1.88, 1.02, -0.80], T2: [1.90, 1.02, -2.35],
+      A: [0.52, 0.44, 1.0],
+      B: [0.52, 0.44, -1.9],
+      K1: [1.5, 1.3, -0.15],
+      K2: [1.52, 1.3, -2.15],
+      T1: [1.88, 1.02, -0.8],
+      T2: [1.9, 1.02, -2.35],
     };
     const WL: Record<string, Point3> = {};
     for (const k of Object.keys(W)) WL[k] = [-W[k]![0], W[k]![1], W[k]![2]];
     const wingFaces = [
-      ['A', 'K1', 'K2'], ['A', 'K2', 'B'], ['K1', 'T1', 'T2'], ['K1', 'T2', 'K2'],
+      ['A', 'K1', 'K2'],
+      ['A', 'K2', 'B'],
+      ['K1', 'T1', 'T2'],
+      ['K1', 'T2', 'K2'],
     ] as const;
     const wingMat = new MeshLambertMaterial({ color: 0x2b3b52, side: DoubleSide });
     const wingR = new Mesh(poly(wingFaces, W), wingMat);
@@ -276,12 +321,20 @@ export class Ship {
     geo.translate(0, 0, -0.5);
 
     const outer = new MeshBasicMaterial({
-      color: 0x5fd8ff, transparent: true, opacity: 0.4,
-      blending: AdditiveBlending, depthWrite: false, side: DoubleSide,
+      color: 0x5fd8ff,
+      transparent: true,
+      opacity: 0.4,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
     });
     const core = new MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.8,
-      blending: AdditiveBlending, depthWrite: false, side: DoubleSide,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.8,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
     });
 
     for (const x of [-1.15, 1.15]) {

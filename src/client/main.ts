@@ -9,8 +9,14 @@
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Scene } from 'three';
 import {
-  BACK, coinTier, DEFAULTS, DIFF, Sim, tuningFor,
-  type Difficulty, type SimEvent,
+  BACK,
+  coinTier,
+  DEFAULTS,
+  DIFF,
+  Sim,
+  tuningFor,
+  type Difficulty,
+  type SimEvent,
 } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
@@ -118,7 +124,10 @@ let showFps = prefs.values.showFps;
 const perf = new PerformanceGovernor({
   isPlaying: () => screens.isPlaying,
   getSkyDetail: () => skyDetail,
-  setSkyDetail: (high) => { skyDetail = high; sky.setDetail(high); },
+  setSkyDetail: (high) => {
+    skyDetail = high;
+    sky.setDetail(high);
+  },
   getRenderScale: () => sim.tuning.renderScale,
   setRenderScale: (v) => {
     sim.tuning.renderScale = v;
@@ -169,11 +178,24 @@ const settings = new Settings({
     prefs.set('haptics', on);
   },
   hapticsAvailable: haptics.available,
-  setTips: (on) => { tips.setEnabled(on); prefs.set('tips', on); },
+  setTips: (on) => {
+    tips.setEnabled(on);
+    prefs.set('tips', on);
+  },
   setLefty: (on) => prefs.set('lefty', on),
-  setSky: (on) => { sky.setVisible(on); prefs.set('sky', on); },
-  setSkyDetail: (high) => { skyDetail = high; sky.setDetail(high); prefs.set('skyDetail', high); },
-  setShowFps: (on) => { showFps = on; prefs.set('showFps', on); },
+  setSky: (on) => {
+    sky.setVisible(on);
+    prefs.set('sky', on);
+  },
+  setSkyDetail: (high) => {
+    skyDetail = high;
+    sky.setDetail(high);
+    prefs.set('skyDetail', high);
+  },
+  setShowFps: (on) => {
+    showFps = on;
+    prefs.set('showFps', on);
+  },
   setFrameTarget: (hz) => {
     perf.setTarget(hz);
     loop.frameMin = perf.frameMin;
@@ -190,8 +212,10 @@ perf.onRefresh = () => {
   settings.rebuildFrameTargets();
   // The chosen target may not exist on this display; take the nearest.
   const targets = perf.targetOptions();
-  const nearest = targets.reduce((best, v) =>
-    Math.abs(v - perf.targetHz) < Math.abs(best - perf.targetHz) ? v : best, targets[0]!);
+  const nearest = targets.reduce(
+    (best, v) => (Math.abs(v - perf.targetHz) < Math.abs(best - perf.targetHz) ? v : best),
+    targets[0]!,
+  );
   perf.setTarget(nearest);
   loop.frameMin = perf.frameMin;
   settings.paintFrameTarget(nearest);
@@ -236,7 +260,7 @@ function consume(events: readonly SimEvent[]): void {
         haptics.buzz(e.force > 0.6 ? [35, 40, 110] : [25 + Math.round(e.force * 60)]);
         break;
       case 'scrape':
-        holdHalo(0xff3b30, 0.70, 0.7);
+        holdHalo(0xff3b30, 0.7, 0.7);
         // Spaced: restarting the motor every step cancels it before it is felt.
         haptics.buzz(9, 190);
         break;
@@ -316,7 +340,7 @@ function renderFrame(frameDt: number): void {
   ship.setPose(state.lat, state.hop, bank);
   // Lean and yaw are shown, not simulated: they lag the state so the hull
   // reads as having mass instead of snapping between attitudes.
-  const wantLean = -state.yaw * 0.9 - MathUtils.clamp(state.latVel * 0.010, -0.20, 0.20);
+  const wantLean = -state.yaw * 0.9 - MathUtils.clamp(state.latVel * 0.01, -0.2, 0.2);
   lean += (wantLean - lean) * Math.min(1, frameDt * 7);
   const wantYaw =
     state.yaw * sim.tuning.yawVisual +
@@ -334,7 +358,9 @@ function renderFrame(frameDt: number): void {
   const position = viewport.camera.position;
   sky.update(
     elapsed,
-    position.x, position.y, position.z,
+    position.x,
+    position.y,
+    position.z,
     sim.track.nk[BACK]!,
     state.speed,
     frameDt,
@@ -386,7 +412,10 @@ on('btnPause', () => {
 });
 on('btnResume', () => screens.setMode('run'));
 on('btnRestart', startRun);
-on('btnQuit', () => { submit(); screens.setMode('menu'); });
+on('btnQuit', () => {
+  submit();
+  screens.setMode('menu');
+});
 on('btnAgain', startRun);
 on('btnOverMenu', () => screens.setMode('menu'));
 on('btnHelp', () => screens.setMode('help'));
@@ -576,12 +605,23 @@ window.__gsNext = {
     const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
     const snap = (i: number) => ({
       i,
-      dist: r6(st.dist), travel: r6(st.travel), cursor: r6(st.cursor),
-      speed: r6(st.speed), lat: r6(st.lat), latVel: r6(st.latVel),
-      yaw: r6(st.yaw), hop: r6(st.hop), vyRel: r6(st.vyRel),
-      energy: r6(st.energy), hull: r6(st.hull),
-      mult: r6(st.mult), score: r6(st.score), coins: st.coins,
-      air: st.air, drift: st.drift, wrecked: st.wrecked,
+      dist: r6(st.dist),
+      travel: r6(st.travel),
+      cursor: r6(st.cursor),
+      speed: r6(st.speed),
+      lat: r6(st.lat),
+      latVel: r6(st.latVel),
+      yaw: r6(st.yaw),
+      hop: r6(st.hop),
+      vyRel: r6(st.vyRel),
+      energy: r6(st.energy),
+      hull: r6(st.hull),
+      mult: r6(st.mult),
+      score: r6(st.score),
+      coins: st.coins,
+      air: st.air,
+      drift: st.drift,
+      wrecked: st.wrecked,
     });
 
     let si = 0;
@@ -596,7 +636,10 @@ window.__gsNext = {
       held.boost = !!cur.boost;
       sim.step(held, dt, false);
       last = i;
-      if (st.wrecked) { frames.push(snap(i)); break; }
+      if (st.wrecked) {
+        frames.push(snap(i));
+        break;
+      }
       if ((i + 1) % every === 0 || i === steps - 1) frames.push(snap(i));
     }
     return { seed: sim.seed, diff, steps, ran: last + 1, dt, wrecked: st.wrecked, frames };

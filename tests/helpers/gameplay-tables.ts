@@ -11,8 +11,17 @@
  * tables that depended on how someone happened to be driving. A number that
  * needs a play policy to be true does not belong in a reference.
  */
-import { clamp, COUNT, BACK, SEG, COIN_GAIN, DIFF, tuningFor, type Difficulty, type Tuning }
-  from '../../src/sim/index.js';
+import {
+  clamp,
+  COUNT,
+  BACK,
+  SEG,
+  COIN_GAIN,
+  DIFF,
+  tuningFor,
+  type Difficulty,
+  type Tuning,
+} from '../../src/sim/index.js';
 
 /** Assumed lateral closing speed for the "average impact", in m/s. */
 const TYPICAL_IMPACT = 12;

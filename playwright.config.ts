@@ -49,7 +49,11 @@ export default defineConfig({
       // plus cher qu'ils ne rapportent.
       name: 'retina',
       testMatch: /boot\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 2,
+      },
     },
     {
       name: 'mobile',

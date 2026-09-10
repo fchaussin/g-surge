@@ -32,7 +32,7 @@ test.describe('machine à états et navigation', () => {
     expect(game.errors()).toEqual([]);
   });
 
-  test('les écrans secondaires s\'ouvrent et se referment', async ({ game, page }) => {
+  test("les écrans secondaires s'ouvrent et se referment", async ({ game, page }) => {
     await game.boot();
 
     await page.locator('#btnHelp').click();
@@ -89,9 +89,16 @@ test.describe('machine à états et navigation', () => {
       .poll(() => page.locator('#spd').innerText().then(Number), { timeout: 30_000 })
       .toBeGreaterThan(0);
     await expect
-      .poll(() => page.locator('#dist').innerText().then((t) => Number(t.replace(/\D/g, ''))), {
-        timeout: 30_000,
-      })
+      .poll(
+        () =>
+          page
+            .locator('#dist')
+            .innerText()
+            .then((t) => Number(t.replace(/\D/g, ''))),
+        {
+          timeout: 30_000,
+        },
+      )
       .toBeGreaterThan(0);
 
     expect(game.errors()).toEqual([]);

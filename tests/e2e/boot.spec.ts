@@ -65,9 +65,12 @@ test.describe('new client, skeleton', () => {
       const c = document.querySelector('canvas')!;
       const r = c.getBoundingClientRect();
       return {
-        cssW: r.width, cssH: r.height,
-        bufW: c.width, bufH: c.height,
-        innerW: window.innerWidth, innerH: window.innerHeight,
+        cssW: r.width,
+        cssH: r.height,
+        bufW: c.width,
+        bufH: c.height,
+        innerW: window.innerWidth,
+        innerH: window.innerHeight,
         dpr: window.devicePixelRatio,
       };
     });
@@ -136,7 +139,11 @@ test.describe('new client, skeleton', () => {
  * around the two plumes and nothing else.
  */
 test.describe('new client, rendering', () => {
-  for (const [name, steps] of [['start', 60], ['underway', 2400], ['far', 9000]] as const) {
+  for (const [name, steps] of [
+    ['start', 60],
+    ['underway', 2400],
+    ['far', 9000],
+  ] as const) {
     test(`renders the track ${name}`, async ({ page }, testInfo) => {
       // Desktop only. The 3D scene does not change meaningfully with the
       // viewport, and three sets of references would be 1.9 MB of PNG in the
@@ -153,11 +160,14 @@ test.describe('new client, rendering', () => {
       // runs — so without hiding it the capture raced the splash, and one of
       // these references was in fact a screenshot of the loading screen. It
       // passed whenever the timing happened to repeat.
-      await page.evaluate(([seed, n]) => {
-        const hide = '.layer, .hud, .mutebtn, .fps, .boot';
-        for (const el of document.querySelectorAll<HTMLElement>(hide)) el.style.display = 'none';
-        window.__gsNext.freeze(seed as string, n as number);
-      }, ['reference', steps]);
+      await page.evaluate(
+        ([seed, n]) => {
+          const hide = '.layer, .hud, .mutebtn, .fps, .boot';
+          for (const el of document.querySelectorAll<HTMLElement>(hide)) el.style.display = 'none';
+          window.__gsNext.freeze(seed as string, n as number);
+        },
+        ['reference', steps],
+      );
       await expect(page).toHaveScreenshot(`scene-${name}.png`, {
         // Measured, not guessed: with the plumes as the only moving part, two
         // captures of the same frozen frame differ by at most 2 280 pixels.
@@ -187,7 +197,8 @@ test.describe('new client, rendering', () => {
     });
     // The legacy draws about 76 calls a frame. Anything near zero means the
     // scene is empty and the screenshots would be comparing two black frames.
-    expect(await page.evaluate(() => (window as unknown as { __calls: number }).__calls))
-      .toBeGreaterThan(30);
+    expect(
+      await page.evaluate(() => (window as unknown as { __calls: number }).__calls),
+    ).toBeGreaterThan(30);
   });
 });

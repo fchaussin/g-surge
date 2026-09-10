@@ -88,12 +88,23 @@ function trace(opts: {
   const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
   const snap = (i: number) => ({
     i,
-    dist: r6(s.dist), travel: r6(s.travel), cursor: r6(s.cursor),
-    speed: r6(s.speed), lat: r6(s.lat), latVel: r6(s.latVel),
-    yaw: r6(s.yaw), hop: r6(s.hop), vyRel: r6(s.vyRel),
-    energy: r6(s.energy), hull: r6(s.hull),
-    mult: r6(s.mult), score: r6(s.score), coins: s.coins,
-    air: s.air, drift: s.drift, wrecked: s.wrecked,
+    dist: r6(s.dist),
+    travel: r6(s.travel),
+    cursor: r6(s.cursor),
+    speed: r6(s.speed),
+    lat: r6(s.lat),
+    latVel: r6(s.latVel),
+    yaw: r6(s.yaw),
+    hop: r6(s.hop),
+    vyRel: r6(s.vyRel),
+    energy: r6(s.energy),
+    hull: r6(s.hull),
+    mult: r6(s.mult),
+    score: r6(s.score),
+    coins: s.coins,
+    air: s.air,
+    drift: s.drift,
+    wrecked: s.wrecked,
   });
 
   let si = 0;
@@ -175,13 +186,25 @@ describe('la géométrie du ruban portée dans le noyau', () => {
       sim.track.buildPath(cursor);
       return {
         cursor,
-        px: ra(sim.track.px), py: ra(sim.track.py),
-        pz: ra(sim.track.pz), pyaw: ra(sim.track.pyaw),
+        px: ra(sim.track.px),
+        py: ra(sim.track.py),
+        pz: ra(sim.track.pz),
+        pyaw: ra(sim.track.pyaw),
         samples: AT.map((d) => {
           const o = sim.track.sample(cursor, d, point);
           return {
-            d, x: r(o.x), y: r(o.y), z: r(o.z), yaw: r(o.yaw), bank: r(o.bank),
-            rx: r(o.rx), ry: r(o.ry), rz: r(o.rz), ux: r(o.ux), uy: r(o.uy), uz: r(o.uz),
+            d,
+            x: r(o.x),
+            y: r(o.y),
+            z: r(o.z),
+            yaw: r(o.yaw),
+            bank: r(o.bank),
+            rx: r(o.rx),
+            ry: r(o.ry),
+            rz: r(o.rz),
+            ux: r(o.ux),
+            uy: r(o.uy),
+            uz: r(o.uz),
           };
         }),
         grades: AT.map((d) => r(sim.track.gradeAt(cursor, d))),
@@ -191,7 +214,7 @@ describe('la géométrie du ruban portée dans le noyau', () => {
     matchFixture('track-geometry', asJson(got));
   });
 
-  it('réutilise le point fourni au lieu d\'allouer', () => {
+  it("réutilise le point fourni au lieu d'allouer", () => {
     const sim = new Sim({ seed: 'alloc', difficulty: 'easy' });
     sim.reset('alloc');
     sim.track.buildPath(0);
@@ -200,7 +223,7 @@ describe('la géométrie du ruban portée dans le noyau', () => {
   });
 });
 
-describe('le noyau raconte ce qu\'il fait', () => {
+describe("le noyau raconte ce qu'il fait", () => {
   it('émet des événements au lieu de jouer des sons', () => {
     const sim = new Sim({ seed: 'evenements', difficulty: 'easy' });
     sim.reset('evenements');
@@ -219,7 +242,7 @@ describe('le noyau raconte ce qu\'il fait', () => {
     expect(seen.size).toBeGreaterThan(2);
   });
 
-  it('ne signale l\'épave qu\'une fois', () => {
+  it("ne signale l'épave qu'une fois", () => {
     const sim = new Sim({ seed: 'epave', difficulty: 'hard' });
     sim.reset('epave');
 

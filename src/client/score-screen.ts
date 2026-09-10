@@ -31,10 +31,34 @@ export class ScoreScreen {
   show(breakdown: ScoreBreakdown): void {
     const id = ++this.generation;
     const rows = [
-      { el: document.getElementById('sDist'), to: Math.round(breakdown.distance), suffix: ' m', dec: 0, prefix: '' },
-      { el: document.getElementById('sCoins'), to: breakdown.coins, suffix: '', dec: 0, prefix: '' },
-      { el: document.getElementById('sBonus'), to: breakdown.peakMultiplier, suffix: '', dec: 1, prefix: '×' },
-      { el: document.getElementById('sTotal'), to: Math.round(breakdown.total), suffix: '', dec: 0, prefix: '' },
+      {
+        el: document.getElementById('sDist'),
+        to: Math.round(breakdown.distance),
+        suffix: ' m',
+        dec: 0,
+        prefix: '',
+      },
+      {
+        el: document.getElementById('sCoins'),
+        to: breakdown.coins,
+        suffix: '',
+        dec: 0,
+        prefix: '',
+      },
+      {
+        el: document.getElementById('sBonus'),
+        to: breakdown.peakMultiplier,
+        suffix: '',
+        dec: 1,
+        prefix: '×',
+      },
+      {
+        el: document.getElementById('sTotal'),
+        to: Math.round(breakdown.total),
+        suffix: '',
+        dec: 0,
+        prefix: '',
+      },
     ];
 
     const hint = document.getElementById('sMul');
@@ -58,13 +82,15 @@ export class ScoreScreen {
       let done = 0;
 
       rows.forEach((row, i) => {
-        if (!row.el) { done++; return; }
+        if (!row.el) {
+          done++;
+          return;
+        }
         const k = clamp01((t - i * STAGGER) / COUNT_MS);
         if (k > 0) row.el.parentElement?.classList.remove('pending');
         const eased = 1 - Math.pow(1 - k, 3);
         const v = row.to * eased;
-        row.el.textContent =
-          row.prefix + (row.dec ? v.toFixed(row.dec) : fmt(v)) + row.suffix;
+        row.el.textContent = row.prefix + (row.dec ? v.toFixed(row.dec) : fmt(v)) + row.suffix;
         if (k >= 1) {
           done++;
           if (!rung[i]) {
@@ -76,9 +102,12 @@ export class ScoreScreen {
 
       if (done < rows.length) requestAnimationFrame(tick);
       else if (tag) {
-        tag.textContent = breakdown.total < 50
-          ? ''
-          : breakdown.wasBest ? 'NEW BEST' : `best ${fmt(breakdown.previousBest)}`;
+        tag.textContent =
+          breakdown.total < 50
+            ? ''
+            : breakdown.wasBest
+              ? 'NEW BEST'
+              : `best ${fmt(breakdown.previousBest)}`;
       }
     };
     requestAnimationFrame(tick);

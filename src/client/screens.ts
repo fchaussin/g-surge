@@ -23,7 +23,10 @@ const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
 
 /** Preselected element when a screen opens. */
 const NAV_DEFAULT: Partial<Record<Mode, string>> = {
-  menu: 'btnStart', pause: 'btnResume', over: 'btnAgain', help: 'btnCloseHelp',
+  menu: 'btnStart',
+  pause: 'btnResume',
+  over: 'btnAgain',
+  help: 'btnCloseHelp',
 };
 
 const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'fpsinfo', 'settings'];
@@ -65,7 +68,8 @@ export class Screens {
     }
     document.getElementById('hud')?.classList.toggle('on', mode === 'run');
     // The mute button would sit on top of both of these.
-    document.getElementById('btnMute')
+    document
+      .getElementById('btnMute')
       ?.classList.toggle('hide', mode === 'settings' || mode === 'help');
 
     this.buildNav();
@@ -92,7 +96,8 @@ export class Screens {
       // A group counts as one stop, so its own buttons are dropped. Reset
       // buttons are skipped: they are a per-row affordance, not a stop.
       this.navList = nodes.filter(
-        (el) => el.classList.contains('navgroup') ||
+        (el) =>
+          el.classList.contains('navgroup') ||
           (!el.classList.contains('rst') && !el.closest('.navgroup')),
       );
     } else {
@@ -207,12 +212,23 @@ export class Screens {
   /** Escape, and the pause button, both land here. */
   private onBack(): void {
     switch (this.current) {
-      case 'run': this.setMode('pause'); break;
-      case 'pause': this.setMode('run'); break;
-      case 'settings': this.setMode(this.settingsBack); break;
-      case 'help': this.setMode('menu'); break;
-      case 'fpsinfo': this.setMode('settings'); break;
-      default: break;
+      case 'run':
+        this.setMode('pause');
+        break;
+      case 'pause':
+        this.setMode('run');
+        break;
+      case 'settings':
+        this.setMode(this.settingsBack);
+        break;
+      case 'help':
+        this.setMode('menu');
+        break;
+      case 'fpsinfo':
+        this.setMode('settings');
+        break;
+      default:
+        break;
     }
   }
 

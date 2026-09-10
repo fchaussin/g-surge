@@ -96,8 +96,10 @@ export class PerformanceGovernor {
     // far enough to snap to the wrong rate.
     const sorted = this.samples.slice().sort((a, b) => a - b);
     const raw = 1 / sorted[Math.floor(sorted.length / 2)]!;
-    this.refreshHz = KNOWN_RATES.reduce((best, v) =>
-      Math.abs(v - raw) < Math.abs(best - raw) ? v : best, 60);
+    this.refreshHz = KNOWN_RATES.reduce(
+      (best, v) => (Math.abs(v - raw) < Math.abs(best - raw) ? v : best),
+      60,
+    );
 
     // Detection does not choose for the player: it replaces the list of
     // reachable targets and keeps the nearest to what was selected.

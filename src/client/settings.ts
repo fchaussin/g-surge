@@ -211,8 +211,7 @@ export class Settings {
     }
     const note = byId('diffNote');
     if (note) {
-      note.innerHTML =
-        `${DIFF_UI[current].note} Score <b>×${this.options.scoreMultiplier(current).toFixed(2)}</b>.`;
+      note.innerHTML = `${DIFF_UI[current].note} Score <b>×${this.options.scoreMultiplier(current).toFixed(2)}</b>.`;
     }
   }
 
