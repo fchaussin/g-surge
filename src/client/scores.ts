@@ -8,9 +8,26 @@
  */
 import type { Difficulty } from '../sim/index.js';
 
-const KEY = 'gsurge.scores.v1';
-/** The name before the rename. Picked up once, then removed. */
-const KEY_LEGACY = 'voidrunner.scores.v1';
+/**
+ * Where the board lives.
+ *
+ * The suffix tracks **scoring compatibility, not the version of the game**. It
+ * moves when a change makes old scores incomparable to new ones, and stays put
+ * through every feature that does not — otherwise every release would wipe the
+ * board for no reason.
+ *
+ * v2 exists because 1.1.0 keyed the coin ladder to the thrust rung, which moved
+ * the reachable multiplier from 26 / 21 / 11 to 22 / 29 / 17 across the
+ * difficulties. A board holding both would be ranking two different games
+ * against each other, which is worse than a board that starts again.
+ *
+ * The v1 entries are left where they are, neither migrated nor deleted.
+ * Migrating would carry the incomparable scores forward, which is the whole
+ * point of moving; deleting would destroy someone's record to reclaim a few
+ * hundred bytes. The same goes for `voidrunner.scores.v1`, older still, whose
+ * migration is retired with this: it belonged to the same scoring era as v1.
+ */
+const KEY = 'gsurge.scores.v2';
 
 const KEEP = 5;
 /** Below this a run is not worth a row; it is usually a misclick. */
@@ -118,17 +135,7 @@ export class Scores {
   private load(): void {
     if (this.available) {
       try {
-        let raw = window.localStorage.getItem(KEY);
-        // Picked up once, then the old key is removed, so a board cleared on
-        // purpose does not come back on the next reload.
-        if (raw === null) {
-          const previous = window.localStorage.getItem(KEY_LEGACY);
-          if (previous !== null) {
-            window.localStorage.setItem(KEY, previous);
-            window.localStorage.removeItem(KEY_LEGACY);
-            raw = previous;
-          }
-        }
+        const raw = window.localStorage.getItem(KEY);
         if (raw) this.entries = (JSON.parse(raw) as ScoreEntry[]) ?? [];
       } catch {
         this.entries = [];
