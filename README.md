@@ -67,10 +67,11 @@ Playwright is not in the image. Run `npm run test:e2e` on the host.
 
 ## Deploying
 
-Nothing is deployed yet. When a Cloudflare Pages project is set up, it wants:
+Live at <https://g-surge.pages.dev/>, on Cloudflare Pages:
 
 - Build command: `npm run build`
 - Build output directory: `public`
+- Node version: pinned by `.nvmrc`
 
 `static/_headers` is copied into the build and sets the cache policy:
 `index.html` and `sw.js` are never cached, icons are immutable. The service

@@ -236,8 +236,8 @@ imposed, and the port must preserve them rather than invent new ones.
 
 ## Deploying
 
-Nothing is deployed yet. A Cloudflare Pages project would want build command
-`npm run build` and output directory `public`.
+Live at <https://g-surge.pages.dev/>, on Cloudflare Pages: build command
+`npm run build`, output directory `public`, Node pinned by `.nvmrc`.
 
 `static/_headers` is copied into the build and keeps `index.html` and `sw.js`
 uncached.
