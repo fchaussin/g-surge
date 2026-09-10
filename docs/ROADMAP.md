@@ -130,9 +130,17 @@ The tables in `GAMEPLAY.md` computed from `src/sim/tuning.ts` by
 `npm run docs:tuning`, and checked in a test. The 62/80/98 % could not have
 happened.
 
-### Step 9 — continuous integration — ½ d
+### Step 9 — continuous integration — done
 
-A GitHub action running `verify` and Playwright. Prettier if wanted.
+Two jobs on every push and pull request: `verify` on a plain Node runner, and
+the end-to-end suite inside the official Playwright container — the same image
+the references are generated in, which is what makes a zero pixel tolerance
+survive leaving this machine.
+
+Both were simulated locally against a clean checkout before being written down,
+`npm ci` included.
+
+Prettier is still absent and is the only piece of item 13 left.
 
 **Total: seven to nine days.** More than the six first announced: porting
 properly costs more than a mechanical conversion, and saves a split that would

@@ -1,5 +1,7 @@
 # G-SURGE
 
+[![CI](https://github.com/fchaussin/void-racing/actions/workflows/ci.yml/badge.svg)](https://github.com/fchaussin/void-racing/actions/workflows/ci.yml)
+
 Endless antigrav runner. TypeScript, Vite, three.js pinned to r128.
 
 ## Layout
@@ -24,15 +26,20 @@ public/            build output, gitignored — what Cloudflare Pages serves
     npm run dev          # http://localhost:5173, hot reload
     npm run build        # compiles src/ into public/
     npm run verify       # types, lint, unit tests
-    npm run test:e2e     # builds, then Playwright on three profiles
+    npm run test:e2e     # Playwright, in Docker
 
 `npm run verify` is the command to run after any change; `test:e2e` before
 anything that touches rendering or the interface.
 
-End-to-end tests run on the host only — the dev image carries no browser. The
-frozen simulation references in `tests/e2e/fixtures/` are the behavioural
-contract of the port: `npm run fixtures:update` regenerates them and is not a
-routine command.
+**`test:e2e` runs in the official Playwright container, and that is deliberate.**
+Interface screenshots are compared at zero pixel tolerance and text rendering
+depends on the system's fonts, so the references have to be generated and
+verified in one pinned environment — the same image CI uses. `npm run
+test:e2e:host` skips Docker for a quick loop, at the cost of failing every
+reference that contains text.
+
+`npm run test:e2e:update` regenerates the visual references and
+`npm run fixtures:update` the simulation ones. Neither is routine.
 
 The `?seed=` parameter pins the track: `http://localhost:5173/?seed=alpha`
 replays exactly the same generation on every load. Without it, each run draws

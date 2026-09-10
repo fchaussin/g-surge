@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes the run in flight; there is no value in finishing a
+# check on a commit nobody will look at again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Types, lint, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+
+  e2e:
+    name: End to end
+    runs-on: ubuntu-latest
+    # The same image the references were generated in, and the reason this job
+    # can compare screenshots at zero pixel tolerance at all: text rendering
+    # depends on the system's fonts, so the environment has to be pinned. Run
+    # `npm run test:e2e` locally and it uses this exact image through Docker.
+    #
+    # --ipc=host: Chromium runs out of shared memory with a container's default
+    # /dev/shm and dies mid-test.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Called directly rather than through `npm run test:e2e`: that script
+      # starts this same image with Docker, and we are already inside it.
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore

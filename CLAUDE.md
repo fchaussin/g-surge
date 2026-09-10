@@ -48,8 +48,10 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 
 ```
 npm run verify              # types, lint, unit tests — seconds
-npm run test:e2e            # builds, then Playwright on three profiles — minutes
+npm run test:e2e            # Playwright in Docker, three profiles — minutes
 ```
+
+Both run in CI on every push and pull request, in `.github/workflows/ci.yml`.
 
 | | |
 |---|---|
@@ -63,8 +65,16 @@ npm run test:e2e            # builds, then Playwright on three profiles — minu
 references move when the interface moves, in a commit that does nothing else,
 and simulation references only when behaviour is deliberately changed.
 
-Visual references are compared at zero pixel tolerance. A Playwright upgrade
-changes text antialiasing and forces a deliberate regeneration.
+**Visual references are compared at zero pixel tolerance, and generated inside
+the official Playwright container.** Text rendering depends on the system's
+fonts, so a reference made on a host does not match one made in CI — that is
+why `test:e2e` goes through Docker rather than running Playwright directly.
+`test:e2e:host` exists for a quick loop and will fail every reference
+containing text.
+
+Upgrading Playwright changes the image tag, the antialiasing and therefore all
+the references at once. Change `compose.yaml` and the workflow together, and
+regenerate in a commit that does nothing else.
 
 ## Where things live
 

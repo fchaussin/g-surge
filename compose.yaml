@@ -31,6 +31,26 @@ services:
   #   docker compose run --rm tools npm run build
   # Playwright n'y est pas : l'image ne porte pas de navigateur.
   # Le profil l'exclut de « docker compose up ».
+  # Suite de bout en bout, dans l'image officielle Playwright.
+  #
+  # C'est l'environnement de référence, et pas un confort : les captures
+  # d'interface sont comparées au pixel près, or le rendu du texte dépend des
+  # polices du système. Les références sont donc engendrées ici et vérifiées
+  # ici, y compris par l'intégration continue, qui utilise la même image.
+  #
+  # ipc: host — Chromium manque de mémoire partagée avec le /dev/shm par défaut
+  # d'un conteneur et se ferme en plein test.
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    profiles: ["tools"]
+    init: true
+    ipc: host
+    user: "${GSURGE_USER:-0:0}"
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["npx", "playwright", "test"]
+
   tools:
     build: .
     image: g-surge-dev
