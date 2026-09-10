@@ -1,6 +1,6 @@
 # G-SURGE
 
-[![CI](https://github.com/fchaussin/void-racing/actions/workflows/ci.yml/badge.svg)](https://github.com/fchaussin/void-racing/actions/workflows/ci.yml)
+[![CI](https://github.com/fchaussin/g-surge/actions/workflows/ci.yml/badge.svg)](https://github.com/fchaussin/g-surge/actions/workflows/ci.yml)
 
 Endless antigrav runner. TypeScript, Vite, three.js pinned to r128.
 
