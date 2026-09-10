@@ -45,6 +45,9 @@ const WIND_BY_TIER = [0, 0, 1] as const;
  */
 const DRIFT_RELEASE_MIN = 0.12;
 
+/** Gain of the drift airflow band at full slip. It used to be flat at 0.09. */
+const DRIFT_AIRFLOW = 0.12;
+
 interface Band {
   filter: BiquadFilterNode;
   gain: GainNode;
@@ -65,6 +68,7 @@ export class Audio {
   private engine: Engine | null = null;
   private wind: Band | null = null;
   private driftNoise: Band | null = null;
+  private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
   /** No graph exists before a gesture; see `unlock`. */
@@ -160,16 +164,23 @@ export class Audio {
    * `setTargetAtTime` rather than direct assignment: a step change on a gain
    * at audio rate is an audible click, and there is one of these per frame.
    */
+  /**
+   * @param drift 0 to 1, the shared slip scale from `drift.ts`. It was a
+   *   boolean, and a fixed gain: the band said that a drift was happening and
+   *   never how hard.
+   * @param charge the boost reserve, 0 to 1.
+   */
   update(
     playing: boolean,
     speed: number,
     speedMax: number,
     tier: ThrustTier,
-    drifting: boolean,
+    drift: number,
+    charge: number,
   ): void {
     const ctx = this.ctx;
     const eng = this.engine;
-    if (!ctx || !eng || !this.wind || !this.driftNoise) return;
+    if (!ctx || !eng || !this.wind || !this.driftNoise || !this.charge) return;
 
     const t = ctx.currentTime;
     // Above 1 under boost, which is what keeps the top end from flattening.
@@ -192,7 +203,14 @@ export class Audio {
     this.wind.filter.frequency.setTargetAtTime(650 + r * 1500 + wnd * 520, t, 0.25);
     this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.1 + wnd * 0.06 : 0, t, 0.18);
 
-    this.driftNoise.gain.gain.setTargetAtTime(playing && drifting ? 0.09 : 0, t, 0.07);
+    this.driftNoise.gain.gain.setTargetAtTime(playing ? drift * DRIFT_AIRFLOW : 0, t, 0.07);
+
+    // La recharge : elle monte avec la réserve et ne s'entend qu'en drift,
+    // parce que c'est là qu'elle est trois fois plus rapide et que le joueur a
+    // une raison d'écouter.
+    const charging = drift > 0 && charge < 0.995;
+    this.charge.osc.frequency.setTargetAtTime(300 + charge * 560, t, 0.08);
+    this.charge.gain.gain.setTargetAtTime(playing && charging ? 0.018 : 0, t, 0.09);
   }
 
   private init(): void {
@@ -238,6 +256,16 @@ export class Audio {
     };
     this.wind = this.band(this.loop(0.55), 'bandpass', 900, 0.7);
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
+
+    const chargeOsc = ctx.createOscillator();
+    chargeOsc.type = 'triangle';
+    chargeOsc.frequency.value = 300;
+    const chargeGain = ctx.createGain();
+    chargeGain.gain.value = 0;
+    chargeOsc.connect(chargeGain);
+    chargeGain.connect(this.master);
+    chargeOsc.start();
+    this.charge = { osc: chargeOsc, gain: chargeGain };
   }
 
   private loop(rate: number): AudioBufferSourceNode {
@@ -411,6 +439,20 @@ export class Audio {
 
     this.blip(180, 0.55, 'sawtooth', 0.2, 1500);
     this.blip(360, 0.5, 'square', 0.07, 2400, 0.04);
+  }
+
+  /**
+   * The reserve is full: two rising notes, and not the coin's square wave.
+   *
+   * Called by the client, which owns the decision of when a refill is worth
+   * announcing. The simulation only knows that the reserve is at 100, and it is
+   * at 100 again three steps after a wall has shaved 0.036 off it.
+   */
+  boostReady(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(660, 0.09, 'triangle', 0.075);
+    this.blip(990, 0.14, 'triangle', 0.065, 0, 0.07);
   }
 
   /**

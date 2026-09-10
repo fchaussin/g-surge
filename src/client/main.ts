@@ -23,6 +23,8 @@ import {
 } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
+import { driftIntensity } from './drift.js';
+import { DriftSpray } from './drift-spray.js';
 import { Fullscreen } from './fullscreen.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
@@ -66,6 +68,18 @@ const FX_SHAKE_TIME = 0.42;
  */
 const DRIFT_SNAP_MIN = 0.12;
 
+/**
+ * Reserve level below which a refill becomes worth announcing again.
+ *
+ * This was a simulation event first, and it was wrong there. "The reserve is at
+ * 100" is a fact the core owns, but it is at 100 again three steps after a wall
+ * scrape has shaved 0.036 off it — a test caught it firing eighteen times where
+ * three were meant. How large a dip deserves a sound is a presentation
+ * judgement, so it lives here. Five points is a short tap of the boost, and
+ * more than any single step can remove.
+ */
+const BOOST_READY_ARM = 95;
+
 function seedFromUrl(): string | null {
   try {
     return new URLSearchParams(window.location.search).get('seed');
@@ -97,6 +111,10 @@ const sky = new Sky();
 const trackMesh = new TrackMesh(viewport.renderer);
 const pickups = new Pickups();
 const ship = new Ship();
+// Parentée au vaisseau, comme la fumée : dans le monde, une particule lâchée
+// ici croiserait la caméra 19 m derrière.
+const spray = new DriftSpray();
+ship.group.add(spray.group);
 scene.add(sky.group, trackMesh.group, pickups.group, ship.group);
 
 // The ship is the only lit object; everything else is unlit on purpose.
@@ -234,6 +252,8 @@ let haloPower = 1;
 let haloColour = 0xffffff;
 /* Impact shake owned by the client. See FX_SHAKE_TIME. */
 let fxShake = 0;
+/* True once the reserve has been spent enough to be worth announcing again. */
+let boostArmed = false;
 
 function flashHalo(colour: number, power = 1): void {
   haloColour = colour;
@@ -319,11 +339,13 @@ function startRun(): void {
   sim.reset(pinnedSeed ?? freshSeed());
   tips.reset();
   ship.clearSmoke();
+  spray.reset();
   pickups.reset();
   camera.reset(sim.tuning);
   hud.reset();
   halo = 0;
   fxShake = 0;
+  boostArmed = false;
   lean = 0;
   yawVisual = 0;
   loop.reset();
@@ -376,6 +398,7 @@ function renderFrame(frameDt: number): void {
   ship.setAttitude(lean, yawVisual, MathUtils.clamp(-state.vyRel * 0.018, -0.32, 0.32));
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust);
+  spray.update(frameDt, state);
 
   if (halo > 0) halo = Math.max(0, halo - frameDt / HALO_TIME);
   ship.setHalo(haloColour, halo, haloPower);
@@ -402,11 +425,23 @@ function renderFrame(frameDt: number): void {
     if (el) el.textContent = String(Math.round(perf.fps));
   }
 
-  audio.update(screens.isPlaying, state.speed, sim.tuning.speedMax, thrust, state.drift);
+  audio.update(
+    screens.isPlaying,
+    state.speed,
+    sim.tuning.speedMax,
+    thrust,
+    driftIntensity(state),
+    state.energy / 100,
+  );
 
   if (screens.isPlaying) {
     hud.update(state, sim.tuning, frameDt);
     tips.update(frameDt);
+    if (state.energy < BOOST_READY_ARM) boostArmed = true;
+    else if (boostArmed && state.energy >= 100) {
+      boostArmed = false;
+      audio.boostReady();
+    }
   }
 
   viewport.render(scene);
@@ -693,6 +728,7 @@ window.__gsNext = {
     loop.stop();
     sim.reset(seed);
     ship.clearSmoke();
+    spray.reset();
     pickups.reset();
     camera.reset(sim.tuning);
     sky.reset();
@@ -701,6 +737,7 @@ window.__gsNext = {
     yawVisual = 0;
     halo = 0;
     fxShake = 0;
+    boostArmed = false;
     const dt = loop.fixedStep;
     for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
     renderFrame(dt);

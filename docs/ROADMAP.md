@@ -154,7 +154,7 @@ Acceptance: references untouched, held. `state.driftHeld` is a new field and
 costs nothing, because the trace records a whitelist that does not include it —
 the class B claim a second time, on state rather than on an event.
 
-### Step 4 — the drift becomes readable — 2 to 3 days
+### Step 4 — the drift becomes readable — done
 
 Of the seven stages in the palette's sensory loop, two have feedback today: the
 lateral displacement, through the ship's yaw and a noise band, and the charge,
@@ -173,6 +173,25 @@ renderer already has an implicit one — it saturates at 35 m/s through
 `driftYaw`. Pick that ceiling once, in one place, and let every effect read it.
 Two effects normalising differently is the class of bug this codebase names
 units to avoid.
+
+`src/client/drift.ts` is that place: `SLIP_CEILING` = 35 m/s, taken from where
+the hull's own yaw already saturated rather than invented, plus `driftIntensity`
+and `driftSide`. The side was measured, not deduced — full stick left gives
+`yaw +0.397`, `latVel −4.69`, `slip +23.72`, so the nose points one way and the
+path goes the other, and the spray leaves on the side opposite `slip`.
+
+**The step ended up class A, and one thing was reversed to keep it there.**
+`boostFull` was written as a simulation event and removed again: it fired
+eighteen times where three were meant, because a wall scrape shaves 0.036 off
+the reserve and it resaturates three steps later. Whether a refill is large
+enough to deserve a sound is a presentation judgement, so `main.ts` owns it with
+an explicit hysteresis. The test that caught it was written before the code was
+believed.
+
+Acceptance: `src/sim/` untouched — 58 unit tests and 57 end-to-end, nothing
+regenerated. The spray is parented to the ship and its reach is a checked
+constant rather than a comment: `tests/drift.test.ts` fails if a longer life or
+a faster recoil pushes it near the camera 19 m behind.
 
 ### Step 5 — decide what `supFactor` should be — a decision, then possibly a day
 

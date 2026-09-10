@@ -66,6 +66,10 @@ qu'un document a porté un chiffre faux pendant des mois.
   étirait la cellule et ne pouvait pas marcher : la grille vaut 2,4 px par
   cellule à l'écran et `fract` y boucle, donc la traînée saturait à 2,9 px sur
   une étoile de 0,8 px. Mesurer avant de régler, ici comme ailleurs.
+- **La dérive a une échelle, et une seule.** `src/client/drift.ts` porte
+  `SLIP_CEILING` = 35 m/s, `driftIntensity` de 0 à 1 et `driftSide`. Ce n'est pas
+  un chiffre neuf : c'est celui auquel le lacet de la coque saturait déjà. On
+  décroche vers 22,7 m/s, donc un drift commence aux deux tiers de l'échelle.
 - **Il n'y a pas de post-process.** Aucun `EffectComposer`, aucune passe : tout
   blur ou aberration est un ajout de pipeline, pas un réglage.
 - **Les seules particules sont la traînée de fumée** : 18 sprites parentés au
@@ -136,7 +140,7 @@ déplacé ni une fixture de physique ni un pixel de capture.
 | `driftEnd` | même bascule, à faux | **fait**, étape 3 — porte `held`, la durée |
 | `supEnd` | `step.ts`, quand `superT` atteint zéro | **fait**, étape 2 |
 | `supStart` | — | **n'existe pas** tant que le ramassage déclenche l'effet ; c'est le même instant que `pickup kind:'sup'` |
-| `boostFull` | `step.ts`, au franchissement de 100 | le HUD calcule déjà le seuil de son côté |
+| ~~`boostFull`~~ | — | **essayé à l'étape 4, puis retiré.** Écrit, il se déclenchait dix-huit fois là où trois étaient voulues : un frottement de mur ôte 0,036 point par pas et la réserve resature aussitôt. « À 100 » est un fait du noyau ; « assez creusé pour mériter un son » est un jugement de présentation, et il vit maintenant dans `main.ts` |
 
 Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas des
 événements : elles se lisent dans l'état, voir §12.
@@ -146,11 +150,11 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | Regroupement | Objectif | Déclencheur | Statut |
 |---|---|---|---|
 | `DRIFT_ENTRY` | donner un impact clair au début du drift | `driftStart` | **existe** — transient et impulsion haptique |
-| `DRIFT_FLOW` | faire sentir le déplacement latéral | `state.drift`, `state.slip` | partiel — lacet du vaisseau et bande de bruit |
-| `DRIFT_CHARGE` | montrer que le drift recharge le boost | `state.energy` montant | partiel — HUD seul |
+| `DRIFT_FLOW` | faire sentir le déplacement latéral | `state.drift`, `state.slip` | **existe** — lacet, gerbe latérale, souffle proportionnel |
+| `DRIFT_CHARGE` | montrer que le drift recharge le boost | `state.energy` montant | **existe** — HUD et ton qui monte avec la réserve |
 | `DRIFT_CHAIN` | valoriser un drift long et propre | chaîne — n'existe pas | absent, classe C |
 | `DRIFT_RELEASE` | marquer la sortie | `driftEnd` | **existe** — whoosh dosé et recentrage caméra |
-| `DRIFT_FULL_CHARGE` | signaler le boost rechargé | `energy > 99.5` | partiel — classe CSS `.full` |
+| `DRIFT_FULL_CHARGE` | signaler le boost rechargé | `energy` repassée à 100 après 95 | **existe** — classe `.full` et confirmation à deux notes |
 
 ## 5. VFX Drift
 
@@ -162,7 +166,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `CAM_DRIFT_YAW` | Retard d'orientation de caméra | `state.slip` | camera.ts | A | absent — la caméra ne lit ni `slip` ni `drift` | P0 |
 | `CAM_DRIFT_ROLL` | Roll selon la dérive | `state.slip` | camera.ts | A | absent — le roll ne suit que le dévers | P0 |
 | `CAM_DRIFT_EXIT_SNAP` | Recentrage à la sortie | `driftEnd` | camera.ts | B | **existe** — rattrapage × 2,4 sur 0,32 s | P1 |
-| `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `state.drift`, `state.slip` | ship.ts | A | absent | P0 |
+| `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `driftIntensity`, `driftSide` | drift-spray.ts | A | **existe** — 32 sprites, hasard semé, 13,5 m de portée | P0 |
 | `FX_DRIFT_CHARGE` | Énergie visible sur le vaisseau | `state.energy` + `state.drift` | ship.ts | A | absent | P0 |
 | `FX_DRIFT_WAKE` | Turbulence derrière le vaisseau | `state.slip` | ship.ts | A | absent | P1 |
 | `PP_DRIFT_BLUR` | Blur dirigé | `state.slip` | — | A | absent, **et il n'y a pas de pipeline de post-process** | P1 |
@@ -171,10 +175,10 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 
 | ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
 |---|---|---|---|---|---|---|
-| `SFX_DRIFT_AIRFLOW` | Flux aérodynamique latéral | paramètre `drifting` de `update()` | audio.ts | A | **existe** — bande 2600 Hz, mais tout ou rien | P0 |
+| `SFX_DRIFT_AIRFLOW` | Flux aérodynamique latéral | `driftIntensity` | audio.ts | A | **existe** — bande 2600 Hz, proportionnelle depuis l'étape 4 | P0 |
 | `SFX_DRIFT_ENTRY` | Transient d'entrée | `driftStart` | audio.ts | B | **existe** — souffle bref qui monte | P0 |
-| `SFX_DRIFT_CHARGE` | Son de recharge | `state.energy` montant | audio.ts | A | absent | P0 |
-| `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `energy > 99.5` | audio.ts | A | absent | P0 |
+| `SFX_DRIFT_CHARGE` | Son de recharge | `state.energy`, en drift | audio.ts | A | **existe** — triangle de 300 à 860 Hz | P0 |
+| `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `main.ts`, hystérésis à 95 | audio.ts | A | **existe** — deux notes montantes | P0 |
 | `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `state.slip` normalisé | audio.ts | A | absent | P1 |
 | `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `driftEnd` | audio.ts | B | **existe** — dosé par `held`, muet sous 0,12 s | P1 |
 | `SFX_DRIFT_CHAIN` | Intensification progressive | chaîne — n'existe pas | audio.ts | C | absent, mécanique | P1 |
@@ -266,15 +270,15 @@ avant le retour qui l'accompagne.
 Il n'y a pas de middleware : une grandeur continue est un paramètre de fonction.
 Signatures actuelles, à étendre plutôt qu'à contourner :
 
-- `audio.update(playing, speed, speedMax, tier, drifting)`
+- `audio.update(playing, speed, speedMax, tier, drift, charge)`
 - `sky.update(time, camX, camY, camZ, curvature, speed, dt, tier)`
 - `camera.update(state, track, tuning, frameDt, shake)` — reçoit l'état complet
 
 | Grandeur | Source | Manque |
 |---|---|---|
-| `driftIntensity` | `state.slip`, normalisé | le plafond de normalisation : le rendu sature à 35 m/s, ce choix doit être partagé |
+| `driftIntensity` | `src/client/drift.ts` | rien — le plafond est fixé à 35 m/s et partagé, c'est ce que l'étape 4 devait trancher |
 | `driftChargeRate` | `driftCharge`, constant | vaut 17 ou 0, il n'y a pas de taux variable |
-| `boostCharge` | `state.energy / 100` | rien, disponible |
+| `boostCharge` | `state.energy / 100` | rien — lu par l'audio depuis l'étape 4 |
 | `superRemaining` | `state.superT / supTime` | rien, disponible, **et personne ne le lit** |
 | `superAvailable` | — | pas de stock |
 | `driftChain` | `state.driftHeld`, la durée du drift en cours | la chaîne elle-même, qui est une mécanique. La durée, elle, existe et `driftEnd` la porte |
