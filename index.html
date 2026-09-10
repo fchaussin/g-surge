@@ -170,6 +170,27 @@
 
   .hud{position:fixed;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .2s}
   .hud.on{opacity:1}
+
+  /* G-SURGE : les instruments décrochent, jamais les commandes. Déplacer le
+     stick et les pads sous le pouce pendant cinq secondes serait un défaut et
+     pas un effet, donc l'animation ne vise que les lectures.
+
+     Une classe posée une fois et une animation dans la feuille de style, pas un
+     transform réécrit à chaque frame : hud.ts ne touche au DOM que lorsqu'une
+     valeur change. Le bloc prefers-reduced-motion plus bas coupe l'animation
+     tout seul ; l'effacement du secondaire, lui, reste, et c'est très bien —
+     c'est de la lisibilité, pas du mouvement. */
+  @keyframes surgedrift{
+    0%{transform:translate(0,0) skewY(0deg)}
+    23%{transform:translate(2px,-3px) skewY(.35deg)}
+    48%{transform:translate(-3px,1px) skewY(-.5deg)}
+    72%{transform:translate(1px,3px) skewY(.25deg)}
+    100%{transform:translate(0,0) skewY(0deg)}}
+  .hud.surge .dist,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl{
+    animation:surgedrift 1.15s ease-in-out infinite}
+  /* Simplifié plutôt qu'augmenté, comme la §10 le demande : le secondaire
+     s'efface, la vitesse et les jauges restent lisibles. */
+  .hud.surge .r,.hud.surge .coins{opacity:.25;transition:opacity .4s}
   .dist{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center}
   .dist .n{font-size:42px;font-weight:200;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(37,226,255,.45)}

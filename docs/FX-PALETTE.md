@@ -456,6 +456,7 @@ bougent pas**, seule la case 3 est neuve.
 | Calque plein écran | overlay.ts | voile blanc et flou périphérique, masqués radialement, portés par l'intensité |
 | Secousse | main.ts | un coup à l'entrée, puis une tenue qui monte avec l'intensité |
 | Jauge de boost | hud.ts | devient le compte à rebours de l'état, bornée à 100 |
+| HUD | index.html | les instruments décrochent, le secondaire s'efface — jamais les commandes |
 | `FOV_KICK`, `FOV_EASE`, `LAG_SCALE` | camera.ts | champ très large, convergence brutale, caméra qui décroche franchement |
 | `WARP_BY_TIER`, `uStreak` | sky.ts | filé maximal — voir le coût plus bas |
 | `DRIVE_BY_TIER`, `WIND_BY_TIER` | audio.ts | **en négatif** : voir le blanc audio |
@@ -584,7 +585,8 @@ ses propres tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 
    *Fait* : la mécanique et sa porte, le quatrième palier dans les quatre
    tables, le blanc audio, les deux événements, le halo de drift, la jauge
    détournée en compte à rebours, l'intensité qui se mérite, le calque de flou
-   et son voile, la secousse tenue. *Reste* : le décalage du HUD.
+   et son voile, la secousse tenue, le décalage du HUD. *La tranche est
+   close.*
 2. **Puis, et seulement si la sensation le réclame**, la question de la vitesse
    se rouvre — avec le relèvement du plafond audio et le re-réglage des paliers
    intermédiaires, qui régénéreraient les références.

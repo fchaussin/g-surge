@@ -371,7 +371,17 @@ gave before either was written. It writes to the DOM only on change, the level
 quantised to 32 steps, because a style write per frame is what `hud.ts` forbids;
 and `prefers-reduced-motion` damps it to a third.
 
-What is left of the visual half is the HUD offset in CSS.
+The HUD closes it. The instruments drift and the secondary readouts fade, and
+the controls do not move at all — shifting the stick and the pads under a thumb
+for five seconds would be a defect rather than an effect. It is a class toggled
+once with the animation in the stylesheet, not a transform rewritten every
+frame, and `prefers-reduced-motion` takes the movement out on its own while
+leaving the fade, which is legibility rather than motion.
+
+**Step 7 is complete.** What remains for the surge is judgement rather than
+work: the value of `surgeHold`, and whether the blur layer stays on by default
+or sits behind a frame budget. Both are named at the end of §16 and both want
+playing rather than measuring.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

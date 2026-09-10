@@ -21,6 +21,7 @@ const PULSE_CUT = 0.2;
 const byId = (id: string) => document.getElementById(id);
 
 export class Hud {
+  private readonly root = byId('hud');
   private readonly score = byId('dist');
   private readonly mult = byId('mult');
   private readonly speed = byId('spd');
@@ -105,6 +106,7 @@ export class Hud {
     this.popTime = 0;
     this.pop?.classList.remove('on');
     this.warn?.classList.remove('on');
+    this.root?.classList.remove('surge');
   }
 
   private updateMultiplier(state: SimState, tuning: Tuning, frameDt: number): void {
@@ -183,6 +185,10 @@ export class Hud {
 
     const full = !surging && state.energy > 99.5;
     const charging = !surging && state.drift && !full;
+    // Les instruments décrochent pendant l'état : une classe, et la feuille
+    // de style fait le reste. On n'arrive ici que si `level` ou `surging` a
+    // bougé, donc ce n'est pas une écriture par frame.
+    this.root?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('full', full);
     this.boostBox?.classList.toggle('charge', charging);
