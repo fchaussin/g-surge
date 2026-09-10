@@ -300,6 +300,9 @@
   .bst i{display:block;width:100%;background:var(--neon);border-radius:4px;
     box-shadow:0 0 12px rgba(37,226,255,.6)}
   .bst.full i{background:#fff;box-shadow:0 0 16px rgba(255,255,255,.8)}
+  /* Le G-SURGE emprunte la jauge de boost : elle ne mesure plus la réserve,
+     elle décompte l'état. Blanc chaud, la couleur de sa propre plume. */
+  .bst.surge i{background:#fff6d0;box-shadow:0 0 20px rgba(255,246,208,.9)}
   .bst.charge i{animation:bstpulse .5s ease-in-out infinite}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:4px;top:50%;font-size:8px;letter-spacing:.22em;

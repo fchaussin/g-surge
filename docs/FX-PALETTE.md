@@ -407,22 +407,38 @@ trouve, le G-SURGE se mérite — et les trois vont à la même vitesse maximale
 
 ### Entrée, durée, sortie
 
+- **La porte est un super boost en cours, pas la chaîne seule.** C'est ce qui
+  manquait à la première version : rien à l'écran ne disait pourquoi l'état
+  partait. Le ramassage porte la rareté et il la porte mieux que tout le reste —
+  mesuré, 10 / 12 / 11 super boosts ramassés par dix minutes selon la
+  difficulté, là où le multiplicateur fait 30 / 18 / 6 et le palier 3 de vitesse
+  62 / 42 / 7 %. Ramasser dépend du pilotage, pas de l'adhérence.
+- **La chaîne se construit *pendant* le super boost**, et c'est le cœur du
+  design plutôt qu'un détail : sa médiane au moment du ramassage vaut 0,00 s, on
+  n'est presque jamais en train de driver quand on en trouve un. Le super boost
+  ouvre donc une fenêtre de 2,6 s dans laquelle drifter proprement fait
+  escalader. Le joueur a quelque chose à faire dedans, au lieu d'un état qui se
+  déclenche tout seul.
+- **Un second super boost ramassé pendant le premier escalade sans condition de
+  chaîne**, et ramassé pendant l'état il le prolonge, plafonné au double.
+  Mesuré une fois par dix minutes : parfait comme voie de bonus, impossible
+  comme voie principale. Le plafond n'est pas de la prudence — le blanc audio
+  est une absence, et une absence qui dure cesse de se lire comme un événement.
 - **Fait.** `state.chain` cumule du temps de drift et redescend à `chainDecay`
   hors drift. Remise à zéro par un contact de mur ou une réception hors piste :
   la chaîne récompense la propreté, pas l'obstination. Pas de pondération par
   l'intensité — la mesure qui a choisi cette porte portait sur des *durées*, et
   pondérer irait au-delà de ce qu'elle établit.
-- **`surgeHold` est surchargé par difficulté, et il a bien fallu.** Le seuil
-  uniforme était le plan ; la mesure l'a réfuté. La chaîne maximale atteignable
-  vaut 0,95 s en facile, 2,65 en moyen, 2,02 en difficile : l'adhérence élevée
-  du mode facile y rend les drifts trop courts, et un seuil unique aurait rendu
-  l'état signature inaccessible précisément au niveau que choisissent les
-  nouveaux joueurs. Valeurs : 0,85 / 1,8 / 1,4.
-- **Ces valeurs sont un point de départ, pas un réglage.** Elles donnent un
-  déclenchement toutes les 25 à 45 s en facile et toutes les 90 à 120 s ailleurs
-  — mais le pilote de test drifte moins bien qu'un humain, et le taux n'est même
-  pas monotone en `surgeHold` : le verrou de cinq secondes interagit avec le
-  rythme des drifts. À rejuger en jouant, comme `supFactor` l'a été.
+- **`surgeHold` est uniforme, 0,45 s.** Il avait dû être surchargé par
+  difficulté tant que la chaîne portait seule toute la rareté — la chaîne
+  atteignable plafonne à 0,95 s en facile contre 2,65 en moyen, ce qui est une
+  lame de rasoir. Le super boost ayant repris ce rôle, la chaîne n'a plus qu'à
+  dire « tu conduis bien là, maintenant », et un seuil bas et unique y suffit.
+  Trois surcharges supprimées.
+- **Taux mesuré** : un G-SURGE toutes les 150 s en facile, 75 s en moyen, 86 s
+  en difficile, soit 3 à 7 % du temps de jeu. Facile est désormais le plus rare
+  des trois, contre le plus fréquent avant. Reste à rejuger en jouant : le
+  pilote de test drifte moins bien qu'un humain.
 - Durée `surgeTime` = 5 s, sans drain. Valeur réelle pour le joueur : 100 points
   rechargés plus 130 non consommés, soit **2,3 réserves pleines**, contre 1,68
   pour un superboost.
@@ -436,6 +452,8 @@ bougent pas**, seule la case 3 est neuve.
 
 | Table | Fichier | Case 3 |
 |---|---|---|
+| Halo de drift | main.ts | cyan `--neon`, tenu, scintillement irrégulier, luminosité portée par la chaîne |
+| Jauge de boost | hud.ts | devient le compte à rebours de l'état, bornée à 100 |
 | `FOV_KICK`, `FOV_EASE`, `LAG_SCALE` | camera.ts | champ très large, convergence brutale, caméra qui décroche franchement |
 | `WARP_BY_TIER`, `uStreak` | sky.ts | filé maximal — voir le coût plus bas |
 | `DRIVE_BY_TIER`, `WIND_BY_TIER` | audio.ts | **en négatif** : voir le blanc audio |
@@ -557,9 +575,15 @@ l'étape 1, et le chiffre s'est bien mieux tranché avec le retour en place.
 
 ### Ce qui reste ouvert
 
-1. Les valeurs de `surgeHold`, à rejuger en jouant.
+1. La valeur de `surgeHold`, à rejuger en jouant.
 2. Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
    certain budget de frame ?
+
+Tranché depuis : pas de seconde barre pour le G-SURGE. La §10 le veut simplifié
+pendant l'état, et la jauge de boost n'y mesure plus rien — la réserve est
+figée, rien ne draine — donc elle sert de compte à rebours. Aucun élément neuf.
+Et la lueur de drift reste faible : elle et le G-SURGE sont deux barreaux de la
+même échelle, une charge éclatante mangerait le barreau du dessus.
 
 Tranché depuis : le palier 3 de vitesse **n'est pas exigé** en plus de la
 chaîne. Il n'occupe que 7 % du temps en difficile, l'état y serait mort-né.

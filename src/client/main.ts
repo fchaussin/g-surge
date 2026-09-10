@@ -69,6 +69,25 @@ const FX_SHAKE_TIME = 0.42;
 const DRIFT_SNAP_MIN = 0.12;
 
 /**
+ * The drift glow: the charge's own cyan, and deliberately faint.
+ *
+ * `--neon` is already the boost gauge's fill, the HUD's DRIFT label and the
+ * ship's spine, so the colour says "charging" before anything else does. Its
+ * power stays low on purpose: the surge sits at the top of the same ladder and
+ * a bright drift would eat the rung above it.
+ *
+ * Held at a fixed intensity with a rising power rather than the other way
+ * round, because `setHalo` shrinks the sphere as intensity climbs — that law is
+ * written for a flash that expands while it fades, and this is a sustained
+ * glow. Power raises size and opacity together, which is what accumulating
+ * energy should look like.
+ */
+const DRIFT_HALO = 0x25e2ff;
+const DRIFT_HALO_HOLD = 0.75;
+const DRIFT_HALO_MIN = 0.08;
+const DRIFT_HALO_MAX = 0.3;
+
+/**
  * Reserve level below which a refill becomes worth announcing again.
  *
  * This was a simulation event first, and it was wrong there. "The reserve is at
@@ -318,12 +337,16 @@ function consume(events: readonly SimEvent[]): void {
         if (e.held > DRIFT_SNAP_MIN) camera.driftExitSnap();
         break;
       case 'surgeStart':
-        flashHalo(0xfff6d0, 1.6);
+        // Blanc franc, et plus large que tout le reste : c'est le haut de
+        // l'échelle, il doit être impossible à confondre avec la charge.
+        flashHalo(0xffffff, 2.0);
         fxShake = 1;
         haptics.buzz([40, 30, 40, 30, 90]);
         break;
       case 'surgeEnd':
-        flashHalo(0x8af4ff, 0.9);
+        // Le blanc chaud de sa propre plume, et pas le cyan de la charge :
+        // celui-là appartient au drift désormais.
+        flashHalo(0xfff6d0, 1.1);
         haptics.buzz([20, 40, 20]);
         break;
       case 'supEnd':
@@ -408,6 +431,23 @@ function renderFrame(frameDt: number): void {
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust);
   spray.update(frameDt, state);
+
+  // La lueur du drift, tenue tant qu'il dure et portée par la chaîne — donc
+  // elle dit aussi « j'y suis presque », ce qu'aucun autre élément ne dit.
+  // Écartée si un flash plus fort est en cours : un choc de mur prime.
+  if (screens.isPlaying && state.drift && halo <= DRIFT_HALO_HOLD) {
+    const ratio = Math.min(1, state.chain / sim.tuning.surgeHold);
+    // Scintillement irrégulier, pas une pulsation : le HUD pulse déjà à
+    // période fixe, et copier ce rythme ferait lire la lueur comme de
+    // l'interface posée sur la coque plutôt que comme de la friction. Même
+    // hasard par frame que la plume du réacteur, hors simulation.
+    const flicker = 0.72 + Math.random() * 0.5;
+    holdHalo(
+      DRIFT_HALO,
+      DRIFT_HALO_HOLD,
+      (DRIFT_HALO_MIN + (DRIFT_HALO_MAX - DRIFT_HALO_MIN) * ratio) * flicker,
+    );
+  }
 
   if (halo > 0) halo = Math.max(0, halo - frameDt / HALO_TIME);
   ship.setHalo(haloColour, halo, haloPower);

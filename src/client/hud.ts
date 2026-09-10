@@ -40,7 +40,8 @@ export class Hud {
   private lastSpeed = -1;
   private lastCoins = -1;
   private lastHull = -1;
-  private lastEnergy = -1;
+  private lastLevel = -1;
+  private lastSurging = false;
   private lastTier = -1;
   private lastMult = 1;
   private lastWarn = '';
@@ -95,7 +96,8 @@ export class Hud {
   /** Clears everything a finished run left behind. */
   reset(): void {
     this.lastScore = this.lastSpeed = this.lastCoins = -1;
-    this.lastHull = this.lastEnergy = -1;
+    this.lastHull = this.lastLevel = -1;
+    this.lastSurging = false;
     this.lastTier = -1;
     this.lastMult = 1;
     this.lastWarn = '';
@@ -162,22 +164,32 @@ export class Hud {
       }
     }
 
-    const energy = Math.round(state.energy);
-    if (energy === this.lastEnergy) return;
-    this.lastEnergy = energy;
+    // Pendant le G-SURGE la jauge de boost ne veut plus rien dire : la réserve
+    // est figée et rien ne draine. Elle devient donc le compte à rebours de
+    // l'état, sans que le HUD gagne un élément — la §10 de la palette le veut
+    // simplifié pendant cet état, pas augmenté. Bornée à 100 parce qu'un second
+    // ramassage peut porter la durée au double.
+    const surging = state.surgeT > 0;
+    const level = surging
+      ? Math.min(100, Math.round((state.surgeT / tuning.surgeTime) * 100))
+      : Math.round(state.energy);
+    if (level === this.lastLevel && surging === this.lastSurging) return;
+    this.lastLevel = level;
+    this.lastSurging = surging;
 
-    const pct = `${energy}%`;
+    const pct = `${level}%`;
     if (this.boost) this.boost.style.height = pct;
     if (this.boostFill) this.boostFill.style.height = pct;
 
-    const full = state.energy > 99.5;
-    const charging = state.drift && !full;
+    const full = !surging && state.energy > 99.5;
+    const charging = !surging && state.drift && !full;
+    this.boostBox?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('full', full);
     this.boostBox?.classList.toggle('charge', charging);
     this.boostPad?.classList.toggle('low', state.energy < tuning.boostMin && !state.boosting);
     this.boostPad?.classList.toggle('charge', charging);
     this.boostPad?.classList.toggle('full', full);
     this.speedBox?.classList.toggle('hot', state.boosting);
-    this.speedBox?.classList.toggle('sup', state.superT > 0);
+    this.speedBox?.classList.toggle('sup', state.superT > 0 || surging);
   }
 }

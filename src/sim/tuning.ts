@@ -123,7 +123,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   driftExit: 12,
   driftCharge: 17,
   chainDecay: 0.25,
-  surgeHold: 0.85,
+  surgeHold: 0.45,
   surgeTime: 5,
   centri: 0.085,
   bankAssist: 0.3,
@@ -206,7 +206,6 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       fixChance: 0.0022,
       rollChance: 0.18,
       climbRate: 27,
-      surgeHold: 1.8,
     },
   },
   hard: {
@@ -223,7 +222,6 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       rollChance: 0.24,
       climbRate: 31,
       gripLimit: 29,
-      surgeHold: 1.4,
     },
   },
 };

@@ -7,7 +7,7 @@
  * seul filet de cette mécanique.
  */
 import { describe, expect, it } from 'vitest';
-import { HALF, Sim } from '../src/sim/index.js';
+import { BACK, HALF, ITEM_SUP, Sim } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -21,9 +21,15 @@ const NEUTRAL = { steer: 0, brake: false, boost: false };
  * pas suivant. Ici le nez pointe loin et la trajectoire ne suit pas, ce qui est
  * la définition d'un drift.
  */
-function holdDrift(sim: Sim, seconds: number, attract = false): number {
+function holdDrift(
+  sim: Sim,
+  seconds: number,
+  opts: { attract?: boolean; sup?: boolean } = {},
+): number {
+  const attract = opts.attract ?? false;
   let fires = 0;
   for (let i = 0; i < seconds * 720; i++) {
+    if (opts.sup) sim.state.superT = sim.tuning.supTime;
     sim.state.yaw = 0.5;
     sim.state.latVel = -30;
     sim.state.lat = 0;
@@ -69,7 +75,7 @@ describe('the drift chain', () => {
   it('never accumulates in the attract loop', () => {
     const sim = new Sim({ seed: 'chain' });
     sim.reset('chain');
-    holdDrift(sim, 3, true);
+    holdDrift(sim, 3, { attract: true, sup: true });
     expect(sim.state.drift).toBe(true);
     expect(sim.state.chain).toBe(0);
     expect(sim.state.surgeT).toBe(0);
@@ -77,13 +83,24 @@ describe('the drift chain', () => {
 });
 
 describe('the surge', () => {
-  it('fires once when the chain lands, and empties it', () => {
+  it('does not fire on the chain alone, however long the drift is held', () => {
+    const sim = new Sim({ seed: 'surge' });
+    sim.reset('surge');
+    // Dix fois le seuil, sans super boost : la porte est le ramassage, et la
+    // chaîne ne dit que « bien conduit », pas « maintenant ».
+    const fires = holdDrift(sim, sim.tuning.surgeHold * 10);
+    expect(fires).toBe(0);
+    expect(sim.state.chain).toBeGreaterThan(sim.tuning.surgeHold);
+  });
+
+  it('fires once when the chain lands under a super boost, and empties it', () => {
     const sim = new Sim({ seed: 'surge' });
     sim.reset('surge');
     let fires = 0;
     let chainAtFire = -1;
 
     for (let i = 0; i < (sim.tuning.surgeHold + 0.2) * 720; i++) {
+      sim.state.superT = sim.tuning.supTime;
       sim.state.yaw = 0.5;
       sim.state.latVel = -30;
       sim.state.lat = 0;
@@ -108,7 +125,7 @@ describe('the surge', () => {
     const sim = new Sim({ seed: 'surge' });
     sim.reset('surge');
     // Bien plus long que le seuil : sans le verrou, il repartirait en boucle.
-    const fires = holdDrift(sim, sim.tuning.surgeTime - 0.5);
+    const fires = holdDrift(sim, sim.tuning.surgeTime - 0.5, { sup: true });
     expect(fires).toBe(1);
   });
 
@@ -134,5 +151,66 @@ describe('the surge', () => {
     sim.state.energy = 60;
     for (let i = 0; i < 720; i++) sim.step({ steer: 0, brake: false, boost: true }, DT, false);
     expect(sim.state.energy).toBe(60);
+  });
+});
+
+describe('a second super boost', () => {
+  /**
+   * Pose un super boost juste sous le vaisseau, prêt à être ramassé au pas
+   * suivant. `nid[0] + BACK` est l'identifiant que le curseur vient de
+   * dépasser, ce qui est exactement la condition testée par `step`.
+   */
+  function dropSup(sim: Sim): void {
+    sim.state.lat = 0;
+    sim.track.items.push({
+      id: sim.track.nid[0]! + BACK,
+      lat: 0,
+      type: ITEM_SUP,
+      done: false,
+      taken: false,
+    });
+  }
+
+  it('escalates straight to the surge when one is already running', () => {
+    const sim = new Sim({ seed: 'double' });
+    sim.reset('double');
+    sim.state.superT = sim.tuning.supTime;
+    sim.state.chain = 0; // aucune chaîne : le doublé se suffit à lui-même
+    dropSup(sim);
+
+    sim.step(NEUTRAL, DT, false);
+
+    expect(sim.events.map((e) => e.type)).toContain('surgeStart');
+    expect(sim.state.surgeT).toBeCloseTo(sim.tuning.surgeTime, 2);
+  });
+
+  it('extends the surge instead of restarting it, and stops at twice its length', () => {
+    const sim = new Sim({ seed: 'double' });
+    sim.reset('double');
+    sim.state.surgeT = 1;
+
+    dropSup(sim);
+    sim.step(NEUTRAL, DT, false);
+    expect(sim.state.surgeT).toBeCloseTo(1 + sim.tuning.surgeTime - DT, 2);
+    // Un second déclenchement serait faux : l'état tourne déjà.
+    expect(sim.events.map((e) => e.type)).not.toContain('surgeStart');
+
+    dropSup(sim);
+    sim.step(NEUTRAL, DT, false);
+    dropSup(sim);
+    sim.step(NEUTRAL, DT, false);
+    expect(sim.state.surgeT).toBeLessThanOrEqual(sim.tuning.surgeTime * 2);
+  });
+
+  it('is an ordinary super boost when nothing is running', () => {
+    const sim = new Sim({ seed: 'double' });
+    sim.reset('double');
+    dropSup(sim);
+
+    sim.step(NEUTRAL, DT, false);
+
+    expect(sim.state.superT).toBeCloseTo(sim.tuning.supTime, 2);
+    expect(sim.state.surgeT).toBe(0);
+    expect(sim.events.map((e) => e.type)).not.toContain('surgeStart');
   });
 });

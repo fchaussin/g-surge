@@ -322,16 +322,44 @@ asserts that no reference run drifts, in any of the three difficulties, at any
 of its 1 800 steps. If that ever stops being true, a drift-gated mechanic can
 reach the frozen traces and they need revisiting — the test says so by name.
 
-One plan did not survive contact. `surgeHold` was to be uniform, since the drift
-is the one difficulty-neutral quantity. Measured, the reachable chain tops out
-at 0.95 s on easy against 2.65 on medium: high grip makes easy's drifts too
-short, and a single threshold would have put the game's signature state out of
-reach of the setting beginners pick. It is overridden per difficulty, which is
-what the `DIFF` table is for.
+The trigger took two goes, and the second came from playing it. Gated on the
+chain alone, the state fired every 25 seconds on easy with nothing on screen to
+say why. It now requires a super boost to be running, and the chain only decides
+whether that super boost escalates — which turns out to be the better gate on
+every count. Super boosts collected run 10 / 12 / 11 per ten minutes across the
+difficulties, flat, because collecting depends on steering rather than on grip;
+and the chain's median at the moment of pickup is 0.00 s, so it is built *during*
+the super boost. That gives the player something to do inside a window instead
+of a state that arrives on its own.
 
-What is left is the visual half: the masked `backdrop-filter` layer, a shake
-held through the state rather than struck at its two ends, and the HUD offset in
-CSS.
+It also retired a fix I had been forced into. `surgeHold` was overridden per
+difficulty because the chain alone had to carry all the rarity, and the
+reachable chain tops out at 0.95 s on easy against 2.65 on medium — a knife
+edge. With the pickup carrying rarity, one uniform 0.45 does the job and three
+overrides are gone. Measured after the change: one surge every 150 s on easy,
+75 on medium, 86 on hard, against every 25 s on easy before.
+
+A second super boost taken during the first escalates without any chain at all,
+and taken during the state extends it, capped at twice its length. Measured once
+per ten minutes: a bonus path, never a main one. The cap is not caution — the
+white-out is an absence, and an absence that runs long stops reading as an event.
+
+The drift finally has a world-space cue: a faint cyan glow on the hull, held
+while it lasts, flickering irregularly rather than pulsing — the HUD already
+pulses at a fixed period, and copying that rhythm would read as interface stuck
+to the ship instead of friction. Its brightness follows the chain, so one
+element says both "you are drifting" and "you are nearly there", which is what
+made the escalation legible without adding any UI at all. It stays faint on
+purpose: the drift and the surge are two rungs of one ladder, and a bright
+charge would eat the rung above it.
+
+The surge needed no gauge of its own. During the state the boost gauge measures
+nothing — the reserve is pinned, nothing drains — so it becomes the countdown.
+§10 asks for a simplified HUD there, not an augmented one.
+
+What is left is the rest of the visual half: the masked `backdrop-filter` layer,
+a shake held through the state rather than struck at its two ends, and the HUD
+offset in CSS.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

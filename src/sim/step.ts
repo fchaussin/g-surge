@@ -199,7 +199,12 @@ export function step(
   // pas dans la trace et ne déplace aucune référence.
   if (state.drift && !attract) state.chain += dt;
   else if (state.chain > 0) state.chain = Math.max(0, state.chain - T.chainDecay * dt);
-  if (!attract && state.surgeT <= 0 && state.chain >= T.surgeHold) {
+  // Le G-SURGE exige un super boost en cours. La chaîne dit « tu conduis bien
+  // là, maintenant » ; le ramassage porte la rareté, et il la porte mieux :
+  // mesuré, on en ramasse 10 / 12 / 11 par dix minutes selon la difficulté,
+  // là où tout le reste s'effondre en difficile. C'est aussi ce qui rend le
+  // déclenchement lisible — sans précondition visible, l'état partait tout seul.
+  if (!attract && state.surgeT <= 0 && state.superT > 0 && state.chain >= T.surgeHold) {
     state.chain = 0;
     state.surgeT = T.surgeTime;
     out.push({ type: 'surgeStart' });
@@ -272,9 +277,22 @@ export function step(
       state.hull = Math.min(100, state.hull + T.fixAmount);
       out.push({ type: 'pickup', kind: 'fix' });
     } else {
-      state.superT = T.supTime;
       state.energy = 100;
       out.push({ type: 'pickup', kind: 'sup' });
+      if (state.surgeT > 0) {
+        // Un second ramassage pendant l'état le prolonge. Plafonné, parce que
+        // le blanc audio est une absence : une absence qui dure cesse de se
+        // lire comme un événement et commence à se lire comme un mix cassé.
+        state.surgeT = Math.min(T.surgeTime * 2, state.surgeT + T.surgeTime);
+      } else if (state.superT > 0) {
+        // Deux super boosts qui se chevauchent — mesuré une fois par dix
+        // minutes. C'est déjà un exploit, la chaîne n'est pas demandée.
+        state.chain = 0;
+        state.surgeT = T.surgeTime;
+        out.push({ type: 'surgeStart' });
+      } else {
+        state.superT = T.supTime;
+      }
     }
   }
   if (!attract && state.hull <= 0 && !state.wrecked) {
