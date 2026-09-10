@@ -2,28 +2,680 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#05060a">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>G-SURGE</title>
+<meta name="description" content="Endless antigrav runner. Banked corners, corkscrews, jumps, and a multiplier fed by drifting.">
+<meta name="theme-color" content="#05060a">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="G-SURGE">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <style>
-  html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden; }
-  /* Explicit size, not just position:fixed. A replaced element keeps its
-     intrinsic 300x150 otherwise, and at devicePixelRatio 2 you see the top
-     left quarter of the frame. See CLAUDE.md, first trap. */
-  canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
-  /* Above the canvas: the renderer appends it to the body after this, and
-     two positioned siblings stack in document order. */
-  .preview { position: fixed; z-index: 1; left: 50%; bottom: 14px; transform: translateX(-50%);
-    margin: 0; padding: 7px 14px; border-radius: 999px; font: 500 12px/1
-    system-ui, sans-serif; letter-spacing: .04em; color: #7fd8ee;
-    background: rgba(8, 20, 28, .55); border: 1px solid rgba(37, 226, 255, .3);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+:root{
+    --bg:#05060a; --neon:#25e2ff; --hot:#ff2f9a; --text:#dff2f8;
+    --dim:rgba(223,242,248,.45); --dim2:rgba(223,242,248,.28); --amber:#ffc24a;
+    --glass:rgba(8,12,20,.82); --line:rgba(37,226,255,.26);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,"Helvetica Neue",Arial,sans-serif;
+    touch-action:none;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+  canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+  button{font-family:inherit}
+
+  /* barres de défilement : la version standard d'abord, la version WebKit ensuite
+     pour Safari et les navigateurs Chromium qui ne suivent pas encore la première */
+  .modal, .sheet .body{scrollbar-width:thin;scrollbar-color:rgba(37,226,255,.45) transparent}
+  .modal::-webkit-scrollbar, .sheet .body::-webkit-scrollbar{width:11px;height:11px}
+  /* la marge du rail recule les butées, le curseur ne peut plus déborder
+     des angles arrondis de la modale */
+  .modal::-webkit-scrollbar-track{background:rgba(223,242,248,.05);border-radius:4px;margin:18px 0}
+  .sheet .body::-webkit-scrollbar-track{background:rgba(223,242,248,.05);border-radius:4px;margin:10px 0}
+  /* bordure transparente plus découpe sur la boîte de contenu : marge latérale
+     sans repeindre le rail */
+  .modal::-webkit-scrollbar-thumb, .sheet .body::-webkit-scrollbar-thumb{
+    background:linear-gradient(rgba(37,226,255,.60),rgba(37,226,255,.32));
+    background-clip:content-box;border:2px solid transparent;border-radius:6px}
+  .modal::-webkit-scrollbar-thumb:hover, .sheet .body::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(rgba(37,226,255,.90),rgba(255,47,154,.60));
+    background-clip:content-box}
+  .modal::-webkit-scrollbar-thumb:active, .sheet .body::-webkit-scrollbar-thumb:active{
+    background:linear-gradient(#25e2ff,#ff2f9a);background-clip:content-box}
+  .modal::-webkit-scrollbar-corner, .sheet .body::-webkit-scrollbar-corner{background:transparent}
+
+  .layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .22s ease}
+  .layer.on{opacity:1;pointer-events:auto}
+  .scrim{position:absolute;inset:0;background:rgba(3,5,9,.55);backdrop-filter:blur(14px)}
+
+  .modal{position:relative;width:min(370px,calc(100vw - 36px));background:var(--glass);
+    border:1px solid var(--line);border-radius:18px;padding:24px 22px 20px;
+    box-shadow:0 0 60px rgba(37,226,255,.10);
+    overflow-y:auto;max-height:90dvh;
+    /* le corps de page bloque le geste, il faut le rouvrir ici */
+    touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  .modal > .brand{position:sticky;top:-24px;z-index:3;
+    /* fond opaque : le fond du modal est translucide et laisserait passer le texte défilant */
+    background:#0b1017;margin:-24px -22px 0;padding:24px 22px 10px}
+
+  .brand{font-size:29px;font-weight:200;letter-spacing:.14em;line-height:1;
+    text-shadow:0 0 26px rgba(37,226,255,.4)}
+  .brand b{font-weight:600;color:var(--neon)}
+  .tag{margin:9px 0 20px;font-size:12px;line-height:1.5;color:var(--dim)}
+
+  .btn{display:block;width:100%;padding:13px;border-radius:11px;border:1px solid var(--neon);
+    background:rgba(37,226,255,.14);color:var(--text);font-size:14px;font-weight:600}
+  .btn:active{background:rgba(37,226,255,.3)}
+  .btn.ghost{border-color:var(--line);background:transparent;color:var(--dim);font-weight:500}
+  .btn.ghost:active{color:var(--text);background:rgba(37,226,255,.1)}
+  .btn.danger{border-color:rgba(255,47,154,.4);color:var(--hot);background:transparent}
+  .btn + .btn{margin-top:9px}
+
+  .diffrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .diffrow span{font-size:10px;letter-spacing:.14em;color:var(--dim2)}
+  .diffrow .seg button{padding:7px 9px;font-size:10px}
+  .diffnote{margin:0 0 14px;font-size:11px;line-height:1.45;color:var(--dim2);min-height:30px}
+  .diffnote b{color:var(--amber);font-weight:600}
+
+  .board{margin-top:22px;border-top:1px solid rgba(37,226,255,.14);padding-top:14px}
+  .board h3{margin:0 0 9px;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em}
+  .board ol{list-style:none;margin:0;padding:0}
+  .board li{display:flex;align-items:baseline;gap:10px;padding:5px 0;font-size:13px;
+    border-bottom:1px solid rgba(223,242,248,.06)}
+  .board li:last-child{border-bottom:0}
+  .board .rk{width:16px;color:var(--dim2);font-size:11px;font-variant-numeric:tabular-nums}
+  .board .dv{flex:1;font-variant-numeric:tabular-nums;font-weight:600}
+  .board li:first-child .dv{color:var(--neon)}
+  .board .dt{font-size:11px;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .board .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
+
+  #settings{align-items:stretch;justify-content:stretch}
+  .sheet{position:relative;width:100%;height:100%;background:rgba(5,7,12,.94);
+    backdrop-filter:blur(18px);display:flex;flex-direction:column}
+  .sheet header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:calc(env(safe-area-inset-top) + 14px) 18px 14px;border-bottom:1px solid rgba(37,226,255,.14)}
+  .sheet header h2{margin:0;font-size:16px;font-weight:600}
+  .tabs{display:flex;gap:8px;flex:1;justify-content:center}
+  .tab{padding:7px 16px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.1em}
+  .tab.on{background:rgba(37,226,255,.16);color:var(--text);border-color:var(--neon)}
+  .page{display:none}
+  .page.on{display:block}
+  @media (min-width:820px){
+    .page.on{column-count:2;column-gap:38px}
+    .grp,.t-row{break-inside:avoid}
+  }
+  @media (min-width:1300px){ .page.on{column-count:3} }
+  .rst{margin-left:8px;padding:0 6px;border-radius:5px;border:1px solid var(--line);
+    background:transparent;color:var(--dim2);font-size:11px;line-height:16px}
+  .rst:active{color:var(--neon);border-color:var(--neon)}
+  .t-row label span{display:inline-flex;align-items:center}
+  .close{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:transparent;
+    color:var(--text);font-size:17px;line-height:1}
+  .sheet .body{flex:1;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;
+    padding:18px 18px calc(env(safe-area-inset-bottom) + 28px)}
+  .grp{margin-bottom:26px;max-width:640px}
+  .grp p b{color:var(--text);font-weight:600}
+  .grp h3{margin:0 0 4px;font-size:13px;font-weight:600}
+  .grp p{margin:0 0 14px;font-size:11.5px;line-height:1.5;color:var(--dim)}
+  .t-row{margin-bottom:15px;max-width:520px}
+  .t-row label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+  .t-row label b{color:var(--neon);font-weight:600;font-variant-numeric:tabular-nums}
+  .t-row input{width:100%;margin:0;accent-color:var(--neon)}
+  .t-row .hint{font-size:11px;color:var(--dim2);margin-top:3px;line-height:1.4}
+  .switch{display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:12px 0;border-top:1px solid rgba(223,242,248,.07);max-width:520px}
+  .switch span{font-size:13px}
+  .switch small{display:block;font-size:11px;color:var(--dim2);margin-top:2px}
+  .lnkrow{max-width:520px;text-align:right;margin:-6px 0 4px}
+  .lnk{background:none;border:0;padding:0;color:var(--neon);font-size:11px;
+    text-decoration:underline;letter-spacing:.03em}
+
+  .infomodal h3{margin:18px 0 5px;font-size:12px;letter-spacing:.1em;color:var(--neon)}
+  .infomodal p{margin:0 0 8px;font-size:12px;line-height:1.5;color:var(--dim)}
+  .infomodal code{background:rgba(37,226,255,.10);border-radius:4px;padding:1px 5px;
+    font-size:11px;color:var(--text);word-break:break-all}
+  a.btn{text-decoration:none;text-align:center;font-size:11px;padding:9px}
+
+  .seg{display:flex;gap:6px;flex:none}
+  .seg button{padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--dim);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+  .seg button.on{background:rgba(37,226,255,.16);color:var(--text);border-color:var(--neon)}
+  .seg button.off{opacity:.35}
+  .seg{border-radius:10px}
+  .navgroup{border-radius:10px}
+  .navgroup:focus{outline:none}
+
+  .toggle{width:50px;height:29px;border-radius:15px;border:1px solid var(--line);
+    background:transparent;position:relative;flex:none}
+  .toggle::after{content:'';position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;
+    background:var(--dim);transition:transform .18s,background .18s}
+  .toggle.on{background:rgba(37,226,255,.2)}
+  .toggle.on::after{transform:translateX(21px);background:var(--neon)}
+  .sheet .body .btn{max-width:520px;margin-top:10px}
+
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .2s}
+  .hud.on{opacity:1}
+  .dist{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center}
+  .dist .n{font-size:42px;font-weight:200;letter-spacing:-.02em;line-height:1;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(37,226,255,.45)}
+  .dist .n i{font-style:normal;font-size:16px;font-weight:400;color:var(--dim);margin-left:3px}
+  .dist .r{margin-top:5px;font-size:11px;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .dist .coins{margin-top:3px;font-size:10px;letter-spacing:.1em;color:var(--dim2)}
+  .dist .coins b{color:#ffc24a;font-weight:700;font-variant-numeric:tabular-nums}
+  .pop{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:17px;font-weight:800;
+    letter-spacing:.05em;opacity:0;transform:translateY(6px);pointer-events:none}
+  .pop.on{opacity:1;transform:translateY(0);transition:opacity .1s,transform .1s}
+  .spd{position:absolute;right:16px;top:calc(env(safe-area-inset-top) + 18px);text-align:right}
+  .spd .n{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--neon);
+    text-shadow:0 0 18px rgba(37,226,255,.5)}
+  .spd .u{font-size:10px;color:var(--dim2);letter-spacing:.1em;margin-top:-2px}
+  .dist .live{margin-top:2px;font-size:22px;font-weight:800;letter-spacing:.01em;color:#e0913f;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 18px currentColor;
+    transition:transform .12s;transform-origin:50% 50%}
+  .dist .live.up{transform:scale(1.28)}
+  .dist .live.cut{transform:scale(0.78)}
+  .warn{position:absolute;left:0;right:0;top:27%;text-align:center;font-size:12px;font-weight:600;
+    letter-spacing:.18em;color:var(--hot);opacity:0;transition:opacity .1s;
+    text-shadow:0 0 20px rgba(255,47,154,.6)}
+  .warn.on{opacity:1}
+  .warn.drift{color:var(--neon);text-shadow:0 0 20px rgba(37,226,255,.6)}
+  .mutebtn{position:fixed;left:16px;top:calc(env(safe-area-inset-top) + 16px);z-index:30;
+    width:38px;height:38px;border-radius:11px;border:1px solid var(--line);
+    background:rgba(8,20,28,.55);backdrop-filter:blur(8px);color:var(--neon);
+    display:flex;align-items:center;justify-content:center;padding:0}
+  .mutebtn svg{width:19px;height:19px;fill:currentColor}
+  .mutebtn .ico-off{display:none}
+  .mutebtn.off{color:var(--dim2);border-color:rgba(223,242,248,.16)}
+  .mutebtn.off .ico-on{display:none}
+  .mutebtn.off .ico-off{display:block}
+  .mutebtn.hide{display:none}
+  .fps{position:fixed;left:108px;top:calc(env(safe-area-inset-top) + 16px);z-index:30;
+    height:38px;display:none;align-items:center;padding:0 10px;border-radius:11px;
+    border:1px solid var(--line);background:rgba(8,20,28,.55);backdrop-filter:blur(8px);
+    font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--dim);
+    font-variant-numeric:tabular-nums}
+  .fps.on{display:flex}
+  .fps b{color:var(--neon);font-weight:700;margin-right:4px}
+
+  .pausebtn{position:absolute;left:62px;top:calc(env(safe-area-inset-top) + 16px);
+    width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:rgba(8,20,28,.5);
+    backdrop-filter:blur(8px);color:var(--neon);pointer-events:auto;
+    display:flex;align-items:center;justify-content:center}
+  .pausebtn svg{width:15px;height:15px;fill:currentColor}
+
+  .pads{position:absolute;inset:auto 0 0 0;
+    padding:0 16px calc(env(safe-area-inset-bottom) + 16px);
+    display:flex;justify-content:flex-end;align-items:flex-end;gap:12px}
+  .cluster{display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:auto}
+  body.lefty .pads{justify-content:flex-start}
+  body.lefty .stickzone{left:auto;right:0}
+  body.lefty .bst{right:auto;left:10px}
+  body.lefty .bstlbl{right:auto;left:4px;margin-right:0;margin-left:22px}
+  .pad{position:relative;overflow:hidden;width:72px;height:72px;border-radius:50%;
+    border:1px solid var(--line);background:rgba(8,20,28,.5);backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;color:var(--neon);
+    transition:transform .06s,background .06s,box-shadow .06s}
+  .pad svg{width:28px;height:28px;fill:currentColor;position:relative;z-index:1}
+  .pad span{position:relative;z-index:1}
+  .pad.brake{width:62px;height:62px;color:var(--hot);border-color:rgba(255,47,154,.35);
+    font-size:10px;font-weight:700}
+  .pad.boost{width:88px;height:88px;font-size:12px;font-weight:800;letter-spacing:.06em;
+    border-color:rgba(37,226,255,.5)}
+  .pad.boost .fill{position:absolute;left:0;right:0;bottom:0;height:100%;
+    background:linear-gradient(rgba(37,226,255,.32),rgba(37,226,255,.16));z-index:0}
+  .pad.boost.low{color:var(--dim2);border-color:rgba(223,242,248,.14)}
+  .pad.boost.low .fill{background:rgba(223,242,248,.10)}
+  .pad.act{transform:scale(.93);background:rgba(37,226,255,.26);box-shadow:0 0 26px rgba(37,226,255,.35)}
+  .pad.brake.act{background:rgba(255,47,154,.26);box-shadow:0 0 26px rgba(255,47,154,.35)}
+  .pad.boost.act{box-shadow:0 0 34px rgba(37,226,255,.55)}
+  .pad.boost.charge{border-color:rgba(37,226,255,.95);animation:chargepulse .5s ease-in-out infinite}
+  @keyframes chargepulse{0%,100%{box-shadow:0 0 12px rgba(37,226,255,.35)}
+                         50%{box-shadow:0 0 38px rgba(37,226,255,.85)}}
+  .pad.boost.full{border-color:#fff;box-shadow:0 0 26px rgba(255,255,255,.5)}
+  .pad .key{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-style:normal;
+    font-size:8px;letter-spacing:.12em;color:rgba(223,242,248,.45);z-index:1}
+  @media (pointer:coarse){ .pad .key{display:none} }
+  .pad.boost .hint{position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+    font-size:9px;font-weight:800;letter-spacing:.12em;color:var(--neon);opacity:0;
+    transition:opacity .15s;white-space:nowrap}
+  .pad.boost.charge .hint{opacity:1}
+
+  .spd .n{transition:font-size .18s ease,color .18s ease}
+  .spd.hot .n{font-size:40px;color:#fff;text-shadow:0 0 26px rgba(37,226,255,.85)}
+  .spd.sup .n{color:#ffd9f4;text-shadow:0 0 30px rgba(255,47,154,.9)}
+
+  .toast{position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 92px);
+    width:min(330px,62vw);text-align:center;
+    padding:0 10px;font-size:14px;line-height:1.45;letter-spacing:.04em;
+    color:rgba(223,242,248,.72);text-shadow:0 1px 10px rgba(3,5,9,.95),0 0 22px rgba(3,5,9,.8);
+    opacity:0;transition:opacity .35s,transform .35s;pointer-events:none}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  @media (min-width:900px){
+    .toast{font-size:18px;width:min(460px,44vw);bottom:calc(env(safe-area-inset-bottom) + 110px)}
+    .pop{font-size:24px}
+    .warn{font-size:15px}
+    .sheet .body{padding-left:32px;padding-right:32px}
+  }
+  @media (min-width:1400px){ .toast{font-size:21px} .pop{font-size:28px} }
+  .toast b{color:var(--neon);font-weight:700;text-shadow:0 0 14px rgba(37,226,255,.55)}
+
+  .stickzone{position:absolute;left:0;bottom:0;width:54%;height:60%;pointer-events:auto}
+  .hud:not(.on) .stickzone{pointer-events:none}
+  .stick{position:absolute;width:106px;height:106px;margin:-53px 0 0 -53px;border-radius:50%;
+    border:1px solid var(--line);background:rgba(8,20,28,.34);backdrop-filter:blur(6px);
+    opacity:0;transition:opacity .12s;pointer-events:none}
+  .stick.on{opacity:1}
+  .stick::before{content:'';position:absolute;left:50%;top:50%;width:2px;height:22px;
+    margin:-11px 0 0 -1px;background:rgba(37,226,255,.18)}
+  .knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;
+    border-radius:50%;background:rgba(37,226,255,.30);border:1px solid rgba(37,226,255,.65);
+    box-shadow:0 0 22px rgba(37,226,255,.4)}
+
+  .hull{position:absolute;top:0;left:0;right:0;height:5px;
+    background:rgba(223,242,248,.10);overflow:hidden}
+  .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
+  .hull.crit{animation:critpulse .55s ease-in-out infinite}
+  @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  /* réserve de boost sur le côté : le doigt masque le bouton, pas cette barre */
+  .bst{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    width:7px;height:32vh;max-height:210px;border-radius:4px;
+    background:rgba(223,242,248,.12);overflow:hidden;display:flex;align-items:flex-end}
+  .bst i{display:block;width:100%;background:var(--neon);border-radius:4px;
+    box-shadow:0 0 12px rgba(37,226,255,.6)}
+  .bst.full i{background:#fff;box-shadow:0 0 16px rgba(255,255,255,.8)}
+  .bst.charge i{animation:bstpulse .5s ease-in-out infinite}
+  @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .bstlbl{position:absolute;right:4px;top:50%;font-size:8px;letter-spacing:.22em;
+    color:var(--dim2);transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;
+    margin-right:22px}
+
+
+  .nav-sel{outline:2px solid var(--neon);outline-offset:3px;
+    box-shadow:0 0 20px rgba(37,226,255,.45)}
+  input[type=range].nav-sel{outline-offset:6px}
+  .keyhint{margin-top:12px;font-size:10px;letter-spacing:.14em;color:var(--dim2);text-align:center}
+  @media (pointer:coarse){.keyhint{display:none}}
+
+  .kb{position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);
+    font-size:10px;line-height:1.5;color:var(--dim2);text-align:right}
+  @media (pointer:coarse){.kb{display:none}}
+
+  .pausehead{font-size:20px;font-weight:300;letter-spacing:.1em}
+  .pausedist{margin:6px 0 20px;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .pausedist b{color:var(--text);font-weight:600;font-size:15px}
+  .overtag{margin:2px 0 16px;font-size:12px;color:var(--hot);font-weight:600;letter-spacing:.04em;
+    min-height:15px}
+  .score{margin:16px 0 4px}
+  .srow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 0;
+    border-bottom:1px solid rgba(223,242,248,.07);font-size:12px;letter-spacing:.05em;color:var(--dim)}
+  .srow b{font-size:15px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+  .srow i{font-style:normal;font-size:10px;color:var(--dim2);letter-spacing:0}
+  .srow.total{border-bottom:0;border-top:1px solid var(--line);margin-top:5px;padding-top:11px;
+    color:var(--text);font-weight:600}
+  .srow.total b{font-size:23px;color:var(--neon);text-shadow:0 0 20px rgba(37,226,255,.4)}
+  .srow.pending b{opacity:.25}
+
+  .boot{position:fixed;inset:0;z-index:60;overflow:hidden;background:#05060a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    transition:opacity .55s ease, transform .55s ease}
+  .boot.gone{opacity:0;transform:scale(1.06);pointer-events:none}
+
+  .boot .glow{position:absolute;left:50%;top:42%;width:150vmin;height:150vmin;
+    transform:translate(-50%,-50%);pointer-events:none;
+    background:radial-gradient(circle,rgba(37,226,255,.16) 0%,rgba(255,47,154,.07) 35%,transparent 68%)}
+  /* La chaussée est un élément à part, les chevrons sont donc bornés par elle.
+     Pas de filter sur ce plan : sous transformation 3D le navigateur rasterise
+     à basse résolution et le flou devient de la pixellisation. Le fondu vient
+     d'une part des dégradés eux mêmes, d'autre part d'un voile en espace écran. */
+  .boot .roadwrap{position:absolute;left:0;right:0;bottom:0;height:74vh;pointer-events:none;
+    opacity:.3;filter:blur(2px);
+    perspective:300px;perspective-origin:50% 0%;
+    -webkit-mask-image:linear-gradient(transparent 1%,#000 38%);
+    mask-image:linear-gradient(transparent 1%,#000 38%)}
+  .boot .road{position:absolute;left:50%;bottom:0;width:88vw;height:170vh;
+    transform:translateX(-50%) rotateX(74deg);transform-origin:50% 100%;
+    will-change:background-position;
+    background-image:
+      repeating-linear-gradient(45deg,
+        transparent 0 8px, rgba(255,255,255,.10) 16px,
+        rgba(255,255,255,.95) 34px, rgba(255,255,255,.95) 53px,
+        rgba(255,255,255,.10) 70px, transparent 78px 96px),
+      repeating-linear-gradient(-45deg,
+        transparent 0 8px, rgba(255,255,255,.10) 16px,
+        rgba(255,255,255,.95) 34px, rgba(255,255,255,.95) 53px,
+        rgba(255,255,255,.10) 70px, transparent 78px 96px),
+      linear-gradient(90deg,rgba(37,226,255,.95) 0 1.4%,transparent 1.4% 98.6%,rgba(37,226,255,.95) 98.6%),
+      linear-gradient(#0f141e,#0f141e);
+    background-size:50% 100%, 50% 100%, 100% 100%, 100% 100%;
+    background-position:left 0, right 0, 0 0, 0 0;
+    background-repeat:no-repeat;
+    animation:roadrun .192s linear infinite}
+  @keyframes roadrun{
+    from{background-position:left 0,       right 0,       0 0, 0 0}
+    to  {background-position:left 271.53px, right 271.53px, 0 0, 0 0}
+  }
+  /* voile de flou calculé en espace écran, donc à la résolution réelle */
+  .boot .veil{position:absolute;left:0;right:0;bottom:0;height:74vh;pointer-events:none;
+    -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
+    -webkit-mask-image:linear-gradient(#000 0 30%,rgba(0,0,0,.75) 68%,rgba(0,0,0,.45) 100%);
+    mask-image:linear-gradient(#000 0 30%,rgba(0,0,0,.75) 68%,rgba(0,0,0,.45) 100%)}
+  .boot .horizon{position:absolute;left:0;right:0;top:44%;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(37,226,255,.8) 38%,rgba(255,47,154,.6) 68%,transparent);
+    box-shadow:0 0 30px 8px rgba(37,226,255,.20)}
+
+  .boot .mark{position:relative;text-align:center;padding:0 20px}
+  .boot .mark h1{margin:0;font-size:clamp(34px,13vw,62px);font-weight:200;letter-spacing:.16em;
+    line-height:1;background:linear-gradient(100deg,#9bf0ff,#ffffff 35%,#ff6fc0 70%,#25e2ff);
+    background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:sheen 3.4s ease-in-out infinite}
+  @keyframes sheen{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+  .boot .mark h1 b{font-weight:700}
+  .boot .mark p{margin:14px 0 0;font-size:11px;letter-spacing:.28em;color:rgba(223,242,248,.42)}
+
+  .boot .bar{position:relative;margin-top:34px;width:min(240px,60vw);height:2px;
+    background:rgba(223,242,248,.13);border-radius:2px;overflow:hidden}
+  .boot .bar i{display:block;height:100%;width:8%;border-radius:2px;
+    background:linear-gradient(90deg,#25e2ff,#ff2f9a);
+    box-shadow:0 0 12px rgba(37,226,255,.7);transition:width .45s ease}
+  .boot .lbl{position:relative;margin-top:12px;font-size:10px;letter-spacing:.22em;
+    color:rgba(223,242,248,.35)}
+
+  /* ---- Reduced motion -----------------------------------------------------
+     Everything that moves on its own stops: the splash road and its sheen, the
+     HUD pulses, and every eased transition. The gameplay itself is left alone
+     — it is the point of the page, and stopping it would not be an
+     accessibility win but a refusal to run.
+
+     `animation: none` rather than a near-zero duration, so nothing fires an
+     animationend that the code might be waiting on. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+    .boot .roadwrap { display: none; }
+  }
 </style>
 </head>
 <body>
-<!-- Temporary. Deployed while the client is being ported and is not yet
-     playable; roadmap step 3 adds input, HUD and sound, and removes this. -->
-<p class="preview">Preview build &mdash; track renders, controls land next</p>
+
+<div class="boot" id="boot">
+  <div class="glow"></div>
+  <div class="roadwrap">
+    <div class="road"></div>
+  </div>
+  <div class="veil"></div>
+  <div class="horizon"></div>
+  <div class="mark">
+    <h1>G-<b>SURGE</b></h1>
+    <p>ANTIGRAV TIME ATTACK</p>
+  </div>
+  <div class="bar"><i id="bootBar"></i></div>
+  <div class="lbl" id="bootLabel">STARTING UP</div>
+</div>
+
+<script>
+// Ici plutôt que dans un module : cet écran doit vivre avant que le bundle
+// n'arrive. three.js étant désormais compilé avec le jeu, il n'y a plus de
+// script tiers dont guetter le chargement — seul __gsReady reste, appelé par
+// le client quand la première image est prête.
+(function(){
+  var t0 = Date.now(), MIN = 1200;
+  function set(w, txt){
+    var b = document.getElementById('bootBar'), l = document.getElementById('bootLabel');
+    if (b) b.style.width = w + '%';
+    if (l && txt) l.textContent = txt;
+  }
+  set(20, 'STARTING UP');
+  window.__gsFail  = function(m){ set(100, m); document.getElementById('bootBar').style.background = '#ff2f9a'; };
+  window.__gsReady = function(){
+    set(100, 'READY');
+    setTimeout(function(){
+      var el = document.getElementById('boot');
+      if (el) el.classList.add('gone');
+    }, Math.max(0, MIN - (Date.now() - t0)));
+  };
+})();
+</script>
+
+<button class="mutebtn" id="btnMute" aria-label="Sound">
+  <svg viewBox="0 0 24 24" class="ico-on"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+  <svg viewBox="0 0 24 24" class="ico-off"><path d="M4 9v6h4l5 4V5L8 9H4zm11 1.4L16.6 12 15 13.6l1.1 1.1 1.6-1.6 1.6 1.6 1.1-1.1L18.8 12l1.6-1.6-1.1-1.1-1.6 1.6-1.6-1.6-1.1 1.1z"/></svg>
+</button>
+
+<div class="fps" id="fps"><b id="fpsVal">--</b>fps</div>
+
+<div class="hud" id="hud">
+  <div class="dist"><div class="n"><span id="dist">0</span><i>pts</i></div>
+    <div class="live" id="mult">&#215;1.0</div>
+    <div class="r" id="recline">best 0 m</div>
+    <div class="coins"><b id="coinCount">0</b> COINS</div></div>
+  <div class="spd" id="spdBox"><div class="n" id="spd">0</div><div class="u">km/h</div></div>
+  <div class="warn" id="warn">WALL</div>
+  <div class="pop" id="pop"></div>
+  <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+  <div class="hull"><i id="hullBar"></i></div>
+  <div class="bst" id="bstBox"><i id="boostBar"></i></div>
+  <div class="bstlbl">BOOST</div>
+  <div class="stickzone" id="stickZone"></div>
+  <div class="stick" id="stick"><div class="knob"></div></div>
+  <div class="pads">
+    <div class="cluster">
+      <div class="pad boost" data-in="boost"><div class="fill" id="boostFill"></div>
+        <span>BOOST</span><span class="hint">DRIFT +</span><i class="key">SPACE</i></div>
+      <div class="pad brake" data-in="brake"><span>BRAKE</span><i class="key">↓</i></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="kb">Arrows to steer, space to boost<br>Down to brake, Esc to pause</div>
+</div>
+
+<div class="layer on" id="menu">
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="brand">G-<b>SURGE</b></div>
+    <p class="tag">Endless track, banked corners, corkscrews and jumps. Trash your ship and the run is over.</p>
+    <div class="diffrow">
+      <span>DIFFICULTY</span>
+      <div class="seg navgroup" role="radiogroup" aria-label="Difficulty" id="segDiff" tabindex="0">
+        <button data-d="easy" id="diffEasy" class="on" role="radio" aria-checked="true">EASY</button>
+        <button data-d="medium" id="diffMedium" role="radio" aria-checked="false">MEDIUM</button>
+        <button data-d="hard" id="diffHard" role="radio" aria-checked="false">HARD</button>
+      </div>
+    </div>
+    <p class="diffnote" id="diffNote"></p>
+    <button class="btn" id="btnStart">START</button>
+    <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
+    <button class="btn ghost" id="btnSettingsMenu">SETTINGS</button>
+    <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
+    <div class="keyhint">↑ ↓ MOVE &nbsp; ENTER SELECT &nbsp; ESC BACK</div>
+    <div class="board">
+      <h3>BEST RUNS</h3>
+      <div id="boardBody"></div>
+    </div>
+  </div>
+</div>
+
+<div class="layer" id="pause">
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="pausehead">PAUSED</div>
+    <div class="pausedist">current score <b id="pauseDist">0</b></div>
+    <button class="btn" id="btnResume">RESUME</button>
+    <button class="btn ghost" id="btnRestart">RESTART</button>
+    <button class="btn ghost" id="btnSettingsPause">SETTINGS</button>
+    <button class="btn ghost" id="btnQuit">QUIT &amp; SAVE</button>
+  </div>
+</div>
+
+<div class="layer" id="over">
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="pausehead">SHIP WRECKED</div>
+    <div class="score">
+      <div class="srow"><span>DISTANCE</span><b id="sDist">0 m</b></div>
+      <div class="srow"><span>COINS <i id="sMul"></i></span><b id="sCoins">0</b></div>
+      <div class="srow"><span>PEAK MULTIPLIER</span><b id="sBonus">×1.0</b></div>
+      <div class="srow total"><span>SCORE</span><b id="sTotal">0</b></div>
+    </div>
+    <div class="overtag" id="overTag"></div>
+    <button class="btn" id="btnAgain">RUN AGAIN</button>
+    <button class="btn ghost" id="btnOverMenu">MAIN MENU</button>
+  </div>
+</div>
+
+<div class="layer" id="fpsinfo">
+  <div class="scrim"></div>
+  <div class="modal infomodal">
+    <div class="pausehead">UNLOCK FRAME RATE</div>
+    <p class="tag">Browsers pace animation on the display refresh, and often stay at 60 Hz whatever the screen can do. These switches live in the browser or the system, nothing on this page can raise the ceiling.</p>
+
+    <h3>FIREFOX</h3>
+    <p>Open <code>about:config</code>, search <code>layout.frame_rate</code> and set it to <code>0</code> for uncapped.</p>
+    <a class="btn ghost" id="lnkFf" target="_blank" rel="noopener"
+       href="https://www.reddit.com/r/KrunkerIO/comments/esz4gt/unlock_browser_fps_this_one_is_for_you/?tl=fr">READ THE THREAD</a>
+
+    <h3>CHROME AND CHROMIUM</h3>
+    <p>Quit the browser, then start it with <code>--disable-gpu-vsync --disable-frame-rate-limit --max-gum-fps=9999</code>. Expect tearing, this bypasses vertical sync.</p>
+    <a class="btn ghost" id="lnkCh" target="_blank" rel="noopener"
+       href="https://gist.github.com/brunosimon/c15e7451a802fa8e34c0678620022f7d">READ THE GIST</a>
+
+    <h3>SAFARI</h3>
+    <p>No supported switch so far. The discussion below tracks the state of things.</p>
+    <a class="btn ghost" id="lnkSa" target="_blank" rel="noopener"
+       href="https://github.com/blurbusters/testufo-public/issues/5">READ THE ISSUE</a>
+
+    <h3>MACOS PROMOTION</h3>
+    <p>On a 120 Hz Mac, the display is adaptive by default and browsers settle at 60. In System Settings, Displays, set the refresh rate to a fixed 120 hertz, then re-detect here.</p>
+
+    <button class="btn" id="btnCloseFps">BACK TO SETTINGS</button>
+  </div>
+</div>
+
+<div class="layer" id="help">
+  <div class="sheet">
+    <header><h2>HOW TO PLAY</h2><button class="close" id="btnCloseHelp">✕</button></header>
+    <div class="body">
+      <div class="page on">
+        <div class="grp">
+          <h3>Controls</h3>
+          <p><b>Touch.</b> Put your thumb anywhere in the lower left area: a stick appears where you press and steers the ship. On the right, <b>BRAKE</b> sits above <b>BOOST</b>. Left handed layout is in Settings.</p>
+          <p><b>Keyboard.</b> Left and right arrows steer. <b>Space</b> or up arrow boosts. <b>Down</b> brakes. <b>Esc</b> pauses. In menus, up and down move, Enter selects.</p>
+        </div>
+        <div class="grp">
+          <h3>Speed and boost</h3>
+          <p>The ship accelerates on its own and keeps gaining top speed as the run goes on. Boost draws on a reserve shown inside the button. It empties in about three seconds and refills slowly.</p>
+          <p><b>Drifting refills the boost much faster.</b> Push the stick hard into a corner until grip breaks: the ship slides wide, points into the turn, and the button pulses. That is the main way to keep boosting.</p>
+        </div>
+        <div class="grp">
+          <h3>Score</h3>
+          <p>Your score is your speed multiplied by a live multiplier, added up every instant. Distance alone is worth little, speed is what pays.</p>
+          <p>Coins raise the multiplier. Below 500 km/h a coin adds a little, past 500 it adds more, past 1000 it adds the most. Above 1000 km/h the multiplier also decays half as slowly, so holding top speed protects what you built.</p>
+          <p>The multiplier erodes on its own, and <b>hitting a wall halves it</b>.</p>
+        </div>
+        <div class="grp">
+          <h3>Damage</h3>
+          <p>The vertical gauge on the side is your hull. Impacts cost points in proportion to how hard you hit, scraping along a wall drains it continuously, and landing off track after a jump hurts too. Damage cuts your top speed, your steering and your boost recharge. At zero the run ends.</p>
+          <p>Green pickups repair the hull. Magenta ones give a free super boost.</p>
+        </div>
+        <div class="grp">
+          <h3>The track</h3>
+          <p>It never repeats and never ends. Banked corners open up as you go faster, crests become ramps at speed, and corkscrews roll the whole track around you. Gravity still applies while you are upside down.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="layer" id="settings">
+  <div class="sheet">
+    <header><h2>SETTINGS</h2>
+      <div class="tabs navgroup" tabindex="0">
+        <button class="tab on" id="tabGen">GENERAL</button>
+        <button class="tab" id="tabAdv">ADVANCED</button>
+      </div>
+      <button class="close" id="btnCloseSettings">✕</button></header>
+    <div class="body">
+      <div class="page on" id="pageGen">
+
+      <div class="grp">
+        <h3>Sound</h3>
+        <div class="switch">
+          <span>Engine and effects<small>Synthesised, no audio files</small></span>
+          <button class="toggle on" id="tglSound" aria-pressed="true"></button>
+        </div>
+      </div>
+      <div class="grp">
+        <h3>Controls</h3>
+        <div class="switch">
+          <span>Reversed layout<small>Stick on the right, pedals on the left</small></span>
+          <button class="toggle" id="tglLefty" aria-pressed="false"></button>
+        </div>
+        <div class="switch">
+          <span>Show tips<small>Short hints during the first minute of a run</small></span>
+          <button class="toggle on" id="tglTips" aria-pressed="true"></button>
+        </div>
+        <div class="switch" id="rowHaptics">
+          <span>Haptics<small>Vibration on impacts, pickups and boost</small></span>
+          <button class="toggle on" id="tglHaptics" aria-pressed="true"></button>
+        </div>
+      </div>
+      <div class="grp" id="grpDisplay">
+        <h3>Display</h3>
+        <div class="switch">
+          <span>Cosmic background<small>Procedural shader. The single heaviest effect.</small></span>
+          <button class="toggle on" id="tglSky" aria-pressed="true"></button>
+        </div>
+        <div class="switch">
+          <span>Detailed background<small>Off halves the shader cost and keeps the look</small></span>
+          <button class="toggle on" id="tglSkyHi" aria-pressed="true"></button>
+        </div>
+        <div class="switch">
+          <span>Frame rate target<small id="hzHint">detecting display refresh…</small></span>
+          <div class="seg navgroup" role="radiogroup" aria-label="Frame rate target" id="segFps" tabindex="0">
+            <button data-hz="60" role="radio" aria-checked="false">60</button>
+            <button data-hz="120" role="radio" aria-checked="false">120</button>
+            <button data-hz="240" role="radio" aria-checked="false">240</button>
+          </div>
+        </div>
+        <div class="lnkrow"><button class="lnk" id="btnFpsInfo">how to unlock frame rate</button></div>
+        <div class="switch">
+          <span>Show frame rate<small>Displayed top left, in menus too</small></span>
+          <button class="toggle" id="tglFps" aria-pressed="false"></button>
+        </div>
+        <div class="switch">
+          <span>Fullscreen<small>Hides the browser interface</small></span>
+          <button class="toggle" id="tglFull" aria-pressed="false"></button>
+        </div>
+      </div>
+      <div class="grp">
+        <h3>Data</h3>
+        <p>The leaderboard is stored on this device only.</p>
+        <button class="btn danger" id="btnClear">CLEAR LEADERBOARD</button>
+      </div>
+      </div>
+
+      <div class="page" id="pageAdv">
+        <div class="grp">
+          <h3>Fine tuning</h3>
+          <p>Every value of the simulation, applied live. Each one has its own reset, and wrong settings here can make the ship undrivable. The global reset is at the bottom.</p>
+          <div id="slidersAdv"></div>
+          <button class="btn ghost" id="btnDefault">RESET EVERYTHING TO DEFAULTS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="/src/client/main.ts"></script>
 </body>
 </html>

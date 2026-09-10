@@ -1,19 +1,20 @@
 /**
  * Entry point of the new client.
  *
- * Wires the simulation core to the rendering subsystems and the frame loop.
- * The UI, the audio and the input devices arrive at roadmap step 3; until then
- * the game runs in attract mode, which is what the menu already showed.
+ * Wiring only: it owns no rules. The simulation core decides what happens, the
+ * subsystems decide how it looks and sounds, and this file connects them and
+ * runs the clock.
  *
- * The shape matters more than the picture: the simulation advances in whole
- * fixed steps, is fed input as data, and never touches the DOM or three.js.
+ * Settings, audio and the leaderboard are still to come; see roadmap step 3.
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Scene } from 'three';
-import { BACK, coinTier, Sim } from '../sim/index.js';
-import type { Input } from '../sim/index.js';
+import { BACK, coinTier, Sim, type SimEvent } from '../sim/index.js';
 import { ChaseCamera } from './camera.js';
+import { Hud } from './hud.js';
+import { InputSource } from './input.js';
 import { Loop } from './loop.js';
-import { Pickups } from './pickups.js';
+import { Pickups, COIN_COLOURS } from './pickups.js';
+import { Screens } from './screens.js';
 import { Ship } from './ship.js';
 import { Sky } from './sky.js';
 import { TrackMesh } from './track-mesh.js';
@@ -21,8 +22,8 @@ import { Viewport } from './viewport.js';
 
 const VOID = 0x05060a;
 
-/** Reused every frame: one of these per step would be 720 a second. */
-const input: Input = { steer: 0, brake: false, boost: false };
+/** How long a pickup glow takes to fade, in seconds. */
+const HALO_TIME = 0.45;
 
 function seedFromUrl(): string | null {
   try {
@@ -39,7 +40,10 @@ function freshSeed(): string {
   );
 }
 
-const sim = new Sim({ seed: seedFromUrl() ?? freshSeed(), difficulty: 'easy' });
+const pinnedSeed = seedFromUrl();
+const sim = new Sim({ seed: pinnedSeed ?? freshSeed(), difficulty: 'easy' });
+
+/* ---------------------------------------------------------------- scene -- */
 
 const scene = new Scene();
 scene.background = new Color(VOID);
@@ -59,20 +63,101 @@ const keyLight = new DirectionalLight(0xdff0ff, 1.2);
 keyLight.position.set(0.45, 1, -0.5);
 scene.add(keyLight);
 
+/* ------------------------------------------------------------- ui, loop -- */
+
+const hud = new Hud();
+const screens = new Screens({
+  onChange(mode) {
+    if (mode !== 'run') input.release();
+  },
+});
+const input = new InputSource({
+  isPlaying: () => screens.isPlaying,
+  canBoost: () => sim.state.energy >= sim.tuning.boostMin,
+});
+
 let elapsed = 0;
 let bank = 0;
 /* Visual attitude, eased towards the simulation rather than snapped to it. */
 let lean = 0;
 let yawVisual = 0;
+/* Pickup and impact glow. It left the simulation with the events refactor. */
+let halo = 0;
+let haloPower = 1;
+let haloColour = 0xffffff;
+
+function flashHalo(colour: number, power = 1): void {
+  haloColour = colour;
+  halo = 1;
+  haloPower = power;
+}
+
+/** A scrape holds the glow up rather than restarting it every step. */
+function holdHalo(colour: number, level: number, power: number): void {
+  haloColour = colour;
+  if (halo < level) halo = level;
+  haloPower = power;
+}
+
+function consume(events: readonly SimEvent[]): void {
+  for (const e of events) {
+    switch (e.type) {
+      case 'badLanding':
+        flashHalo(0xff3b30, 1.1);
+        break;
+      case 'wallImpact':
+        flashHalo(0xff3b30, 0.75 + e.force * 0.6);
+        break;
+      case 'scrape':
+        holdHalo(0xff3b30, 0.70, 0.7);
+        break;
+      case 'pickup':
+        if (e.kind === 'coin') {
+          hud.showPop(`× +${e.gain.toFixed(1)}`, `#${COIN_COLOURS[e.tier].toString(16)}`);
+          flashHalo(COIN_COLOURS[e.tier], 0.75 + e.gain * 0.9);
+        } else if (e.kind === 'fix') {
+          hud.showPop('REPAIRED', '#35e08a');
+          flashHalo(0x35e08a);
+        } else {
+          hud.showPop('SUPER BOOST', '#ff2f9a');
+          flashHalo(0xff2f9a);
+        }
+        break;
+      case 'wreck':
+        endRun();
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function startRun(): void {
+  sim.reset(pinnedSeed ?? freshSeed());
+  ship.clearSmoke();
+  pickups.reset();
+  camera.reset();
+  hud.reset();
+  halo = 0;
+  lean = 0;
+  yawVisual = 0;
+  loop.reset();
+  screens.setMode('run');
+}
+
+function endRun(): void {
+  screens.setMode('over');
+}
 
 function renderFrame(frameDt: number): void {
   elapsed += frameDt;
+
   // The path has to be integrated before anything reads it: the ribbons walk
   // its buffers directly and the camera samples along it.
-  sim.track.buildPath(sim.state.cursor);
+  const state = sim.state;
+  sim.track.buildPath(state.cursor);
   trackMesh.update(sim.track, sim.tuning.stripeEvery);
 
-  const state = sim.state;
   const tier = coinTier(state.speed, sim.tuning);
   pickups.update(sim.track, state.cursor, tier, frameDt);
 
@@ -90,6 +175,9 @@ function renderFrame(frameDt: number): void {
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust);
 
+  if (halo > 0) halo = Math.max(0, halo - frameDt / HALO_TIME);
+  ship.setHalo(haloColour, halo, haloPower);
+
   camera.update(state, sim.track, sim.tuning, frameDt, state.shake);
 
   const position = viewport.camera.position;
@@ -97,37 +185,71 @@ function renderFrame(frameDt: number): void {
     elapsed,
     position.x, position.y, position.z,
     sim.track.nk[BACK]!,
-    sim.state.speed,
+    state.speed,
     frameDt,
-    sim.state.boosting,
+    state.boosting,
   );
+
+  if (screens.isPlaying) hud.update(state, sim.tuning, frameDt);
 
   viewport.render(scene);
 }
 
 const loop = new Loop({
   simulate(dt) {
-    // Attract mode until the input layer lands: the autopilot recentres and
-    // the track keeps streaming, which is enough to see everything render.
-    bank = sim.step(input, dt, true);
+    const mode = screens.mode;
+    // Only two modes advance the world: a run, and the attract loop behind
+    // the menu. Pause, settings and the rest freeze it deliberately.
+    if (mode === 'run') {
+      bank = sim.step(input.sample(), dt, false);
+      consume(sim.events);
+    } else if (mode === 'menu') {
+      bank = sim.step(input.value, dt, true);
+    }
   },
   render: renderFrame,
 });
 
-loop.start();
+/* --------------------------------------------------------------- screens -- */
 
-/**
- * Debug surface, mirroring the legacy `window.__gs`. For the tests and for the
- * replay features to come; not a game API.
- */
+const on = (id: string, handler: () => void) =>
+  document.getElementById(id)?.addEventListener('click', handler);
+
+on('btnStart', startRun);
+on('btnPause', () => screens.setMode('pause'));
+on('btnResume', () => screens.setMode('run'));
+on('btnRestart', startRun);
+on('btnQuit', () => screens.setMode('menu'));
+on('btnAgain', startRun);
+on('btnOverMenu', () => screens.setMode('menu'));
+on('btnHelp', () => screens.setMode('help'));
+on('btnCloseHelp', () => screens.setMode('menu'));
+on('btnSettingsMenu', () => screens.openSettings());
+on('btnSettingsPause', () => screens.openSettings());
+on('btnCloseSettings', () => screens.setMode('menu'));
+on('btnFpsInfo', () => screens.setMode('fpsinfo'));
+on('btnCloseFps', () => screens.setMode('settings'));
+
+// The start state is set by calling setMode, not by a class in the HTML: the
+// class alone would show the right screen with an empty navigation list.
+screens.setMode('menu');
+screens.revealCursorOnPrecisePointer();
+
+loop.start();
+requestAnimationFrame(() => window.__gsReady?.());
+
+/* ----------------------------------------------------------------- debug -- */
+
 declare global {
   interface Window {
+    __gsReady?: () => void;
     __gsNext: {
       seed(): string;
       revision: string;
       fixedStep(): number;
       state(): Readonly<typeof sim.state>;
       renderScale(): number;
+      mode(): string;
       setSkyDetail(high: boolean): void;
       setSkyVisible(visible: boolean): void;
       freeze(seed: string, steps: number): void;
@@ -141,18 +263,14 @@ window.__gsNext = {
   fixedStep: () => loop.fixedStep,
   state: () => sim.state,
   renderScale: () => viewport.renderScale,
+  mode: () => screens.mode,
   setSkyDetail: (high) => sky.setDetail(high),
   setSkyVisible: (visible) => sky.setVisible(visible),
 
   /**
    * Stops the loop, replays a known number of fixed steps from a seed, and
    * draws exactly one frame. This is what makes a full-frame visual reference
-   * possible at all — the project has never had one, because a frame used to
-   * depend on when it happened to be taken.
-   *
-   * It is not perfectly reproducible and does not need to be: the exhaust
-   * flicker is per-frame noise on `Math.random`, deliberately outside the
-   * simulation. The reference therefore carries a small pixel tolerance.
+   * possible: a frame used to depend on when it happened to be taken.
    */
   freeze(seed, steps) {
     loop.stop();
@@ -164,13 +282,13 @@ window.__gsNext = {
     elapsed = 0;
     lean = 0;
     yawVisual = 0;
+    halo = 0;
     const dt = loop.fixedStep;
-    for (let i = 0; i < steps; i++) bank = sim.step(input, dt, true);
+    for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
     renderFrame(dt);
     // The plumes ease over many frames, so one frame after a reset lands
     // wherever the previous run left them. Snap them, then draw again.
-    const thrust = sim.state.superT > 0 ? 2 : sim.state.boosting ? 1 : 0;
-    ship.snapThrust(thrust);
+    ship.snapThrust(sim.state.superT > 0 ? 2 : sim.state.boosting ? 1 : 0);
     viewport.render(scene);
   },
 };
