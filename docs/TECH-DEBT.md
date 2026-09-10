@@ -28,7 +28,7 @@ classic scripts, and those are gone.
 | 10 | Accessibility is absent | Low | mostly done, colour-only signals remain |
 | 11 | 37 of 69 tuning keys unreachable from the UI | Low | open |
 | 12 | Dead code | — | **gone with the legacy** |
-| 13 | No lint, no formatter, no CI | Low | CI done, no formatter |
+| 13 | No lint, no formatter, no CI | — | **done** |
 | 14 | All strings hardcoded in English | Low | open |
 | 19 | Documents state figures nothing checks | — | **closed for GAMEPLAY.md** |
 | 15 | Reverb built on the main thread | — | **done**, built on the first gesture |
@@ -177,8 +177,13 @@ started feeding the multiplier instead of paying a fixed bonus.
 
 ## 13. Tooling
 
-Lint, types and tests run behind `npm run verify`, Playwright behind
+Lint, types, format and tests run behind `npm run verify`, Playwright behind
 `npm run test:e2e`, and both run in CI on every push and pull request.
+Formatting is Prettier at the repository's width. Three deliberate exclusions,
+each explained in `.prettierignore` — and the two marked lines in
+`static/sw.js` are pinned with `prettier-ignore`, because the build plugin
+replaces them with a single-line regex that a reformat would have half-matched
+into a broken service worker.
 
 The end-to-end job runs inside the official Playwright container, which is also
 where the references are generated. That is not a convenience: interface
@@ -188,7 +193,6 @@ one taken on a runner. Pinning the image is what lets the tolerance stay at
 zero instead of being loosened until it catches nothing — which this project
 has already done once by accident.
 
-What is left: no formatter.
 
 ## 14. Strings
 
