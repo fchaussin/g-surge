@@ -10,8 +10,8 @@ slowing future work, not about how ugly it looks.
 |---|---|---|---|
 | 1 | No module system, 178 shared global bindings | High | L |
 | 2 | Circular dependency between the two files | High | M |
-| 3 | No tests at all | High | M |
-| 4 | Variable time step physics | Medium | M |
+| 3 | ~~No tests at all~~ Couverture partielle depuis le filet e2e | Medium | M |
+| 4 | ~~Variable time step physics~~ Pas fixe à 720 Hz | — | fait |
 | 5 | Settings are not persisted | Medium | S |
 | 6 | 71 hardcoded DOM ids, no UI layer | Medium | L |
 | 7 | three.js pinned to r128 from 2021, no SRI | Medium | M |
@@ -49,29 +49,50 @@ The fix is to invert it: engine should receive what it needs as arguments, or
 own the state it reads. `updateSmoke` and `updateItems` are the main offenders,
 both reaching into `state` for speed, cursor and lateral position.
 
-## 3. No tests
+## 3. Tests, partiellement traité
 
-Zero. Yet several parts are pure and trivially testable:
+Il n'y en avait aucun. Il y a désormais un filet de non régression :
 
-- `nextNode` and the whole generator, given a seeded random.
-- `buildPath` and `sample`, which are the geometric core.
-- The scoring integral and multiplier erosion.
-- The frame rate throttle, which already had a bug where a 144 Hz display
-  targeting 120 dropped to 72.
+- Playwright, 49 tests sur trois profils : démarrage, géométrie du canvas,
+  machine à états, navigation clavier, références visuelles des écrans.
+- Des références figées de la génération de piste, sur soixante graines, et de
+  la physique, sur trois difficultés, capturées par `__gs.trace` à pas fixe.
+  Elles ont été validées en perturbant délibérément le code : une constante de
+  physique, une probabilité de génération à un pour cent près, et un décalage
+  du PRNG font toutes tomber la référence correspondante.
+- Vitest sur `src/sim/rng.ts`.
 
-Every visual bug fixed so far was found by eye, on a phone, after a download.
-That loop is slow and it will not scale.
+Ce qui manque encore :
 
-## 4. Variable time step
+- `buildPath` et `sample`, le cœur géométrique, ne sont couverts
+  qu'indirectement par les traces.
+- Le régulateur de cadence, qui avait déjà le bug du 144 Hz visant 120 et
+  retombant à 72, n'est pas testé du tout.
+- Aucune référence pixel du rendu 3D : le canvas est écarté des captures, faute
+  d'un pas de simulation fixe côté jeu. Voir la dette 4.
 
-The simulation runs on raw frame delta, clamped at 0.05 s. At 30 fps the ship
-advances 11 m per step against a 12 m segment length, and grip, drift entry and
-jump detection all integrate differently than at 120 fps. The game is therefore
-subtly not the same game depending on the machine, and the leaderboard compares
-runs that were not simulated identically.
+Les bugs visuels se trouvaient à l'œil, sur un téléphone, après un déploiement.
+Cette boucle est raccourcie, pas supprimée.
 
-A fixed step accumulator at 120 Hz with interpolated rendering would remove
-that, and would also make the physics deterministic enough to test.
+## 4. Pas de temps, traité
+
+La simulation avance par pas fixes de 1/720 s. Mesuré avant la bascule, sur
+quinze secondes de jeu : 6,6 m d'écart entre 60 et 144 Hz, et à 30 Hz la
+trajectoire déviait assez pour ramasser d'autres pièces. Toutes les machines
+simulent maintenant la même chose.
+
+720 est le plus petit entier divisible par 60, 72, 90, 120, 144 et 240. Une
+image tombe donc toujours sur un état de simulation exact, ce qui évite
+d'interpoler le rendu : douze pas par image à 60 Hz, cinq à 144. Un pas coûte
+0,45 µs mesuré, soit 0,03 % d'un cœur.
+
+Sur 75 et 165 Hz, qui ne divisent pas 720, le compte alterne entre deux entiers
+voisins et le déplacement d'une image varie de ±11 %. Une simulation à 120 Hz
+sur un écran 144 aurait alterné entre zéro et un pas, soit ±120 % : c'est la
+finesse du pas qui rend l'interpolation superflue, pas sa cadence nominale.
+
+Ce qui reste : le rendu n'est pas interpolé, donc sur ces deux cadences le
+résidu subsiste. Il est sous le seuil de perception, mais il est là.
 
 ## 5. Settings are not persisted
 

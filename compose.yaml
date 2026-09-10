@@ -1,10 +1,10 @@
 # Sous Docker rootless — le cas ici — l'uid 0 du conteneur est déjà l'utilisateur
 # de l'hôte : c'est la valeur qui donne des fichiers montés lisibles et écrits
 # au bon propriétaire. Sur un démon classique (rootful), lancer plutôt avec
-#   VOIDRUNNER_USER="$(id -u):$(id -g)" docker compose up
+#   GSURGE_USER="$(id -u):$(id -g)" docker compose up
 # sinon dist/ sort en root.
 
-name: void-runner
+name: g-surge
 
 services:
   # Serveur statique de développement, sur http://localhost:5173
@@ -12,11 +12,11 @@ services:
   # rechargement suivant, il n'y a rien à reconstruire.
   dev:
     build: .
-    image: void-runner-dev
+    image: g-surge-dev
     init: true
-    user: "${VOIDRUNNER_USER:-0:0}"
+    user: "${GSURGE_USER:-0:0}"
     ports:
-      - "${VOIDRUNNER_PORT:-5173}:5173"
+      - "${GSURGE_PORT:-5173}:5173"
     volumes:
       - .:/app
     healthcheck:
@@ -32,9 +32,9 @@ services:
   # Le profil l'exclut de « docker compose up ».
   tools:
     build: .
-    image: void-runner-dev
+    image: g-surge-dev
     profiles: ["tools"]
-    user: "${VOIDRUNNER_USER:-0:0}"
+    user: "${GSURGE_USER:-0:0}"
     volumes:
       - .:/app
     command: ["npm", "run", "check"]

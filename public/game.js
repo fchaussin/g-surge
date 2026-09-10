@@ -1,5 +1,5 @@
 'use strict';
-/* Void Runner — physique, interface, audio, boucle. Nécessite engine.js. */
+/* G-SURGE — physique, interface, audio, boucle. Nécessite engine.js. */
 
 if (typeof THREE === 'undefined') throw new Error('three.js is required');
 
@@ -74,7 +74,7 @@ function step(dt, attract){
   const bNow = nb[BACK] + (nb[BACK+1] - nb[BACK]) * (state.cursor / SEG);
 
   // décollage : la piste se dérobe plus vite que la gravité ne peut rabattre le vaisseau
-  const gNow = gradeAt(0), gAhead = gradeAt(22);
+  const gNow = gradeAt(state.cursor, 0), gAhead = gradeAt(state.cursor, 22);
   if (!state.air && !attract && state.speed > 45){
     const need = (gAhead - gNow) * state.speed * state.speed / 22;
     if (need < -9.81 * TUNING.airThresh){
@@ -199,6 +199,7 @@ function resetRun(){
   state.yaw = 0; state.drift = false; state.wrecked = false;
   state.coins = 0; state.superT = 0; state.slip = 0; state.halo = 0; state.haloPow = 1;
   state.mult = 1; state.multPeak = 1; state.score = 0; state.travel = 0;
+  simAcc = 0;            // pas de reliquat de la partie précédente
   clearSmoke();          // les bouffées gardaient l'ancienne distance parcourue
   tipsReset();
   seedTrack();
@@ -206,14 +207,15 @@ function resetRun(){
 }
 
 /* ============================ 7. Classement ============================ */
-const KEY = 'voidrunner.scores.v1';
+const KEY = 'gsurge.scores.v1';
+const KEY_LEGACY = 'voidrunner.scores.v1';   // nom d'avant, repris une fois puis effacé
 let scores = [];
 
 /* localStorage peut lever : navigation privée, quota plein, cookies bloqués.
    Dans ce cas le classement reste en mémoire pour la session. */
 function storageOk(){
   try {
-    const k = '__vr_probe';
+    const k = '__gs_probe';
     window.localStorage.setItem(k, '1');
     window.localStorage.removeItem(k);
     return true;
@@ -224,7 +226,18 @@ const HAS_LS = storageOk();
 function loadScores(){
   if (HAS_LS){
     try {
-      const raw = window.localStorage.getItem(KEY);
+      let raw = window.localStorage.getItem(KEY);
+      // Reprise du classement écrit sous l'ancien nom du jeu. Une seule fois :
+      // on réécrit sous la nouvelle clé et on retire l'ancienne, pour qu'un
+      // classement effacé volontairement ne réapparaisse pas au rechargement.
+      if (raw === null){
+        const legacy = window.localStorage.getItem(KEY_LEGACY);
+        if (legacy !== null){
+          window.localStorage.setItem(KEY, legacy);
+          window.localStorage.removeItem(KEY_LEGACY);
+          raw = legacy;
+        }
+      }
       if (raw) scores = JSON.parse(raw) || [];
     } catch(e){ scores = []; }
   }
@@ -672,6 +685,25 @@ let showFps = false;
 /* Cible de cadence. requestAnimationFrame ne peut pas dépasser la fréquence de
    l'écran : une cible plus basse est tenue en sautant des trames, une cible plus
    haute que l'écran est inatteignable et donc signalée. */
+/* ---- Pas de simulation fixe -----------------------------------------------
+   La simulation tournait sur le delta brut entre deux images : deux machines
+   ne jouaient pas au même jeu, et le classement comparait des parties qui
+   n'avaient pas été simulées pareil. Mesuré, 6,6 m d'écart sur quinze secondes
+   entre 60 et 144 Hz, et à 30 Hz la trajectoire dévie assez pour ramasser
+   d'autres pièces.
+
+   720 est le plus petit entier divisible par 60, 72, 90, 120, 144 et 240. Une
+   image tombe donc toujours sur un état de simulation exact, jamais entre
+   deux : il n'y a rien à interpoler. Un pas coûte 0,45 µs mesuré, soit 0,03 %
+   d'un cœur à cette cadence.
+
+   Ces valeurs doublent src/sim/clock.ts, qui les documente ; un test compare
+   les deux. SIM_EPS absorbe le fait que 1/72 et 1/144 ne sont pas
+   représentables en binaire, sans quoi l'accumulateur rend périodiquement un
+   pas de moins et le saccadement revient. ---------------------------------- */
+const SIM_HZ = 720, SIM_DT = 1 / SIM_HZ, SIM_MAX_FRAME = 0.05, SIM_EPS = 1e-7;
+let simAcc = 0;
+
 let targetHz = 60, frameMin = 0, refreshHz = 0;
 function applyThrottle(){
   // on ne saute des trames que si le rapport est au moins de deux, sinon un écran
@@ -679,6 +711,35 @@ function applyThrottle(){
   if (!refreshHz){ frameMin = 0; return; }
   const n = Math.max(1, Math.round(refreshHz / targetHz));
   frameMin = n <= 1 ? 0 : (n - 0.5) / refreshHz;
+}
+/* Cibles réellement atteignables : la limitation ne sait que sauter une image
+   sur n, donc seules les divisions entières de la cadence d'écran sont
+   honnêtes. L'interface proposait 60, 120 et 240 quel que soit l'appareil, si
+   bien qu'un écran 144 Hz réglé sur « 120 » tournait en fait à 144. */
+function fpsOptions(){
+  if (!refreshHz) return [60, 120, 240];        // en attendant la détection
+  const out = [];
+  for (let n = 1; n <= 3; n++){
+    const hz = Math.round(refreshHz / n);
+    if (hz >= 30 && out.indexOf(hz) < 0) out.push(hz);
+  }
+  return out;
+}
+function buildFpsOptions(){
+  const opts = fpsOptions();
+  segFps.innerHTML = '';
+  opts.forEach(function(hz){
+    const b = document.createElement('button');
+    b.dataset.hz = String(hz);
+    b.textContent = String(hz);
+    segFps.appendChild(b);
+  });
+  // la cible doit rester dans la liste, sinon plus aucun bouton n'est allumé
+  const near = opts.reduce(function(best, v){
+    return Math.abs(v - targetHz) < Math.abs(best - targetHz) ? v : best;
+  }, opts[0]);
+  setTarget(near);
+  navBuild();                                   // ces boutons sont un arrêt clavier
 }
 function setTarget(hz){
   targetHz = hz;
@@ -696,7 +757,7 @@ function updateHzHint(){
     + (targetHz > refreshHz + 5 ? ', browser caps it here. Tap to re-detect.' : '. Tap to re-detect.');
 }
 function redetect(){
-  refreshHz = 0; hzSamples.length = 0; frameMin = 0; updateHzHint();
+  refreshHz = 0; hzSamples.length = 0; frameMin = 0; buildFpsOptions(); updateHzHint();
 }
 hzHint.style.cursor = 'pointer';
 hzHint.addEventListener('click', e => { e.stopPropagation(); redetect(); });
@@ -717,9 +778,9 @@ function detectHz(dt){
   const raw = 1 / med;
   refreshHz = [60, 75, 90, 120, 144, 165, 240].reduce(
     (best, v) => Math.abs(v - raw) < Math.abs(best - raw) ? v : best, 60);
-  // la détection ne choisit pas à la place du joueur : elle met à jour la
-  // limitation et grise les cibles hors de portée, la cible reste sur 60
-  setTarget(targetHz);
+  // la détection ne choisit pas à la place du joueur : elle remplace la liste
+  // par ce que l'appareil sait faire et garde la cible la plus proche
+  buildFpsOptions();
 }
 tglFps.addEventListener('click', () => {
   showFps = !showFps;
@@ -1070,18 +1131,30 @@ function frame(now){
   if (elapsed < frameMin) return;        // trame sautée pour tenir la cible
   let dt = elapsed; last = now;
   detectHz(dt);
-  if (dt > 0.05) dt = 0.05;
+  if (dt > SIM_MAX_FRAME) dt = SIM_MAX_FRAME;
   if (dt < 0) dt = 0;
 
+  // `dt` reste le delta réel de l'image : il pilote les lissages d'affichage
+  // plus bas, caméra, fumée, poussée. La simulation, elle, n'avance que par
+  // pas entiers de SIM_DT, et le reliquat attend l'image suivante.
+  simAcc += dt;
+  let simSteps = Math.floor((simAcc + SIM_EPS) / SIM_DT);
+  simAcc -= simSteps * SIM_DT;
+
   if (mode === 'run'){
-    bank = step(dt, false);
+    while (simSteps-- > 0){
+      bank = step(SIM_DT, false);
+      if (state.wrecked) break;
+    }
     if (state.wrecked){ state.shake = 1; SFX.over(); buzz([90, 60, 200]); gameOver(); }
-  } else if (mode === 'menu') bank = step(dt, true);
+  } else if (mode === 'menu'){
+    while (simSteps-- > 0) bank = step(SIM_DT, true);
+  }
 
   buildPath(state.cursor);
   updateRibbons();
   updateGantries();
-  updateItems(dt);
+  updateItems(dt, state.cursor);
   const thrustLevel = state.superT > 0 ? 2 : (state.boosting ? 1 : 0);
   updateThrust(dt, thrustLevel);
   updateSmoke(dt, thrustLevel);
@@ -1110,7 +1183,8 @@ function frame(now){
     halo.scale.setScalar(0.55 + (1 - k) * 2.3 * pw);
   } else if (halo.visible) halo.visible = false;
 
-  const B = sample(-TUNING.camDist, SBACK), F = sample(TUNING.lookAhead, SFRONT);
+  const B = sample(state.cursor, -TUNING.camDist, SBACK),
+        F = sample(state.cursor, TUNING.lookAhead, SFRONT);
   const offB = state.lat * 0.55, offF = state.lat * 0.25;
   const camH = TUNING.camHeight + state.hop * 0.6;
   camWant.set(
@@ -1196,5 +1270,71 @@ setMode('menu');                            // pose l'état de départ, dont la 
 if (window.matchMedia && window.matchMedia('(pointer: fine)').matches){
   navActive = true; navPaint();
 }
-if (window.__vrReady) window.__vrReady();   // la première image est prête
+/* Rejeu d'une partie à pas fixe, hors de la boucle de rendu.
+   Sert à figer le comportement actuel avant de l'extraire en TypeScript : la
+   même graine et le même script d'entrées doivent produire la même trace des
+   deux côtés. C'est le filet de l'étape 3 de docs/ROADMAP.md.
+
+   Le pas est fixe ici alors que le jeu tourne en pas variable : c'est justement
+   ce qui rend la trace comparable. La dette 4 reste entière par ailleurs. */
+/* Surcharges par difficulté, pour le contrôle croisé avec src/sim/tuning.ts.
+   Seuls `mul` et `set` en sortent : libellé et description sont de l'interface. */
+window.__gs.clock = function(){
+  return { hz: SIM_HZ, dt: SIM_DT, maxFrame: SIM_MAX_FRAME, eps: SIM_EPS };
+};
+
+window.__gs.diff = function(){
+  const out = {};
+  for (const k in DIFF) out[k] = { mul: DIFF[k].mul, set: Object.assign({}, DIFF[k].set) };
+  return out;
+};
+
+window.__gs.trace = function(opts){
+  const o = opts || {};
+  // `|| ` avalerait un zéro : trace({steps: 0}) rejouait 1200 pas en silence, et
+  // une capture censée montrer une piste fraîche décrivait en fait la piste
+  // après vingt secondes de jeu.
+  const steps = o.steps === undefined ? 1200 : o.steps;
+  const dt = o.dt === undefined ? 1 / 120 : o.dt;
+  const every = o.every === undefined ? 60 : o.every;
+  const script = o.script || [];      // [{ from, steer, brake, boost }], from en indice de pas
+
+  applyDifficulty(o.diff || 'easy');
+  window.__gs.setSeed(o.seed === undefined ? 'trace' : o.seed);
+  resetRun();
+  keys.left = keys.right = false;
+
+  const r6 = function(v){ return Math.round(v * 1e6) / 1e6; };
+  const snap = function(i){
+    return { i: i,
+      dist: r6(state.dist), travel: r6(state.travel), cursor: r6(state.cursor),
+      speed: r6(state.speed), lat: r6(state.lat), latVel: r6(state.latVel),
+      yaw: r6(state.yaw), hop: r6(state.hop), vyRel: r6(state.vyRel),
+      energy: r6(state.energy), hull: r6(state.hull),
+      mult: r6(state.mult), score: r6(state.score), coins: state.coins,
+      air: state.air, drift: state.drift, wrecked: state.wrecked };
+  };
+
+  let si = 0, cur = { steer: 0, brake: false, boost: false };
+  const out = [snap(-1)];
+  let last = -1;
+  for (let i = 0; i < steps; i++){
+    while (si < script.length && script[si].from <= i){ cur = script[si]; si++; }
+    stickX = cur.steer === undefined ? 0 : cur.steer;
+    keys.brake = !!cur.brake;
+    keys.boost = !!cur.boost;
+    step(dt, false);
+    last = i;
+    // la boucle de rendu termine la partie dès que l'épave est déclarée ; sans
+    // cet arrêt la trace simulerait un état que le jeu n'atteint jamais, coque
+    // qui se régénère et score qui monte après la mort
+    if (state.wrecked){ out.push(snap(i)); break; }
+    if ((i + 1) % every === 0 || i === steps - 1) out.push(snap(i));
+  }
+  return { seed: window.__gs.seed(), diff: o.diff || 'easy',
+           steps: steps, ran: last + 1, dt: dt,
+           wrecked: state.wrecked, frames: out };
+};
+
+if (window.__gsReady) window.__gsReady();   // la première image est prête
 requestAnimationFrame(frame);

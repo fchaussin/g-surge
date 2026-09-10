@@ -110,8 +110,39 @@ A `mode` string drives everything: `menu`, `run`, `pause`, `over`, `settings`,
 navigation. Navigation is a flat list of elements per screen, with groups of
 buttons treated as a single stop.
 
+## Le noyau extrait, `src/sim/`
+
+Portage TypeScript strict de la simulation, sans DOM ni three.js, exécutable en
+Node comme en navigateur. Il n'est **pas encore branché** : `public/` fait
+toujours tourner le jeu.
+
+| Fichier | Rôle |
+|---|---|
+| `rng.ts` | sfc32 seedé, sérialisable, flux séparés |
+| `tuning.ts` | `DEFAULTS`, `DIFF`, `tuningFor` — la source de vérité des réglages |
+| `track.ts` | tampons circulaires, génération, `gradeAt` |
+| `state.ts` | l'état de simulation, en espace piste uniquement |
+| `events.ts` | ce que la simulation raconte, à la place des appels audio |
+| `step.ts` | un pas de physique, portage ligne à ligne |
+| `sim.ts` | l'assemblage |
+
+Deux différences assumées avec `public/` :
+
+- les quatorze appels de présentation qui étaient au milieu de `step()`
+  — `SFX`, `buzz`, `flashHalo`, `pop` — sont devenus des événements ;
+- `halo` et `haloPow` ne sont plus des champs d'état, c'était de l'affichage.
+
+Ce qui n'est pas encore porté : `buildPath` et `sample`, qui servent au rendu et
+au placement des objets, et resteront avec le client.
+
+La parité est vérifiée dans les deux sens. `tests/e2e/determinism.spec.ts`
+compare depuis le navigateur les deux PRNG et les soixante-dix constantes de
+réglage ; `tests/sim-parity.test.ts` rejoue dans Node les références capturées
+sur le jeu. Les deux doivent rester vertes tant que les deux implémentations
+coexistent.
+
 ## Storage
 
-`localStorage`, key `voidrunner.scores.v1`, top five runs with score, coin count,
+`localStorage`, key `gsurge.scores.v1`, top five runs with score, coin count,
 difficulty letter and date. Guarded by a write probe because private browsing
 throws on access. Settings are not persisted.

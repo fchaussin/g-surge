@@ -1,12 +1,32 @@
 {
-  "name": "void-runner",
+  "name": "g-surge",
   "version": "1.0.0",
   "private": true,
-  "description": "Endless antigrav runner built on three.js r128, no build step.",
+  "description": "Endless antigrav runner built on three.js r128.",
   "type": "module",
   "scripts": {
     "dev": "npx --yes serve public -l 5173",
     "build": "node scripts/build-codepen.mjs",
-    "check": "node --check public/engine.js && node --check public/game.js"
+    "check": "node --check public/engine.js && node --check public/game.js",
+    "check:globals": "node scripts/check-globals.mjs",
+    "typecheck": "tsc -p src/sim && tsc -p tests",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run check && npm run check:globals && npm run typecheck && npm run lint && npm run test",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "verify:all": "npm run verify && npm run test:e2e",
+    "fixtures:update": "UPDATE_FIXTURES=1 playwright test determinism --project=desktop"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^6.4.3",
+    "vitest": "^5.0.0"
   }
 }

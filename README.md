@@ -1,4 +1,4 @@
-# Void Runner
+# G-SURGE
 
 Endless antigrav runner. Three.js r128, no build step, no framework.
 
@@ -11,18 +11,43 @@ public/            everything that gets deployed, as is
   game.js          physics, score, screens, input, audio, main loop
   sw.js            offline cache
   manifest.webmanifest
-  icons/
+  icons/           MANQUANT : référencé par le manifeste et sw.js, absent du dépôt
+src/               le refactor en cours, pas encore servi
+  sim/             noyau déterministe en TypeScript strict, sans DOM ni three.js
+tests/
+  rng.test.ts      Vitest, unitaire
+  e2e/             Playwright : démarrage, écrans, références visuelles
 scripts/
   build-codepen.mjs  splits the sources into three CodePen panels
+  check-globals.mjs  détecte un nom déclaré dans engine.js et game.js à la fois
 ```
+
+`public/` reste l'artefact déployé et fonctionne seul. `src/` est construit à
+côté et ne sera branché qu'une fois le noyau à parité, voir `docs/ROADMAP.md`.
 
 ## Local
 
+    npm install      # outillage de dev uniquement, le jeu n'a aucune dépendance
     npm run dev      # serves public/ on http://localhost:5173
-    npm run check    # syntax check on both scripts
+    npm run verify   # syntaxe, collisions de noms, types, lint, tests
+
+    npm run test:e2e # Playwright : démarrage, écrans, références visuelles
+
+`npm run verify` est la commande à passer après toute modification. Les cinq
+étapes sont aussi appelables séparément : `check`, `check:globals`, `typecheck`,
+`lint`, `test`. `npm run verify:all` y ajoute la suite Playwright.
+
+Les tests de bout en bout tournent sur l'hôte uniquement, l'image de dev ne
+contenant pas de navigateur. Ils rejouent three.js depuis une copie locale
+plutôt que depuis cdnjs, pour être exécutables hors ligne et pour qu'un échec
+désigne le jeu et pas le réseau.
 
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.
+
+Le paramètre `?seed=` fige la piste : `http://localhost:5173/?seed=alpha` rejoue
+exactement la même génération à chaque chargement. Sans lui, chaque partie tire
+sa propre graine.
 
 ## Docker
 
@@ -36,11 +61,11 @@ vivent dans l'image :
 
 Les sources sont montées, pas copiées : une édition est servie au rechargement
 suivant, l'image n'est à reconstruire que si le `Dockerfile` change. Le port se
-change avec `VOIDRUNNER_PORT=8080`.
+change avec `GSURGE_PORT=8080`.
 
 Le démon local est en mode rootless, où l'uid 0 du conteneur est déjà
 l'utilisateur de l'hôte, et `compose.yaml` en tient compte. Sur un démon
-classique, lancer avec `VOIDRUNNER_USER="$(id -u):$(id -g)"` pour que `dist/` ne
+classique, lancer avec `GSURGE_USER="$(id -u):$(id -g)"` pour que `dist/` ne
 sorte pas en root.
 
 Le serveur force `Cache-Control: no-cache` (`docker/serve.json`), sans quoi le
@@ -83,6 +108,7 @@ Fullscreen is refused inside the embedded preview but works in debug view.
 
 - three.js is pinned to r128 and loaded from cdnjs. The code relies on r128
   behaviour, see CLAUDE.md before upgrading.
-- The leaderboard lives in `localStorage` under `voidrunner.scores.v1`. Private
-  browsing falls back to memory for the session.
+- The leaderboard lives in `localStorage` under `gsurge.scores.v1`. A board
+  written under the previous name, `voidrunner.scores.v1`, is picked up once and
+  the old key removed. Private browsing falls back to memory for the session.
 - `navigator.vibrate` does not exist on iOS, the haptics switch hides itself.

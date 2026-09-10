@@ -1,4 +1,4 @@
-# Void Runner — instructions for Claude Code
+# G-SURGE — instructions for Claude Code
 
 Endless antigrav runner. Three.js r128, two classic scripts, no bundler.
 Everything in `public/` is deployed as is to Cloudflare Pages.
@@ -19,24 +19,75 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 - **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
   past r151 changes colour management and lighting defaults and is a re-tuning
   pass, not a version bump.
+- **`src/` is the refactor, `public/` is still the game.** The migration is
+  staged: `src/sim/` holds the deterministic core in TypeScript, `public/` keeps
+  running the shipped classic scripts until the client split lands. Both are
+  checked by `npm run verify`. Do not wire one into the other halfway.
+- **The core is ported but not yet plugged in.** `src/sim/` reproduces tuning,
+  track generation and `step()` exactly; `tests/sim-parity.test.ts` replays the
+  frozen references against it in Node and they match to the digit. Until the
+  client split, a change to the simulation has to land on **both sides** — the
+  parity test is what says so, immediately.
+- **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
+  from `lib` and empties `types`, so `document`, `window` or `fetch` are
+  compile errors, not review comments. ESLint additionally rejects `Math.random`,
+  `Date.now` and any `three` import there. The core has to stay replayable in
+  Node; that is what makes it testable, and what keeps a server option open.
 - **A dockerised dev environment sits alongside**, `Dockerfile` + `compose.yaml`.
   It changes nothing to the sources: the repository is bind-mounted and served
   as is, so a change is a page reload away. The checks below also run inside the
   image with `docker compose run --rm tools <command>`. Note that Phase 1 of the
   roadmap replaces the static server with Vite: `compose.yaml` is part of that
   phase, not a follow-up to it.
+- **The simulation is seeded.** Track generation and pickup placement go
+  through `makeRng` in `engine.js`, section « 1b ». A run picks a fresh seed
+  unless `?seed=` pins one. Never reintroduce `Math.random` there: the frozen
+  references depend on it, and so does every replay feature to come. What stays
+  on `Math.random` on purpose is listed in that same section.
+- **`makeRng` and `src/sim/rng.ts` are the same algorithm twice.** A Playwright
+  test compares three hundred draws from each. Change one without the other and
+  it fails, which is exactly the point — it is what will prove the TypeScript
+  extraction changes nothing.
 - **Verify before claiming.** This codebase has produced several bugs whose
-  obvious explanation was wrong. Measure, do not reason from the symptom.
+  obvious explanation was wrong. Measure, do not reason from the symptom. Every
+  guard rail here was checked by breaking what it protects; three of them were
+  found to test nothing at all that way.
 
 ## After any change
 
 ```
-npm run check                                     # syntax, both scripts
-cat public/engine.js public/game.js > /tmp/x.js
-node --check /tmp/x.js                            # no name collision
+npm run verify
 ```
 
-Both are cheap and both have caught real breakage.
+It chains five checks, all cheap, and the first two have caught real breakage:
+
+| | |
+|---|---|
+| `check` | `node --check` on both scripts |
+| `check:globals` | concatenates them and re-checks, to catch a name declared in both |
+| `typecheck` | `tsc -p src/sim` |
+| `lint` | `eslint .` |
+| `test` | `vitest run` |
+
+Everything also runs in the image: `docker compose run --rm tools npm run verify`.
+
+End to end, on top, with a real browser:
+
+```
+npm run test:e2e            # Playwright, 33 tests, 3 profils, ~2 min
+npm run test:e2e:update     # régénère les références visuelles
+npm run verify:all          # verify + test:e2e
+```
+
+Les références figées de simulation vivent dans `tests/e2e/fixtures/` et se
+régénèrent avec `npm run fixtures:update`, jamais à la légère : elles décrivent
+la piste sur soixante graines et la physique sur trois difficultés.
+
+`test:e2e` ne tourne **que sur l'hôte** : l'image ne contient pas de navigateur.
+Les références visuelles sont comparées à zéro pixel de tolérance ; une montée
+de version de Playwright change l'anticrénelage du texte et impose de les
+régénérer sciemment. Ce que la suite couvre et, tout aussi important, ce qu'elle
+ne couvre pas, est écrit en tête de chaque fichier de `tests/e2e/`.
 
 ## Where things live
 
@@ -97,7 +148,18 @@ rebuilt in front of it every frame. Consequences:
 - **Auto quality never turns the background off** and needs several consecutive
   bad measurements. A single dip used to kill the visual signature.
 - **Frame rate throttling only skips on an integer ratio of at least two.**
-  A 144 Hz display targeting 120 dropped to 72 before that rule existed.
+  A 144 Hz display targeting 120 dropped to 72 before that rule existed. The
+  target list is now built from the detected refresh rate for that same reason:
+  only integer divisions of it are honestly reachable.
+- **The simulation runs at a fixed 720 Hz, the rendering does not.** In
+  `frame()`, `dt` stays the real frame delta and drives the display smoothing
+  — camera, smoke, thrust; the simulation only ever advances by whole `SIM_DT`
+  steps. Do not pass `dt` to `step()`, and do not pass `SIM_DT` to the
+  smoothing. 720 divides 60, 72, 90, 120, 144 and 240, which is why nothing is
+  interpolated; changing it breaks that property.
+- **`SIM_EPS` is not cosmetic.** `1/72` and `1/144` are not representable in
+  binary, so without it the accumulator periodically yields one step fewer and
+  the judder comes back. A test caught exactly that.
 
 ## Editing style that works here
 
