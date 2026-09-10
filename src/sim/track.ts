@@ -15,6 +15,7 @@
  * sur une même graine produisaient deux tracés. Voir `nominalSpeed`.
  */
 import { Rng } from './rng.js';
+import { atan, cos, sin } from './trig.js';
 import type { Tuning } from './tuning.js';
 
 export const COUNT = 130;
@@ -196,8 +197,8 @@ export class Track {
     const { px, py, pz, pyaw, nk, ng } = this;
 
     const cy0 = -nk[BACK]! * cursor;
-    px[BACK] = -Math.sin(cy0) * cursor;
-    pz[BACK] = -Math.cos(cy0) * cursor;
+    px[BACK] = -sin(cy0) * cursor;
+    pz[BACK] = -cos(cy0) * cursor;
     py[BACK] = -ng[BACK]! * cursor;
     pyaw[BACK] = cy0;
 
@@ -205,8 +206,8 @@ export class Track {
       const ahead = pyaw[i + 1]!;
       const y2 = ahead - nk[i]! * SEG;
       const mid = (y2 + ahead) * 0.5;
-      px[i] = px[i + 1]! - Math.sin(mid) * SEG;
-      pz[i] = pz[i + 1]! - Math.cos(mid) * SEG;
+      px[i] = px[i + 1]! - sin(mid) * SEG;
+      pz[i] = pz[i + 1]! - cos(mid) * SEG;
       py[i] = py[i + 1]! - ng[i]! * SEG;
       pyaw[i] = y2;
     }
@@ -214,8 +215,8 @@ export class Track {
     const first = SEG - cursor;
     const fy = nk[BACK]! * first;
     const midF = fy * 0.5;
-    px[BACK + 1] = Math.sin(midF) * first;
-    pz[BACK + 1] = Math.cos(midF) * first;
+    px[BACK + 1] = sin(midF) * first;
+    pz[BACK + 1] = cos(midF) * first;
     py[BACK + 1] = ng[BACK]! * first;
     pyaw[BACK + 1] = fy;
 
@@ -223,8 +224,8 @@ export class Track {
       const behind = pyaw[i - 1]!;
       const y2 = behind + nk[i - 1]! * SEG;
       const mid = (y2 + behind) * 0.5;
-      px[i] = px[i - 1]! + Math.sin(mid) * SEG;
-      pz[i] = pz[i - 1]! + Math.cos(mid) * SEG;
+      px[i] = px[i - 1]! + sin(mid) * SEG;
+      pz[i] = pz[i - 1]! + cos(mid) * SEG;
       py[i] = py[i - 1]! + ng[i - 1]! * SEG;
       pyaw[i] = y2;
     }
@@ -258,10 +259,10 @@ export class Track {
     out.yaw = yaw;
     out.bank = b;
 
-    const cy = Math.cos(yaw),
-      sy = Math.sin(yaw);
-    const cb = Math.cos(b),
-      sb = Math.sin(b);
+    const cy = cos(yaw),
+      sy = sin(yaw);
+    const cb = cos(b),
+      sb = sin(b);
     out.rx = cy * cb;
     out.ry = sb;
     out.rz = -sy * cb; // droite, inclinée par le dévers
@@ -349,7 +350,7 @@ export class Track {
 
     // dévers : angle d'équilibre de la charge latérale, plus la vrille en cours
     const load = gen.k * v2 * T.centri;
-    let b = clamp(-Math.atan(load / 9.81) * T.bankScale, -1.25, 1.25);
+    let b = clamp(-atan(load / 9.81) * T.bankScale, -1.25, 1.25);
     if (gen.roll > 0) {
       gen.rollPhase += gen.rollDir * ((Math.PI * 2) / Math.max(6, Math.round(T.rollNodes)));
       gen.roll--;

@@ -20,7 +20,7 @@ which is what Cloudflare Pages serves. `legacy/` is deleted.
 | Switch | Legacy deleted, deployment on the compiled build |
 
 Debt closed outright: 1, 2, 8, 9, 12 (they described the classic scripts), plus
-4 and 15. Largely covered: 3, 6, 10. Open: 5, 11, 13, 14, 16, 17, 18.
+4, 15, 16, 17 and 18. Largely covered: 3, 6, 10. Open: 6, 10, 11, 14.
 
 ## The shape it landed on
 
@@ -158,10 +158,18 @@ The steps above completed, one autonomous pass closed what remained closeable:
 Prettier wired into verify and CI, the frame governor tested and then
 simplified — no frame rate target, no throttle, the display's native rate and
 adaptive quality — eight designer-first sliders plus live console tuning
-restored, and debt 14 recorded as deferred by decision. What is genuinely
-open now sits in `TECH-DEBT.md`: the DOM id coupling (6, low), the strings
-(14, deferred), and `Math.cos` across engines (17), which waits for the
-multiplayer specification.
+restored, and debt 14 recorded as deferred by decision.
+
+Debt 17 has since been closed too. The core carries its own `sin`, `cos` and
+`atan` in `src/sim/trig.ts` instead of borrowing the host's, which removes the
+last way an engine could decide part of the result. It cost the frozen
+references nothing — a port of fdlibm agrees bit for bit with what V8 already
+does — and it turned a four-sample finding into a measured one: the two engines
+disagree on 3 to 4 % of arguments, `sin` as much as `cos`.
+
+What is genuinely open now sits in `TECH-DEBT.md`: the DOM id coupling (6, low),
+the tuning coverage (11, low), the colour-only signals (10, low), and the
+strings (14, deferred).
 
 ## Open decisions
 
@@ -176,12 +184,15 @@ multiplayer specification.
 
 ## Out of scope
 
-- **Multiplayer.** Specifications come after these steps. Step 7 lifts the last
-  blocker on the track being a function of its seed, but a second one has since
-  been measured: `Math.cos` is not bit-identical across JavaScript engines, so
-  a server cannot validate a submitted run by replaying it and comparing for
-  equality. See `TECH-DEBT.md` §17 — it has to be settled in the specification,
-  not discovered during implementation.
+- **Multiplayer.** Specifications come after these steps. Both technical
+  blockers are down now: step 7 made the track a function of its seed, and
+  debt 17 made the core bit-identical across engines, so a server can replay a
+  submitted run and compare for equality. What remains is not arithmetic and
+  belongs in the specification rather than in the code: an equality check
+  proves reproduction, not honesty, since the client can be modified; and the
+  server must compare only what the core produces, never presentation state.
+  When it is written, do not hand-roll state synchronisation — Colyseus or
+  Cloudflare Durable Objects.
 - **three.js past r151.** Colour management and lighting intensity defaults
   changed: that is a visual re-tuning pass, not a dependency bump. It would also
   not make the game faster — measured, see `TECH-DEBT.md` §7: 76 draw calls and

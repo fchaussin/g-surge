@@ -57,6 +57,35 @@ export default tseslint.config(
           message:
             "sim/ doit être déterministe : le temps est un paramètre, pas une lecture d'horloge.",
         },
+        // ECMAScript n'impose pas l'arrondi correct des transcendantes : deux
+        // moteurs peuvent rendre un dernier bit différent sur le même argument,
+        // ce qui a été mesuré ici entre le V8 de Node et celui de Chromium.
+        // Le noyau porte donc les siennes. Voir src/sim/trig.ts.
+        ...[
+          'sin',
+          'cos',
+          'tan',
+          'asin',
+          'acos',
+          'atan',
+          'atan2',
+          'sinh',
+          'cosh',
+          'tanh',
+          'exp',
+          'expm1',
+          'log',
+          'log2',
+          'log10',
+          'log1p',
+          'pow',
+          'cbrt',
+          'hypot',
+        ].map((property) => ({
+          object: 'Math',
+          property,
+          message: `sim/ doit être déterministe : Math.${property} varie d'un moteur à l'autre, passer par trig.ts.`,
+        })),
       ],
       'no-restricted-imports': [
         'error',

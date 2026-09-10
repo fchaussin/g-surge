@@ -9,11 +9,14 @@
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Scene } from 'three';
 import {
+  atan,
   BACK,
   coinTier,
+  cos,
   DEFAULTS,
   DIFF,
   Sim,
+  sin,
   tuningFor,
   type Difficulty,
   type SimEvent,
@@ -514,6 +517,7 @@ declare global {
       setSkyVisible(visible: boolean): void;
       freeze(seed: string, steps: number): void;
       clock(): { hz: number; dt: number };
+      trig(xs: number[]): { sin: number[]; cos: number[]; atan: number[] };
       defaults(): Record<string, number>;
       tuning(): typeof sim.tuning;
       nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
@@ -546,6 +550,16 @@ window.__gsNext = {
    * possible: a frame used to depend on when it happened to be taken.
    */
   clock: () => ({ hz: 1 / loop.fixedStep, dt: loop.fixedStep }),
+
+  /**
+   * The core's own trigonometry, evaluated by the shipped bundle.
+   *
+   * `Math.cos` is not bit-identical across engines, so the core carries its
+   * own — see `src/sim/trig.ts`. This hands the browser's results back so the
+   * end-to-end suite can check them against Node's, which is the only place
+   * the cross-engine claim can actually be tested. See `TECH-DEBT.md` §17.
+   */
+  trig: (xs) => ({ sin: xs.map(sin), cos: xs.map(cos), atan: xs.map(atan) }),
   defaults: () => ({ ...DEFAULTS }),
 
   /**

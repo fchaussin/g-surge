@@ -14,6 +14,7 @@ interface GsNextDebug {
   setSkyVisible(visible: boolean): void;
   freeze(seed: string, steps: number): void;
   clock(): { hz: number; dt: number };
+  trig(xs: number[]): { sin: number[]; cos: number[]; atan: number[] };
   defaults(): Record<string, number>;
   tuning(): { [key: string]: number };
   nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };

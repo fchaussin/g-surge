@@ -174,10 +174,13 @@ describe('la géométrie du ruban portée dans le noyau', () => {
     const sim = new Sim({ seed: 'geometry', difficulty: 'easy' });
     sim.reset('geometry');
 
-    // Même arrondi que la capture. Math.cos rend un dernier bit différent sous
-    // le V8 de Chromium et celui de Node — vérifié, sin non, cos oui — donc une
-    // référence prise dans un navigateur ne peut pas être rejouée ici au bit
-    // près. Voir TECH-DEBT.md section 17.
+    // Même arrondi que la capture, et il reste nécessaire même si le noyau
+    // n'appelle plus Math : cette référence a été prise dans un navigateur, sur
+    // le legacy, qui lui appelait Math.cos. Le V8 de Chromium et celui de Node
+    // ne s'accordent pas sur le dernier bit — mesuré depuis sur 4 000 arguments
+    // plutôt que sur quatre : 3,8 % des sin, 3,3 % des cos, 3,1 % des atan, et
+    // non « cos oui, sin non » comme le disait la version précédente de ce
+    // commentaire. Voir TECH-DEBT.md section 17 et tests/e2e/trig.spec.ts.
     const r = (v: number) => Math.round(v * 1e9) / 1e9;
     const ra = (a: Float32Array) => Array.from(a, r);
 

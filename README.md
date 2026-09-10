@@ -9,7 +9,7 @@ Endless antigrav runner. TypeScript, Vite, three.js pinned to r128.
 ```
 index.html         Vite entry point, markup and all the CSS
 src/
-  sim/             the simulation — no DOM, no three.js, runs in Node
+  sim/             the simulation — no DOM, no three.js, no Math.cos, runs in Node
   client/          rendering, UI, audio, input, loop
 static/            copied verbatim into the build: _headers, manifest, sw.js
 tests/

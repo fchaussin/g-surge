@@ -22,9 +22,16 @@ lack is the sensory layer, not the mechanic.
 - **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
   from `lib` and empties `types`, so `document`, `window` or `fetch` are
   compile errors, not review comments. ESLint additionally rejects
-  `Math.random`, `Date.now` and any `three` import there. The core has to stay
-  replayable in Node; that is what makes it testable, and what keeps a server
-  option open.
+  `Math.random`, `Date.now`, every `Math` transcendental and any `three` import
+  there. The core has to stay replayable in Node; that is what makes it
+  testable, and what keeps a server option open.
+- **The core owns its primitives, it does not borrow the host's.** Randomness
+  is `rng.ts`, time is a parameter, and trigonometry is `trig.ts`. `Math.cos`
+  looks pure, and is — per engine. ECMAScript does not require correct rounding
+  for transcendentals, and Chromium and Node were measured disagreeing on 3 to
+  4 % of the arguments a run produces. Use `sin`, `cos` and `atan` from
+  `src/sim/trig.ts`; the lint rule will tell you if you forget. See
+  `TECH-DEBT.md` §17.
 - **The simulation is seeded, and its references are frozen.**
   `tests/e2e/fixtures/` pins track generation over sixty seeds and physics over
   three difficulties. `tests/sim-parity.test.ts` replays them against the
@@ -175,6 +182,13 @@ imposed, and the port must preserve them rather than invent new ones.
   client should not need to know the three exist.
 - **Object pool.** Sprites, ribbons and the track buffers are allocated once and
   rewritten in place. See below.
+- **Owned primitives over ambient ones.** Three services the platform offers
+  free of charge — randomness, the clock, transcendental maths — are all
+  refused, because each lets the host decide part of the result. The core
+  carries `rng.ts`, takes time as a parameter, and carries `trig.ts`. The
+  general shape: in a deterministic core, an ambient dependency is anything
+  whose answer the *specification* does not pin, and purity is not the test —
+  `Math.cos` is pure and still varies.
 
 **Rules that come from this game's shape.**
 

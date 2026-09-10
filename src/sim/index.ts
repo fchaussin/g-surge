@@ -19,6 +19,7 @@ export {
   type ItemType,
   type TrackPoint,
 } from './track.js';
+export { atan, cos, sin } from './trig.js';
 export {
   DEFAULTS,
   DIFF,

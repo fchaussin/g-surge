@@ -15,6 +15,7 @@
 import type { SimEvent } from './events.js';
 import type { SimState } from './state.js';
 import { BACK, clamp, HALF, ITEM_COIN, ITEM_FIX, SEG, SHIP, Track } from './track.js';
+import { sin } from './trig.js';
 import type { Tuning } from './tuning.js';
 
 export interface Input {
@@ -157,7 +158,7 @@ export function step(
   state.yaw += (steer * yawMax - state.yaw) * Math.min(1, dt * T.yawResponse);
 
   // vitesse latérale que le nez réclame, et écart réellement encaissé par les appuis
-  const vWant = Math.sin(state.yaw) * state.speed;
+  const vWant = sin(state.yaw) * state.speed;
   const dv = vWant - state.latVel;
   if (!state.air) {
     if (!state.drift && Math.abs(dv) * T.gripHold > T.gripLimit) state.drift = true;
@@ -169,7 +170,7 @@ export function step(
   state.latVel += dv * Math.min(1, dt * grip);
   if (!state.air) {
     state.latVel -= kNow * state.speed * state.speed * T.centri * dt;
-    state.latVel -= 9.81 * Math.sin(bNow) * T.bankAssist * dt;
+    state.latVel -= 9.81 * sin(bNow) * T.bankAssist * dt;
   }
   state.latVel = clamp(state.latVel, -T.steerMaxVel, T.steerMaxVel);
   state.lat += state.latVel * dt;

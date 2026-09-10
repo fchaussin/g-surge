@@ -15,7 +15,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 
 | File | Lines | Role |
 |---|---|---|
-| `src/sim/` | ~1 200 | Tuning, PRNG, clock, track, state, events, step |
+| `src/sim/` | ~1 570 | Tuning, PRNG, clock, trigonometry, track, state, events, step |
 | `src/client/` | ~2 100 | Viewport, loop, camera, sky, track mesh, ship, pickups, HUD, screens, settings, audio, input, scores |
 | `index.html` | 665 | Markup and all the CSS |
 
@@ -47,15 +47,21 @@ rendering convention, not a model.
 
 Strict TypeScript, and its `tsconfig` drops `DOM` from `lib` and empties
 `types`, so `document`, `window` or `fetch` are compile errors rather than
-review comments. ESLint additionally rejects `Math.random`, `Date.now` and any
-`three` import. That is what lets it run in Node, be tested against frozen
-references, and one day be executed by a server.
+review comments. ESLint additionally rejects `Math.random`, `Date.now`, every
+`Math` transcendental and any `three` import. That is what lets it run in Node,
+be tested against frozen references, and one day be executed by a server.
+
+Three ambient services the platform offers, the core declines and carries
+itself: randomness, time and transcendentals. Each was a way for the host to
+decide part of the result — `Math.random` obviously, `Date.now` less so, and
+`Math.cos` not at all until it was measured. See `TECH-DEBT.md` §17.
 
 | File | Role |
 |---|---|
 | `tuning.ts` | `DEFAULTS`, `DIFF`, `tuningFor` — the source of truth for every number |
 | `rng.ts` | Seeded sfc32, serialisable, separate streams |
 | `clock.ts` | The fixed-step accumulator and the reasoning behind 720 Hz |
+| `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
 | `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
 | `state.ts` | Simulation state, track space only |
 | `events.ts` | What the simulation reports, instead of calling the audio |

@@ -33,7 +33,7 @@ classic scripts, and those are gone.
 | 19 | Documents state figures nothing checks | — | **closed for GAMEPLAY.md** |
 | 15 | Reverb built on the main thread | — | **done**, built on the first gesture |
 | 16 | Missing PWA icons | — | **done** |
-| 17 | `Math.cos` is not bit-identical across engines | Medium | measured, blocks server validation |
+| 17 | `Math` transcendentals are not bit-identical across engines | — | **done**, the core carries its own |
 | 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
 
 ## 3. Tests
@@ -63,6 +63,13 @@ Formerly listed as missing, and closed since:
   144-asked-for-120-got-72 class of bug rather than guarding it.
 - Full-frame pixel references of the 3D rendering exist, at zero tolerance,
   via `__gsNext.freeze`.
+- The core's trigonometry is pinned by known-answer vectors and replayed in a
+  browser against Node, validated by mutation: swapping two quadrants, dropping
+  the second reduction round, moving a `kernelCos` threshold and removing the
+  tiny-argument early return each bring down a named test. A one-ULP change to a
+  polynomial coefficient does not, and provably cannot — measured at zero
+  differing results over three million arguments, because fdlibm's coefficients
+  carry more precision than the double result can express.
 
 Still missing:
 
@@ -235,30 +242,78 @@ The mark is the game's own silhouette — a track receding under a gantry —
 rather than a letter, because a wordmark is unreadable at the 48 pixels a
 browser tab actually gives it.
 
-## 17. Transcendentals are not bit-identical across engines
+## 17. Transcendentals are not bit-identical across engines — done
 
-`Math.cos` returns a different last bit under Chromium's V8 and Node's V8 for
-some arguments. Measured, not assumed: on four track yaw values taken from a
-real run, two disagreed by one unit in the last place while `Math.sin` agreed
-on all four. The specification allows this — only a handful of `Math` functions
-are required to be correctly rounded.
+ECMAScript does not require correct rounding for the transcendental `Math`
+functions. Each engine picks an implementation, and two engines can return a
+different last bit for the same argument. `Math.cos` looks pure — it is pure,
+for a given engine — but it is not *specified*, which makes it exactly the same
+kind of leak as `Math.random` and `Date.now`: a dependency on the host, sitting
+inside a core whose determinism is the property that makes it replayable and
+arbitrable by a server.
 
-Consequences, in order of how much they matter:
+**The earlier measurement here was too small to support what it concluded.** It
+sampled four track yaw values, found two `cos` disagreements and no `sin` one,
+and wrote down "cos yes, sin no". Measured properly — 4 000 arguments drawn
+across the range a run actually produces, the browser against Node, in
+`tests/e2e/trig.spec.ts`:
 
-- **A Node simulation cannot reproduce a browser run bit for bit**, so
-  server-side validation of a submitted run cannot be an equality check. It
-  needs a tolerance, or the core has to stop using the platform's
-  transcendentals and carry its own — a polynomial approximation or a table —
-  which is a real cost to weigh when the multiplayer specification is written.
-  This is the finding that matters.
-- The frozen references have to be rounded. The physics traces already were, at
-  1e-6, which is why they replay exactly; the geometry reference is rounded at
-  1e-9. Both are far above the 1e-16 noise and far below anything meaningful.
-- Two browsers on different engines will drift apart over a long run for the
-  same reason. Nothing depends on that today, ghosts and shared tracks would.
+| | sin | cos | atan |
+|---|---|---|---|
+| Chromium vs Node, \|x\| < 45 | 3.8 % | 3.3 % | 3.1 % |
+| Chromium vs Node, \|x\| < 1000 | 4.0 % | 3.5 % | 0.1 % |
 
-Same-engine determinism is unaffected: a given build always agrees with itself,
-which is what the seeded PRNG and the fixed step guarantee.
+`sin` drifts as much as `cos`, and `atan`, which the old entry never mentioned,
+drifts too. The four-sample figure was the same species of error as the one
+§19 exists for.
+
+### What was done
+
+`src/sim/trig.ts` carries the core's own `sin`, `cos` and `atan`, and ESLint
+rejects the whole `Math` transcendental family inside `src/sim/`. The module is
+a port of fdlibm and uses only `+ - * /`, comparisons and bit reads —
+operations ECMAScript specifies as IEEE 754 binary64, round-to-nearest-even,
+with no FMA and no extended precision. Their results are identical on every
+conforming engine, so the transcendental becomes a sequence of steps that
+cannot vary.
+
+- **Nothing moved.** fdlibm is also what V8 derives `Math` from, so on this
+  engine the two agree bit for bit: measured at 100 % over 3.06 million
+  arguments, including every value a run produces. The frozen references —
+  physics, track, geometry, and the full-frame scene captures at zero pixel
+  tolerance — all passed unchanged. This was not a behavioural change, and it
+  did not need to be one.
+- **The claim is tested where it lives.** `tests/trig.test.ts` pins the results
+  against frozen bit patterns rather than against `Math`, because comparing to
+  `Math` would put the dependency straight back into the net.
+  `tests/e2e/trig.spec.ts` runs the shipped bundle in Chromium and checks it
+  returns Node's bits.
+- **Cost, measured**: `buildPath` went from 4.3 to 10.5 µs and `sample` from 37
+  to 124 ns; `step` moved 4 %. At 240 fps that is 0.36 % of a core against
+  0.19 %. The obvious optimisation was the wrong one — a `Uint32Array` view over
+  the double is 8× *slower* than `DataView` here, so `DataView` stayed, and it
+  is also the one that does not depend on the machine's endianness.
+
+### What is left of the item
+
+- **Domain.** The port is faithful to fdlibm's medium path, |x| < 2^20·π/2
+  ≈ 1.6e6 rad. Beyond that fdlibm switches to a Payne-Hanek reduction that is
+  deliberately not ported: results there stay perfectly deterministic, they
+  merely lose accuracy. A run reaches 44 rad, and the yaw cannot grow — the
+  ribbon is rebuilt from the ship every frame.
+- **The frozen references still round**, physics at 1e-6 and geometry at 1e-9.
+  Not for this reason any more: they were captured from the legacy, which did
+  call `Math`, and rounding is what lets that historical capture keep being
+  replayed.
+- **Server validation is unblocked but not free.** A Node replay of a browser
+  run now agrees bit for bit through the core, which is what an equality check
+  needs. Two things still have to be settled in the multiplayer specification:
+  the client can be modified, so an equality check proves reproduction and not
+  honesty; and anything the server compares must come from the core, never from
+  presentation code, which is under no such discipline.
+
+Same-engine determinism was never in question: a given build always agreed with
+itself, which is what the seeded PRNG and the fixed step guarantee.
 
 ## 18. Service worker precache — done
 
