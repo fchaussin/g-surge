@@ -58,13 +58,16 @@ host user, and `compose.yaml` assumes that. On a rootful daemon, run with
 
 Playwright is not in the image. Run `npm run test:e2e` on the host.
 
-## Cloudflare Pages
+## Deploying
+
+Nothing is deployed yet. When a Cloudflare Pages project is set up, it wants:
 
 - Build command: `npm run build`
 - Build output directory: `public`
 
 `static/_headers` is copied into the build and sets the cache policy:
-`index.html` and `sw.js` are never cached, icons are immutable.
+`index.html` and `sw.js` are never cached, icons are immutable. The service
+worker only registers over https, so it stays out of the way in development.
 
 ## Docs
 

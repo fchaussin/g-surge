@@ -204,9 +204,12 @@ imposed, and the port must preserve them rather than invent new ones.
 
 ## Editing style that works here
 
-- Anchor edits on unique strings and assert they exist before writing. Several
-  earlier sessions lost work because a multi-edit script failed halfway and
-  wrote nothing.
+- **Anchor edits on unique strings and assert they exist before writing.**
+  Earlier sessions lost work because a multi-edit script failed halfway and
+  wrote nothing. The subtler failure is worse and happens more often: a
+  replacement whose anchor no longer matches does nothing at all, reports
+  success, and leaves a stale document behind. Three wrong figures survived a
+  correction that way in a single session. Assert the count, every time.
 - Re-read the file before a second edit to the same region. Line numbers move.
 - When a visual bug is reported, reproduce the geometry offline in Node before
   changing the renderer. The camera, the trail and the chevrons were all fixed
@@ -214,6 +217,15 @@ imposed, and the port must preserve them rather than invent new ones.
 
 ## Deploying
 
-Cloudflare Pages, no build command, output directory `public`. `_headers` keeps
-`index.html` and `sw.js` uncached. **Bump `VERSION` in `sw.js` whenever a cached
-asset changes**, otherwise clients keep the old build.
+Nothing is deployed yet. A Cloudflare Pages project would want build command
+`npm run build` and output directory `public`.
+
+`static/_headers` is copied into the build and keeps `index.html` and `sw.js`
+uncached. **Bump `VERSION` in `static/sw.js` whenever a cached asset changes**,
+otherwise clients keep the old build.
+
+The service worker registers only over https, so it stays out of the way in
+development. Its precache list cannot name the hashed bundle and is cut back to
+the shell; generating it at build time is roadmap step 5. Content hashing makes
+the cache-first path safe regardless — a changed file has a different URL, so
+it can never be served stale.

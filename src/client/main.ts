@@ -398,6 +398,28 @@ window.addEventListener('keydown', () => { audio.resume(); audio.warmUp(); }, { 
 loop.start();
 requestAnimationFrame(() => window.__gsReady?.());
 
+/**
+ * Offline shell.
+ *
+ * Only over https, which leaves localhost alone: a service worker caching the
+ * bundle during development is a stale reload waiting to happen, and the
+ * benefit there is nil.
+ *
+ * Registration lived in the legacy page's footer script and was lost when the
+ * markup was ported — the file shipped and nothing activated it. Caught by
+ * looking for it rather than by a test, which is the gap.
+ *
+ * Content-hashed asset names make the cache-first path safe by construction: a
+ * changed file has a different URL, so it can never be served stale. What is
+ * still missing is the precache list, which cannot name a hashed bundle and so
+ * only covers an offline reload, not an offline first open. Roadmap step 5.
+ */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('sw.js').catch(() => undefined);
+  });
+}
+
 /* ----------------------------------------------------------------- debug -- */
 
 declare global {
