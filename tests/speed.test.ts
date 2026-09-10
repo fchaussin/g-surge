@@ -77,6 +77,32 @@ describe('the speed ladder', () => {
     expect(T.boostFactor * T.supFactor).toBeLessThan(ENGINE_R_MAX);
   });
 
+  it('reaches the top from the first metre, ramp or no ramp', () => {
+    // Le super boost court-circuite la rampe. Sans ça, multiplier une cible
+    // encore basse donnait 410 km/h de médiane avant la fin de rampe — le
+    // ramassage le plus rare du jeu affichant moins qu'une croisière ordinaire,
+    // avec tout son appareil sensoriel par-dessus.
+    const sim = new Sim({ seed: 'ramp', difficulty: 'easy' });
+    sim.reset('ramp');
+    const T = sim.tuning;
+    expect(sim.state.dist).toBe(0);
+
+    let peak = 0;
+    for (let i = 0; i < T.supTime * 720; i++) {
+      sim.state.superT = T.supTime;
+      sim.state.lat = 0;
+      sim.state.latVel = 0;
+      sim.step({ steer: 0, brake: false, boost: false }, DT, false);
+      peak = Math.max(peak, sim.state.speed);
+    }
+
+    // La convergence n'est pas instantanée : 2,6 s à `speedGain * boostGain`
+    // couvrent l'essentiel de l'écart, pas la totalité.
+    const target = T.speedMax * T.boostFactor * T.supFactor;
+    expect(peak).toBeGreaterThan(target * 0.9);
+    expect(peak).toBeLessThanOrEqual(target);
+  });
+
   it('does not need the reserve while it lasts', () => {
     const sim = new Sim({ seed: 'ladder' });
     sim.reset('ladder');

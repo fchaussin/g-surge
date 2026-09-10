@@ -105,7 +105,12 @@ export function step(
   let gain = T.speedGain;
   if (attract) target = 46;
   else {
-    const ramp = Math.min(1, state.dist / T.speedRamp);
+    // Un super boost ne dépend pas de la rampe. Multiplier une cible encore
+    // basse donnait 410 km/h de médiane avant la fin de rampe, avec une coque
+    // intacte et sans toucher un mur — le ramassage le plus rare du jeu, avec
+    // tout son appareil sensoriel, affichait moins qu'une croisière ordinaire.
+    // Une fois la rampe finie la ligne ne change rien : `ramp` y vaut déjà 1.
+    const ramp = topped ? 1 : Math.min(1, state.dist / T.speedRamp);
     target = T.speedStart + (T.speedMax - T.speedStart) * ramp;
     if (state.boosting) {
       target *= topped ? T.boostFactor * T.supFactor : T.boostFactor;

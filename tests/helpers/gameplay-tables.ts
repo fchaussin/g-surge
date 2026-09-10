@@ -91,6 +91,13 @@ export function speedTiers(t: Tuning): string {
     ),
     '',
     wrap(
+      'Cruising and boost climb with the speed ramp over the opening of a run. A super ' +
+        'boost does not: it reaches its own ceiling from the first metre, because ' +
+        'multiplying a target that is still climbing had it showing less than an ' +
+        'ordinary cruise while wearing the loudest presentation in the game.',
+    ),
+    '',
+    wrap(
       'It used to be a speed threshold, and that was measured to be a poor stand-in ' +
         'for what it meant. Damage cuts the target speed, so a battered hull lost the ' +
         'tier its speed would have opened — paying twice for the same mistake. The rung ' +

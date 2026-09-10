@@ -47,6 +47,11 @@ The tier is the thrust rung, not a speed threshold. Top speeds are 929 km/h
 cruising, 1207 under boost and 1473 under a super boost, which the surge
 matches without exceeding.
 
+Cruising and boost climb with the speed ramp over the opening of a run. A super
+boost does not: it reaches its own ceiling from the first metre, because
+multiplying a target that is still climbing had it showing less than an
+ordinary cruise while wearing the loudest presentation in the game.
+
 It used to be a speed threshold, and that was measured to be a poor stand-in
 for what it meant. Damage cuts the target speed, so a battered hull lost the
 tier its speed would have opened — paying twice for the same mistake. The rung
