@@ -4,303 +4,316 @@
 > implémenter.** Il sert de palette où puiser — surtout pour les FX qui
 > renforcent l'impression de vitesse. Rien ici n'est un engagement, et l'ordre
 > des sections n'est pas un ordre de travail.
->
-> **Ce qui existe déjà dans le code** (relevé le 2026-09-10), parce que
-> plusieurs concepts ci-dessous sont des extensions de mécaniques en place et
-> non des ajouts :
->
-> - **Le drift est implémenté et boucle déjà avec le boost.** `state.drift` et
->   `state.slip` dans la simulation, recharge à `driftCharge` = 17 points/s,
->   sortie sous `driftExit`. Retours existants : lacet du vaisseau via
->   `driftYaw`, mention « DRIFT » et jauge de charge au HUD, bande de bruit
->   dédiée à 2600 Hz dans `audio.ts`. Manquent surtout les *événements* —
->   entrée, sortie, réalignement — le drift n'a aujourd'hui qu'un retour continu.
-> - **Le superboost est implémenté**, ramassé sur la piste (`supChance`), d'une
->   durée `supTime` = 2,6 s. Mais il n'est pas différencié : `supFactor` = 1,08
->   ne le place que 8 % au-dessus d'un boost normal, et côté sensoriel il est
->   **identique** — même `+7` de champ de vision dans `camera.ts`, même `uWarp`
->   dans le ciel, seule la plume du réacteur change de palier. C'est exactement
->   ce contre quoi la section 15 met en garde.
-> - **L'état `G_SURGE` n'existe pas.** Le jeu porte le nom d'un état qu'il n'a
->   pas encore.
 
+Ce document a été traduit dans le vocabulaire du code le 2026-09-10 : chaque
+effet nomme désormais le symbole réel qui le porte, ou dit qu'il n'en existe
+aucun. Les termes d'origine venaient d'un middleware audio (`RTPC`, `Trigger
+Tag`, `Bundle`) qui n'a pas de référent ici, et on ne peut pas sélectionner un
+effet dont on ignore s'il coûte une ligne ou une boucle de jeu.
 
-## 1. Nouveaux concepts gameplay
+Les chiffres cités le sont toujours avec leur symbole, et `src/sim/tuning.ts`
+reste la source de vérité — voir la dette §19, qui existe précisément parce
+qu'un document a porté un chiffre faux pendant des mois.
 
-| Terme | Définition | Fonction gameplay |
+## Comment lire les tables
+
+- **Déclencheur** — le symbole d'état ou l'événement qui porte l'effet.
+  « à créer » quand l'instant existe dans le code mais que rien ne l'émet ;
+  « n'existe pas » quand le concept lui-même est absent.
+- **Module** — le fichier où l'effet se pose.
+- **Classe** — ce que l'effet coûte en références figées, et c'est la seule
+  chose qui distingue une après-midi d'une semaine :
+
+| Classe | Ce que ça touche | Coût |
 |---|---|---|
-| `DRIFT` | Dérapage contrôlé du véhicule | Permet de recharger plus efficacement le boost |
-| `DRIFT_CHARGE` | Charge générée pendant un drift valide | Alimente ou accélère la récupération du boost |
-| `DRIFT_CHAIN` | Maintien ou enchaînement de drifts | Peut augmenter progressivement le rendement de recharge |
-| `SUPERBOOST_PICKUP` | Ressource collectée directement sur la piste | Donne accès à un Superboost |
-| `SUPERBOOST` | Boost spécial, plus puissant qu'un boost normal | Accélération exceptionnelle et ressource limitée |
-| `SUPERBOOST_CHARGE` | Quantité de Superboost disponible | Dépend des pickups collectés |
-| `SUPERBOOST_START` | Déclenchement du Superboost | Événement instantané |
-| `SUPERBOOST_END` | Fin du Superboost | Déclenche une phase de recovery |
+| **A** | client seul — `camera.ts`, `ship.ts`, `sky.ts`, `hud.ts`, `audio.ts`, `haptics.ts` | aucune fixture de simulation. Mais si l'effet apparaît dans une des trois captures de scène, il doit être remis à zéro dans `freeze()` (`main.ts`) — le piège que `CLAUDE.md` documente trois fois |
+| **B** | un événement dans `events.ts`, ou un champ d'état non-physique | **gratuit en références** : `physics-*.json` enregistre une liste blanche de dix-sept champs et **aucun événement**. Tant que l'arithmétique ne bouge pas, rien ne bouge |
+| **C** | la physique ou le tuning | changement de comportement déclaré : `npm run fixtures:update`, commit dédié qui ne fait que ça, `GAMEPLAY.md` se régénère |
 
----
+- **Statut** — `existe` / `partiel` / `absent`.
+- **Prio** — inchangée. C'est un jugement de design, pas un relevé.
 
-# 2. Hiérarchie des accélérations
+## Ce que le code contient déjà
 
-| Niveau | État | Intensité perceptive | Origine |
+- **Le drift est implémenté et boucle avec le boost.** `state.drift` (booléen)
+  et `state.slip` dans la simulation. Entrée et sortie sont une hystérésis dans
+  `step.ts` : on entre quand `|dv| * gripHold > gripLimit`, on sort sous
+  `driftExit`. Impossible en l'air, `state.drift` y est forcé à faux.
+- **`state.slip` n'est pas un angle.** C'est `dv`, l'écart entre la vitesse
+  latérale que le nez réclame et celle que les appuis encaissent, en m/s. La
+  palette d'origine en parlait comme d'un `DRIFT_ANGLE` ; tout effet qui veut un
+  angle devra le dériver, et tout effet normalisé devra choisir un plafond —
+  le rendu prend aujourd'hui `driftYaw` puis sature à ±0,42 rad, donc à 35 m/s.
+- **`DRIFT_CHARGE` et la réserve de boost sont la même variable**, `state.energy`,
+  de 0 à 100. La recharge de drift vaut `driftCharge` = 17 points/s, à comparer à
+  `boostRecharge` = 10. Deux concepts dans la palette, un seul champ dans le code.
+- **Le superboost est implémenté**, ramassé sur la piste (`supChance`), d'une
+  durée `supTime` = 2,6 s. Il n'est pas différencié : `supFactor` = 1,08 ne le
+  place que 8 % au-dessus d'un boost normal, et **côté sensoriel il est
+  identique** — `camera.ts` lit `state.boosting` pour son `+7` de champ, `sky.ts`
+  lit `boosting` pour `uWarp`, et `audio.update()` ne reçoit même pas `superT`.
+  Seule la plume du réacteur change de palier. C'est exactement ce contre quoi
+  la section 15 met en garde.
+- **`uWarp` ne déforme rien.** Malgré son nom, le shader n'en fait qu'un gain de
+  luminosité, `col *= 1.0 + uWarp * 0.55`. Une vraie distorsion reste à écrire.
+- **Il n'y a pas de post-process.** Aucun `EffectComposer`, aucune passe : tout
+  blur ou aberration est un ajout de pipeline, pas un réglage.
+- **Les seules particules sont la traînée de fumée** : 18 sprites parentés au
+  vaisseau, placés par phase le long d'une traînée, pas un émetteur événementiel.
+  Le halo (`ship.setHalo`) est une sphère additive déjà pilotée par les
+  événements, et c'est le support le plus proche d'une onde de choc.
+- **N'existent pas du tout, et sont des mécaniques, pas des FX** : la chaîne de
+  drift, le stock de superboost avec sa disponibilité et son activation — le
+  pickup déclenche l'effet immédiatement — la phase de recovery, et l'état
+  `G_SURGE`. Le jeu porte le nom d'un état qu'il n'a pas encore.
+
+## 1. Concepts, et leur référent dans le code
+
+| Terme de la palette | Dans le code | Statut |
+|---|---|---|
+| `DRIFT` | `state.drift` | existe |
+| `DRIFT_ANGLE` | `state.slip`, en m/s et non en radians | existe, à convertir |
+| `DRIFT_CHARGE` | `driftCharge` → `state.energy` | existe, confondu avec la réserve de boost |
+| `DRIFT_CHAIN` | — | **n'existe pas** — mécanique, classe C |
+| `SUPERBOOST_PICKUP` | événement `pickup` de `kind: 'sup'` | existe |
+| `SUPERBOOST` | `state.superT`, `supTime`, `supFactor` | existe |
+| `SUPERBOOST_CHARGE` | — | **n'existe pas** : pas de stock |
+| `SUPERBOOST_START` | — | **n'existe pas** : le ramassage déclenche |
+| `SUPERBOOST_END` | `superT` retombe à zéro, sans événement | instant présent, non émis |
+| `RECOVERY` | — | **n'existe pas** |
+| `G_SURGE` | — | **n'existe pas** |
+| `RTPC` | les paramètres de `audio.update()`, `sky.update()` | voir §12 |
+| `Trigger Tag` | les variantes de `SimEvent` dans `events.ts` | voir §3 |
+| `Bundle` | rien — regroupement de rédaction, conservé tel quel | — |
+
+## 2. Hiérarchie des accélérations
+
+La palette en voulait cinq. Le code en a **trois**, portées par une seule
+variable : `thrust`, calculée dans `main.ts` en `superT > 0 ? 2 : boosting ? 1 : 0`,
+puis lue par `ship.updateThrust` et `ship.updateSmoke`.
+
+| Niveau | Palette | Dans le code | Statut |
 |---:|---|---|---|
-| 0 | `CRUISE` | Faible | Propulsion normale |
-| 1 | `FAST` | Moyenne | Vitesse naturelle |
-| 2 | `BOOST` | Forte | Ressource boost rechargeable |
-| 3 | `SUPERBOOST` | Très forte | Pickup collecté sur la piste |
-| 4 | `G_SURGE` | Extrême | État signature du jeu |
+| 0 | `CRUISE` | `thrust` 0 | existe |
+| 1 | `FAST` | — confondu avec 0, seule la vitesse change | absent |
+| 2 | `BOOST` | `thrust` 1, `state.boosting` | existe |
+| 3 | `SUPERBOOST` | `thrust` 2, `state.superT` | existe, non différencié |
+| 4 | `G_SURGE` | — | absent |
 
 Le joueur doit pouvoir identifier chaque niveau sans regarder l'interface.
+Aujourd'hui il ne peut distinguer 2 de 3 que par la couleur de la plume.
 
----
+## 3. Déclencheurs
 
-# 3. Nouveaux Trigger Tags
+`events.ts` porte une union discriminée, drainée une fois par pas. Ce qui existe :
+`land`, `badLanding`, `wallImpact`, `scrape`, `pickup` (`coin` / `fix` / `sup`),
+`wreck`.
 
-| Tag | Définition | Paramètres |
+Ce que la palette réclame et qu'il faudrait y ajouter — tous classe **B**, donc
+sans effet sur les références :
+
+| Événement | Où l'émettre | Note |
 |---|---|---|
-| `DRIFT` | Drift actif | `DriftIntensity` |
-| `DRIFT_START` | Entrée en drift | Event |
-| `DRIFT_END` | Fin du drift | Event |
-| `DRIFT_CHARGE` | Recharge boost générée par drift | `DriftChargeRate` |
-| `DRIFT_ANGLE` | Angle entre orientation et trajectoire | `DriftAngle` |
-| `DRIFT_SPEED` | Vitesse pendant drift | `DriftSpeed` |
-| `DRIFT_CHAIN` | Durée / qualité d'un drift continu | `DriftChain` |
-| `SUPERBOOST_PICKUP` | Pickup Superboost récupéré | Event |
-| `SUPERBOOST_AVAILABLE` | Superboost disponible | Bool / count |
-| `SUPERBOOST_START` | Activation Superboost | Event |
-| `SUPERBOOST` | Superboost actif | `SuperboostIntensity` |
-| `SUPERBOOST_END` | Fin Superboost | Event |
+| `driftStart` | `step.ts`, à la bascule de `state.drift` à vrai | l'instant existe déjà |
+| `driftEnd` | même bascule, à faux | idem |
+| `supEnd` | `step.ts`, quand `superT` atteint zéro | idem |
+| `supStart` | — | **n'existe pas** tant que le ramassage déclenche l'effet ; c'est le même instant que `pickup kind:'sup'` |
+| `boostFull` | `step.ts`, au franchissement de 100 | le HUD calcule déjà le seuil de son côté |
 
----
+Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas des
+événements : elles se lisent dans l'état, voir §12.
 
-# 4. Bundles Drift
+## 4. Regroupements Drift
 
-| Bundle | Objectif | VFX | SFX | Activation |
-|---|---|---|---|---|
-| `DRIFT_ENTRY` | Donner un impact clair au début du drift | Camera yaw léger, particules latérales, petit shake | Transient aérodynamique, friction / flux latéral | `DRIFT_START` |
-| `DRIFT_FLOW` | Faire sentir le déplacement latéral | Particules latérales, blur asymétrique, camera roll | Vent latéral, turbulence | `DRIFT` |
-| `DRIFT_CHARGE` | Montrer que le drift recharge le boost | Réacteurs ou jauge qui accumulent de l'énergie, pulses | Charge énergétique progressive | `DRIFT_CHARGE` |
-| `DRIFT_CHAIN` | Valoriser un drift long / propre | Intensification progressive du feedback | Montée harmonique / rythme de charge | Drift maintenu |
-| `DRIFT_RELEASE` | Marquer la sortie du drift | Snap caméra, recentrage rapide | Whoosh de réalignement | `DRIFT_END` |
-| `DRIFT_FULL_CHARGE` | Signaler boost totalement rechargé | Flash HUD / pulse réacteurs | Confirmation sonore distincte | Boost atteint 100 % |
-
----
-
-# 5. VFX Drift
-
-| ID | Effet | Tags | Priorité | Bundle |
-|---|---|---|---|---|
-| `CAM_DRIFT_YAW` | Léger retard d'orientation de caméra | `DRIFT`, `CAMERA` | P0 | `DRIFT_FLOW` |
-| `CAM_DRIFT_ROLL` | Roll dépendant de l'angle de drift | `DRIFT`, `GFORCE` | P0 | `DRIFT_FLOW` |
-| `CAM_DRIFT_EXIT_SNAP` | Recentrage caméra dynamique | `DRIFT_END` | P1 | `DRIFT_RELEASE` |
-| `PP_DRIFT_DIRECTIONAL_BLUR` | Blur dirigé selon le mouvement latéral | `DRIFT`, `BLUR` | P1 | `DRIFT_FLOW` |
-| `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `DRIFT`, `PARTICLES` | P0 | `DRIFT_FLOW` |
-| `FX_DRIFT_WAKE` | Distorsion / turbulence derrière le véhicule | `DRIFT`, `AIRFLOW` | P1 | `DRIFT_FLOW` |
-| `FX_DRIFT_CHARGE` | Énergie visuelle accumulée | `DRIFT_CHARGE`, `ENERGY` | P0 | `DRIFT_CHARGE` |
-| `HUD_DRIFT_CHARGE` | Feedback recharge boost | `HUD`, `DRIFT_CHARGE` | P0 | `DRIFT_CHARGE` |
-
----
-
-# 6. SFX Drift
-
-| ID | Effet | Tags | Priorité | Bundle |
-|---|---|---|---|---|
-| `SFX_DRIFT_ENTRY` | Transient début drift | `DRIFT_START` | P0 | `DRIFT_ENTRY` |
-| `SFX_DRIFT_AIRFLOW` | Flux aérodynamique latéral | `DRIFT`, `WIND` | P0 | `DRIFT_FLOW` |
-| `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `DRIFT`, `WIND` | P1 | `DRIFT_FLOW` |
-| `SFX_DRIFT_CHARGE` | Son de recharge boost | `DRIFT_CHARGE`, `ENERGY` | P0 | `DRIFT_CHARGE` |
-| `SFX_DRIFT_CHAIN` | Intensification progressive | `DRIFT_CHAIN` | P1 | `DRIFT_CHAIN` |
-| `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `DRIFT_END` | P1 | `DRIFT_RELEASE` |
-| `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `DRIFT_CHARGE`, `HUD` | P0 | `DRIFT_FULL_CHARGE` |
-
----
-
-# 7. Bundles Superboost
-
-| Bundle | Objectif | VFX | SFX | Activation |
-|---|---|---|---|---|
-| `SUPERBOOST_PICKUP` | Donner de la valeur au pickup | Flash local, absorption énergétique | Pickup énergétique distinct | Collecte |
-| `SUPERBOOST_READY` | Indiquer discrètement sa disponibilité | Réacteur / HUD spécifique | Hum ou tonalité très légère | Stock disponible |
-| `SUPERBOOST_BUILDUP` | Préparer l'activation | Compression visuelle très courte | Aspiration plus agressive que boost normal | Juste avant activation |
-| `SUPERBOOST_IMPACT` | Rupture sensorielle forte | Shockwave, FOV kick, flash, distorsion | Impact grave + snap énergétique | Activation |
-| `SUPERBOOST_SUSTAIN` | Maintenir une accélération supérieure | Trails longues, particules accélérées, glow | Réacteur Superboost + vent extrême | Superboost actif |
-| `SUPERBOOST_END` | Donner du poids à la fin | Retour FOV / trails | Décompression sonore | Fin |
-| `SUPERBOOST_RECOVERY` | Retour progressif vers vitesse normale | Nettoyage progressif des effets | Retour mix normal | Après Superboost |
-
----
-
-# 8. VFX Superboost
-
-| ID | Effet | Tags | Priorité | Bundle |
-|---|---|---|---|---|
-| `FX_SUPERBOOST_PICKUP` | Absorption pickup | `SUPERBOOST_PICKUP` | P0 | `SUPERBOOST_PICKUP` |
-| `HUD_SUPERBOOST_READY` | Indication disponibilité | `SUPERBOOST_AVAILABLE`, `HUD` | P0 | `SUPERBOOST_READY` |
-| `CAM_SUPERBOOST_FOV_KICK` | Kick FOV supérieur au boost normal | `SUPERBOOST_START`, `FOV` | P0 | `SUPERBOOST_IMPACT` |
-| `CAM_SUPERBOOST_LAG` | Forte inertie caméra | `SUPERBOOST`, `ACCEL` | P0 | `SUPERBOOST_IMPACT` |
-| `PP_SUPERBOOST_WARP` | Distorsion spatiale temporaire | `SUPERBOOST`, `DISTORTION` | P1 | `SUPERBOOST_SUSTAIN` |
-| `FX_SUPERBOOST_TRAIL` | Traînées beaucoup plus longues | `SUPERBOOST`, `REACTOR` | P0 | `SUPERBOOST_SUSTAIN` |
-| `FX_SUPERBOOST_PARTICLES` | Flux particulaire accéléré | `SUPERBOOST`, `PARTICLES` | P0 | `SUPERBOOST_SUSTAIN` |
-| `FX_SUPERBOOST_SHOCKWAVE` | Onde de choc d'activation | `SUPERBOOST_START`, `IMPACT` | P0 | `SUPERBOOST_IMPACT` |
-
----
-
-# 9. SFX Superboost
-
-| ID | Effet | Tags | Priorité | Bundle |
-|---|---|---|---|---|
-| `SFX_SUPERBOOST_PICKUP` | Son de collecte | `SUPERBOOST_PICKUP` | P0 | `SUPERBOOST_PICKUP` |
-| `SFX_SUPERBOOST_READY` | Feedback disponibilité | `SUPERBOOST_AVAILABLE` | P1 | `SUPERBOOST_READY` |
-| `SFX_SUPERBOOST_BUILDUP` | Pré-charge | `SUPERBOOST_START` | P0 | `SUPERBOOST_BUILDUP` |
-| `SFX_SUPERBOOST_IMPACT` | Signature d'activation | `SUPERBOOST_START`, `IMPACT` | P0 | `SUPERBOOST_IMPACT` |
-| `SFX_SUPERBOOST_REACTOR` | Réacteurs en Superboost | `SUPERBOOST`, `REACTOR` | P0 | `SUPERBOOST_SUSTAIN` |
-| `SFX_SUPERBOOST_WIND` | Vent très haute vitesse | `SUPERBOOST`, `WIND` | P0 | `SUPERBOOST_SUSTAIN` |
-| `SFX_SUPERBOOST_RELEASE` | Décharge fin Superboost | `SUPERBOOST_END` | P0 | `SUPERBOOST_END` |
-
----
-
-# 10. Différenciation sensorielle Boost / Superboost / G-SURGE
-
-| Propriété | Boost | Superboost | G-SURGE |
+| Regroupement | Objectif | Déclencheur | Statut |
 |---|---|---|---|
-| Disponibilité | Rechargeable | Collecté sur piste | Condition / mécanique signature |
-| Fréquence | Élevée | Moyenne / rare | Rare ou exceptionnelle |
-| Impact FOV | Modéré | Fort | Très fort / spécifique |
-| Blur | Modéré | Fort | Très périphérique / focalisé |
-| Distorsion | Faible | Moyenne | Forte / signature |
-| Camera shake | Faible | Moyen | Fort mais contrôlé |
-| Réacteurs | Boost standard | Mode haute puissance | Mode énergétique extrême |
-| Vent | Renforcé | Très fort | Extrême + filtrage spécifique |
-| Mix audio | Léger ducking | Ducking marqué | Recomposition complète du mix |
-| HUD | Normal | Feedback disponibilité | Simplifié / déformé |
-| Signature sonore | Courte | Massive | Unique et immédiatement identifiable |
-| Sensation | « accélération » | « énorme poussée » | « dépassement des limites » |
+| `DRIFT_ENTRY` | donner un impact clair au début du drift | `driftStart` — à créer | absent |
+| `DRIFT_FLOW` | faire sentir le déplacement latéral | `state.drift`, `state.slip` | partiel — lacet du vaisseau et bande de bruit |
+| `DRIFT_CHARGE` | montrer que le drift recharge le boost | `state.energy` montant | partiel — HUD seul |
+| `DRIFT_CHAIN` | valoriser un drift long et propre | chaîne — n'existe pas | absent, classe C |
+| `DRIFT_RELEASE` | marquer la sortie | `driftEnd` — à créer | absent |
+| `DRIFT_FULL_CHARGE` | signaler le boost rechargé | `energy > 99.5` | partiel — classe CSS `.full` |
 
----
+## 5. VFX Drift
 
-# 11. Règles de stacking
+| ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
+|---|---|---|---|---|---|---|
+| `SHIP_DRIFT_YAW` | Lacet visuel du vaisseau | `state.slip * driftYaw` | main.ts, ship.ts | A | **existe**, sature à 35 m/s | — |
+| `HUD_DRIFT_LABEL` | Mention « DRIFT » | `state.drift` | hud.ts | A | **existe**, masquée par « WALL HIT » | — |
+| `HUD_DRIFT_CHARGE` | Jauge de recharge | `state.energy`, classes `.charge` | hud.ts + CSS | A | **existe** | P0 |
+| `CAM_DRIFT_YAW` | Retard d'orientation de caméra | `state.slip` | camera.ts | A | absent — la caméra ne lit ni `slip` ni `drift` | P0 |
+| `CAM_DRIFT_ROLL` | Roll selon la dérive | `state.slip` | camera.ts | A | absent — le roll ne suit que le dévers | P0 |
+| `CAM_DRIFT_EXIT_SNAP` | Recentrage à la sortie | `driftEnd` — à créer | camera.ts | B | absent | P1 |
+| `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `state.drift`, `state.slip` | ship.ts | A | absent | P0 |
+| `FX_DRIFT_CHARGE` | Énergie visible sur le vaisseau | `state.energy` + `state.drift` | ship.ts | A | absent | P0 |
+| `FX_DRIFT_WAKE` | Turbulence derrière le vaisseau | `state.slip` | ship.ts | A | absent | P1 |
+| `PP_DRIFT_BLUR` | Blur dirigé | `state.slip` | — | A | absent, **et il n'y a pas de pipeline de post-process** | P1 |
 
-| Combinaison | Autorisée | Comportement recommandé |
+## 6. SFX et haptique Drift
+
+| ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
+|---|---|---|---|---|---|---|
+| `SFX_DRIFT_AIRFLOW` | Flux aérodynamique latéral | paramètre `drifting` de `update()` | audio.ts | A | **existe** — bande 2600 Hz, mais tout ou rien | P0 |
+| `SFX_DRIFT_ENTRY` | Transient d'entrée | `driftStart` — à créer | audio.ts | B | absent | P0 |
+| `SFX_DRIFT_CHARGE` | Son de recharge | `state.energy` montant | audio.ts | A | absent | P0 |
+| `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `energy > 99.5` | audio.ts | A | absent | P0 |
+| `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `state.slip` normalisé | audio.ts | A | absent | P1 |
+| `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `driftEnd` — à créer | audio.ts | B | absent | P1 |
+| `SFX_DRIFT_CHAIN` | Intensification progressive | chaîne — n'existe pas | audio.ts | C | absent, mécanique | P1 |
+| `HAP_DRIFT_ENTRY` | Impulsion d'entrée | `driftStart` — à créer | haptics.ts | B | absent | P1 |
+
+`haptics.ts` n'existe que là où `navigator.vibrate` existe : ni iOS, ni bureau.
+Un retour haptique est un complément, jamais le seul porteur d'une information.
+
+## 7. Regroupements Superboost
+
+| Regroupement | Objectif | Déclencheur | Statut |
+|---|---|---|---|
+| `SUP_PICKUP` | donner de la valeur au ramassage | `pickup kind:'sup'` | partiel — halo, pop, son |
+| `SUP_READY` | indiquer la disponibilité | pas de stock | **absent — mécanique, classe C** |
+| `SUP_BUILDUP` | préparer l'activation | pas d'activation | **absent — mécanique, classe C** |
+| `SUP_IMPACT` | rupture sensorielle | `supStart` — confondu avec le ramassage | absent |
+| `SUP_SUSTAIN` | maintenir une accélération supérieure | `state.superT` | partiel — plume seule |
+| `SUP_END` | donner du poids à la fin | `supEnd` — à créer | absent |
+| `SUP_RECOVERY` | retour progressif | pas de phase de recovery | absent, mécanique |
+
+## 8. VFX Superboost
+
+| ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
+|---|---|---|---|---|---|---|
+| `FX_SUP_TRAIL` | Traînées de réacteur | `state.superT` → `thrust` 2 | ship.ts | A | **existe** — palier 2 des plumes | P0 |
+| `FX_SUP_PICKUP` | Absorption au ramassage | `pickup kind:'sup'` | ship.ts, hud.ts | A | **partiel** — halo rose et libellé | P0 |
+| `FX_SUP_PARTICLES` | Flux particulaire accéléré | `state.superT` | ship.ts | A | partiel — la fumée densifie avec le palier | P0 |
+| `CAM_SUP_FOV_KICK` | Kick de champ supérieur au boost | `state.superT` | camera.ts | A | **absent — le champ lit `boosting`, le `+7` est le même** | P0 |
+| `CAM_SUP_LAG` | Forte inertie caméra | `state.superT` | camera.ts | A | absent — `camLag` est constant | P0 |
+| `FX_SUP_SHOCKWAVE` | Onde de choc à l'activation | `supStart` — à créer | ship.ts | B | absent — `setHalo` est le support le plus proche | P0 |
+| `PP_SUP_WARP` | Distorsion spatiale | `uWarp` | sky.ts | A | **trompeur** — l'uniforme existe, vaut `boosting ? 1 : 0`, et ne fait qu'un gain de luminosité | P1 |
+| `HUD_SUP_READY` | Indication de disponibilité | pas de stock | hud.ts | C | absent, mécanique | P0 |
+
+La caméra reçoit `state` en entier : elle peut lire `superT` et `slip` sans
+changer sa signature. `audio.update()` et `sky.update()` prennent des scalaires
+et demanderont un paramètre de plus — c'est délibéré, ces deux-là tournent à
+chaque frame et un objet d'options y serait une allocation par frame.
+
+## 9. SFX Superboost
+
+| ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
+|---|---|---|---|---|---|---|
+| `SFX_SUP_PICKUP` | Son de collecte | `pickup kind:'sup'` | audio.ts | A | **existe** — `superBoost()` | P0 |
+| `SFX_SUP_REACTOR` | Réacteur en superboost | `state.superT` | audio.ts | A | **absent — `update()` ne reçoit que `boosting`, le moteur sonne comme un boost** | P0 |
+| `SFX_SUP_WIND` | Vent très haute vitesse | `state.superT` | audio.ts | A | absent, même cause | P0 |
+| `SFX_SUP_IMPACT` | Signature d'activation | `supStart` — à créer | audio.ts | B | absent | P0 |
+| `SFX_SUP_RELEASE` | Décharge de fin | `supEnd` — à créer | audio.ts | B | absent | P0 |
+| `SFX_SUP_BUILDUP` | Pré-charge | pas d'activation | audio.ts | C | absent, mécanique | P0 |
+| `SFX_SUP_READY` | Feedback de disponibilité | pas de stock | audio.ts | C | absent, mécanique | P1 |
+
+## 10. Différenciation sensorielle
+
+| Propriété | Boost | Superboost | Aujourd'hui | G-SURGE |
+|---|---|---|---|---|
+| Disponibilité | rechargeable | ramassé | conforme | condition signature |
+| Vitesse cible | `boostFactor` 1,3 | `× supFactor` 1,08 | **+8 %** | — |
+| Champ de vision | modéré | fort | **identique**, `+7` sur `boosting` | très fort |
+| Distorsion | faible | moyenne | **identique**, `uWarp` sur `boosting` | forte |
+| Réacteurs | standard | haute puissance | **différencié** — palier 2 | extrême |
+| Vent, moteur | renforcé | très fort | **identique**, `update()` ignore `superT` | extrême |
+| Secousse | faible | moyenne | aucune des deux | forte mais contrôlée |
+| HUD | normal | disponibilité | classe `.sup` sur la vitesse | simplifié |
+| Sensation visée | « accélération » | « énorme poussée » | — | « dépassement des limites » |
+
+Trois lignes sont marquées identiques, et la secousse est absente des deux
+côtés : quatre propriétés sur neuf ne distinguent rien entre un boost et un
+superboost. C'est le constat qui rend la §15 opérante plutôt que théorique.
+
+## 11. Règles d'empilement
+
+| Combinaison | Recommandation | Ce que le code fait |
 |---|---|---|
-| `DRIFT + HIGH_SPEED_FLOW` | Oui | Cas normal |
-| `DRIFT + BOOST` | Oui | Potentiellement très intéressant en gameplay |
-| `DRIFT + SUPERBOOST` | À décider | Peut être autorisé mais doit rester contrôlable |
-| `DRIFT + G_SURGE` | À tester | Risque important de surcharge visuelle |
-| `DRIFT_CHARGE + BOOST` | Non | La recharge devrait être suspendue pendant consommation |
-| `BOOST + SUPERBOOST` | Non recommandé | Superboost remplace le boost |
-| `BOOST + G_SURGE` | Non recommandé | G-SURGE prend priorité |
-| `SUPERBOOST + G_SURGE` | Selon design | Soit interdit, soit utilisé comme condition d'accès au G-SURGE |
-| `NEARMISS + DRIFT` | Oui | Très bon événement de skill |
-| `TURN_GFORCE + DRIFT_FLOW` | Oui | Fusionner les effets communs |
-| `SUPERBOOST + NEARMISS` | Oui | Near-miss doit rester perceptible |
-| `SUPERBOOST + COLLISION` | Oui | Collision prend temporairement la priorité |
+| `drift` + vitesse élevée | oui | cas normal |
+| `drift` + `boosting` | oui, intéressant | autorisé |
+| `driftCharge` + `boosting` | la recharge devrait être suspendue | **elle ne l'est pas** : `energy` prend `+driftCharge` et `−boostDrain` dans le même pas, soit −9/s net. Changer ça est classe C |
+| `drift` + superboost | à décider | autorisé : le superboost force `boosting`, le drift reste indépendant |
+| `drift` en l'air | — | **impossible**, `state.drift` est forcé à faux |
+| `boosting` + superboost | le superboost remplace | conforme : `superOn` force `boosting` et coupe la consommation |
+| near-miss + drift | très bon événement de skill | **le near-miss n'existe pas** |
+| force latérale en virage + drift | fusionner les effets communs | pas de concept de force en virage ; `centri` agit sur `latVel` |
+| superboost + collision | la collision prend la priorité | conforme : `wallImpact` est un événement |
+| drift + `G_SURGE` | à tester | sans objet |
 
----
+## 12. Grandeurs continues
 
-# 12. Paramètres RTPC supplémentaires
+Il n'y a pas de middleware : une grandeur continue est un paramètre de fonction.
+Signatures actuelles, à étendre plutôt qu'à contourner :
 
-| Paramètre | Plage | Usage |
-|---|---:|---|
-| `DriftIntensity` | `0 → 1` | Intensité générale du drift |
-| `DriftAngleNormalized` | `0 → 1` | VFX/SFX latéraux |
-| `DriftSpeedNormalized` | `0 → 1` | Importance du flux aérodynamique |
-| `DriftChargeRate` | `0 → 1` | Feedback de recharge |
-| `DriftChainNormalized` | `0 → 1` | Intensification pendant drift prolongé |
-| `BoostChargeNormalized` | `0 → 1` | Niveau de boost disponible |
-| `SuperboostAvailable` | `0 / 1` ou compteur | HUD / feedback |
-| `SuperboostIntensity` | `0 → 1` | Effets Superboost |
-| `SuperboostRemaining` | `0 → 1` | Feedback de durée restante |
+- `audio.update(playing, speed, speedMax, boosting, drifting)`
+- `sky.update(time, camX, camY, camZ, curvature, speed, dt, boosting)`
+- `camera.update(state, track, tuning, frameDt, shake)` — reçoit l'état complet
 
----
+| Grandeur | Source | Manque |
+|---|---|---|
+| `driftIntensity` | `state.slip`, normalisé | le plafond de normalisation : le rendu sature à 35 m/s, ce choix doit être partagé |
+| `driftChargeRate` | `driftCharge`, constant | vaut 17 ou 0, il n'y a pas de taux variable |
+| `boostCharge` | `state.energy / 100` | rien, disponible |
+| `superRemaining` | `state.superT / supTime` | rien, disponible, **et personne ne le lit** |
+| `superAvailable` | — | pas de stock |
+| `driftChain` | — | pas de chaîne |
 
-# 13. Cycle gameplay mis à jour
+## 13. Cycle de jeu
 
-```text
-CRUISE
-   ↓
-FAST
-   ↓
-DRIFT
-   ↓
-DRIFT_CHARGE
-   ↓
-BOOST READY
-   ↓
-BOOST
-   ↓
-FAST
-```
-
-Branche Pickup :
+Boucle principale, telle qu'elle tourne aujourd'hui :
 
 ```text
-SUPERBOOST PICKUP
-       ↓
-SUPERBOOST READY
-       ↓
-SUPERBOOST
-       ↓
-RECOVERY
+CRUISE → drift → energy monte → boost prêt → boosting → CRUISE
 ```
 
-État extrême :
+Branche pickup, telle qu'elle tourne : il n'y a pas d'étape intermédiaire, le
+ramassage est l'activation.
 
 ```text
-FAST / BOOST / SUPERBOOST
-          ↓
-     SURGE BUILDUP
-          ↓
-       G-SURGE
-          ↓
-       RECOVERY
+pickup 'sup' → superT = supTime → décroissance → rien
 ```
 
----
-
-# 14. Boucle sensorielle recommandée du drift
-
-Le drift ne doit pas uniquement être identifié par l'orientation du véhicule.
+Ce que la palette proposait, et qui reste à écrire — chaque flèche ajoutée est
+classe C :
 
 ```text
-ENTRÉE DRIFT
-    ↓
-rupture aérodynamique
-    ↓
-déplacement latéral perceptible
-    ↓
-montée de la recharge
-    ↓
-intensification progressive
-    ↓
-BOOST READY
-    ↓
-sortie / réalignement
+pickup → stock → disponible → activation → superboost → recovery
 ```
 
-L'objectif est que le joueur ressente naturellement :
-
-**« plus mon drift est maîtrisé, plus mon véhicule accumule de puissance. »**
-
----
-
-# 15. Principe de différenciation du Superboost
-
-Le Superboost ne doit pas être simplement :
-
-`BOOST × 2`
-
-Il doit posséder sa propre signature.
-
-Recommandation :
+L'état extrême, entièrement à définir :
 
 ```text
-BOOST
-= poussée / accélération
-
-SUPERBOOST
-= catapulte / propulsion brutale
-
-G-SURGE
-= altération complète de la perception de vitesse
+FAST / BOOST / SUPERBOOST → buildup → G_SURGE → recovery
 ```
 
-Cette distinction permet de conserver une progression sensorielle claire et d'éviter que le G-SURGE perde son statut d'état ultime.
+## 14. Boucle sensorielle visée pour le drift
+
+Le drift ne doit pas être identifié seulement par l'orientation du vaisseau.
+
+```text
+entrée → rupture aérodynamique → déplacement latéral perceptible
+       → montée de la recharge → intensification → boost prêt → réalignement
+```
+
+Sur les sept étapes, deux ont un retour aujourd'hui : le déplacement latéral,
+par le lacet du vaisseau et la bande de bruit, et la montée de la recharge, au
+HUD seul. Les cinq autres sont muettes, et les deux extrémités — l'entrée et le
+réalignement — sont des événements que la simulation n'émet pas.
+
+L'objectif est que le joueur ressente :
+
+**« plus mon drift est maîtrisé, plus mon vaisseau accumule de puissance. »**
+
+## 15. Principe de différenciation du superboost
+
+Le superboost ne doit pas être un boost multiplié. Il doit avoir sa signature.
+
+```text
+BOOST      = poussée, accélération
+SUPERBOOST = catapulte, propulsion brutale
+G-SURGE    = altération complète de la perception de vitesse
+```
+
+C'est ce qui garde une progression sensorielle lisible et empêche le G-SURGE de
+perdre son statut d'état ultime. Le tableau §10 mesure l'écart entre ce principe
+et l'état du code : quatre propriétés sur neuf ne distinguent rien du tout.
