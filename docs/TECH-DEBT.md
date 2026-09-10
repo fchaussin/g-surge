@@ -122,16 +122,41 @@ HUD updates are interleaved in the same file. Roadmap step 3 splits them.
 
 ## 7. three.js r128
 
-Released April 2021. It is pinned deliberately: the code depends on r128
-behaviour, including `MeshLambertMaterial` ignoring `flatShading` and the
-absence of colour management. Upgrading is a real project, not a version bump,
-because r152 changed colour space handling and lighting intensity by default.
+Released April 2021, against 0.186.0 current. It is pinned deliberately: the
+code depends on r128 behaviour, including `MeshLambertMaterial` ignoring
+`flatShading` and the absence of colour management. Upgrading is a real project,
+not a version bump, because r152 made sRGB output and physically-based light
+units the default, which shifts every colour in a hand-tuned neon palette.
+
+**Upgrading would not make it faster, and that was measured.** In a live run at
+1280×720:
+
+| | |
+|---|---|
+| Draw calls per frame | 76.5 |
+| Triangles per frame | 5 591 |
+| GLSL programs | 9 |
+| Share of frame time spent on the sky | 46 % |
+
+Seventy-six draw calls and five thousand triangles are two orders of magnitude
+below where a renderer's CPU overhead starts to matter, so the parts of three.js
+that got faster — batching, instancing, uniform upload — have nothing to work
+on here. The cost is fill rate, and close to half of it is our own sky fragment
+shader, which no version of three.js touches. The levers that would actually
+work are fewer fbm octaves, rendering the sky to a half-resolution target, and
+`renderScale`, which already exists and which auto-quality already uses.
+
+There are honest reasons to upgrade eventually — a five-year-old dependency,
+and WebGPU — but performance is not one of them, and the visual references that
+guard the port would have to be regenerated against a moving target. Do it as
+its own project, after the switch.
 
 The CDN script tag has no `integrity` attribute, so a compromised cdnjs would
 execute arbitrary code. The fix is not to add SRI but to take the package from
-npm at `0.128.0` and bundle it, which roadmap step 1 does. The hash of the
-vendored copy used by the tests is in the Playwright commit if it is needed
-before then.
+npm at `0.128.0` and bundle it, which roadmap step 1 does. Bundling is also
+where the payload win is: 603 KB of monolithic CDN script becomes whatever
+tree-shaking keeps of the twenty-odd symbols the game imports — and that win is
+independent of the version.
 
 ## 8. Types
 

@@ -205,7 +205,11 @@ otherwise have to be redone.
 - **Multiplayer.** Specifications come after these steps. Step 7 lifts the last
   technical blocker; nothing else is committed.
 - **three.js past r151.** Colour management and lighting intensity defaults
-  changed: that is a visual re-tuning pass, not a dependency bump.
+  changed: that is a visual re-tuning pass, not a dependency bump. It would also
+  not make the game faster — measured, see `TECH-DEBT.md` §7: 76 draw calls and
+  5 591 triangles a frame, with 46 % of the time in our own sky shader. Worth
+  doing one day for the dependency's age and for WebGPU, as its own project,
+  after the switch.
 - **True vertical loops.** They need quaternion frames and have a degeneracy at
   the vertical. The corkscrew covers most of the appeal for none of the risk.
 - **Interpolated rendering.** The 720 Hz step divides the common refresh rates,
