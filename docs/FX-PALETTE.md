@@ -56,9 +56,10 @@ qu'un document a porté un chiffre faux pendant des mois.
   durée `supTime` = 2,6 s. **Il est différencié depuis l'étape 1** : le palier
   de poussée, `thrustTier()` dans `src/client/thrust.ts`, est lu par la caméra,
   le ciel, l'audio et le vaisseau, là où chacun relisait `state.boosting`. Ce
-  qui n'est toujours pas différencié est la vitesse elle-même : `supFactor` =
-  1,08 ne le place que 8 % au-dessus d'un boost, et c'est la décision laissée à
-  l'étape 5 de la roadmap.
+  Et la vitesse a suivi à l'étape 5 : `supFactor` = 1,22 le place 22 % au-dessus
+  d'un boost, soit à peu près la même marche que le boost au-dessus de la
+  croisière. Il reste sous le plafond auquel `audio.ts` borne le moteur, ce qui
+  est une contrainte du code et pas un goût.
 - **`uWarp` ne déforme toujours rien** : le shader n'en fait qu'un gain de
   luminosité, `col *= 1.0 + uWarp * 0.55`, désormais gradué par palier. Le filé
   du superboost est un effet distinct, `uStreak`, qui prélève la couche
@@ -235,7 +236,7 @@ par frame.
 | Propriété | Boost | Superboost | Aujourd'hui | G-SURGE |
 |---|---|---|---|---|
 | Disponibilité | rechargeable | ramassé | conforme | condition signature |
-| Vitesse cible | `boostFactor` 1,3 | `× supFactor` 1,08 | **+8 %** | — |
+| Vitesse cible | `boostFactor` 1,3 | `× supFactor` 1,22 | **différencié** — +266 km/h, la marche du bas en vaut +279 | — |
 | Champ de vision | modéré | fort | **différencié** — `+18` contre `+7` | très fort |
 | Distorsion | faible | moyenne | **différencié** — luminosité graduée, filé au 3 | forte |
 | Réacteurs | standard | haute puissance | **différencié** — palier 2 | extrême |
@@ -245,10 +246,11 @@ par frame.
 | Sensation visée | « accélération » | « énorme poussée » | — | « dépassement des limites » |
 
 Avant l'étape 1, quatre propriétés sur neuf ne distinguaient rien. Il en reste
-**une** : la vitesse cible, à `+8 %`. Le retour promet donc une catapulte que la
-physique ne paie pas, et c'est exactement la décision que l'étape 5 de la
-roadmap garde ouverte — délibérément après, parce qu'un chiffre ne se juge pas
-avant le retour qui l'accompagne.
+**aucune** depuis l'étape 5. La dernière était la vitesse cible, et elle a été
+tranchée après la couche sensorielle et non avant, parce qu'un chiffre ne se
+juge pas sans le retour qui l'accompagne. La rareté, elle, n'a pas bougé : un
+superboost toutes les trente secondes reste un événement, et c'est ce que la
+§7 demande.
 
 ## 11. Règles d'empilement
 
@@ -342,5 +344,6 @@ G-SURGE    = altération complète de la perception de vitesse
 C'est ce qui garde une progression sensorielle lisible et empêche le G-SURGE de
 perdre son statut d'état ultime. Le tableau §10 mesure l'écart entre ce principe
 et l'état du code. L'étape 1 l'a refermé partout sauf sur une ligne : la vitesse
-elle-même. Le superboost se *ressent* maintenant comme une catapulte, il n'en
-est pas encore une.
+elle-même, et l'étape 5 l'a refermée aussi. Le superboost se ressent comme une
+catapulte et en est une : +266 km/h sur le boost, quand le boost en ajoute +279
+à la croisière. La progression est régulière d'un bout à l'autre.

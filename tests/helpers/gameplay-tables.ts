@@ -83,6 +83,13 @@ export function speedTiers(t: Tuning): string {
         `${kmh(t.speedMax * t.boostFactor)}, so tier 3 requires boosting. Boost is fed ` +
         'by drifting. That is the intended loop: **drift to charge, boost to score**.',
     ),
+    '',
+    wrap(
+      `A super boost, picked up on the track, reaches ${kmh(t.speedMax * t.boostFactor * t.supFactor)} ` +
+        `km/h for ${t.supTime} s and costs no reserve. It opens no scoring tier — boost ` +
+        'already clears the last one — so what it buys is time at the top and a reserve ' +
+        'refilled on the way in.',
+    ),
   ].join('\n');
 }
 
@@ -174,23 +181,28 @@ export function damage(t: Tuning): string {
 }
 
 export function constants(t: Tuning): string {
-  const boosted = t.speedMax * t.boostFactor;
+  // Le plafond réel est le super boost, pas le boost. Les deux constantes
+  // ci-dessous sont des marges contre la vitesse la plus haute que le jeu
+  // atteint, et les écrire contre le boost les surestimait — discrètement tant
+  // que supFactor valait 1,08, moins discrètement ensuite.
+  const top = t.speedMax * t.boostFactor * t.supFactor;
   const period = t.stripeEvery * SEG;
-  const perFrame = boosted / 60;
+  const perFrame = top / 60;
   const draw = (COUNT - BACK) * SEG;
   return [
     wrap(
       '- **Chevron period must stay above twice the per frame travel.** At ' +
-        `${boosted.toFixed(0)} m/s and 60 fps that is ${(perFrame * 2).toFixed(1)} m, ` +
+        `${top.toFixed(0)} m/s under a super boost and 60 fps that is ` +
+        `${(perFrame * 2).toFixed(1)} m, ` +
         `hence \`stripeEvery: ${t.stripeEvery}\` for a ${period} m period. Below that ` +
         'the track visually decomposes and no amount of GPU fixes it.',
       77,
       '',
     ).replace(/\n(?!-)/g, '\n  '),
     wrap(
-      `- **Draw distance is ${draw} m**, which is ${(draw / boosted).toFixed(1)} seconds ` +
-        'at full boost. Raising top speed without raising `COUNT` will make the track ' +
-        'pop in.',
+      `- **Draw distance is ${draw} m**, which is ${(draw / top).toFixed(1)} seconds ` +
+        'at the top speed. Raising it without raising `COUNT` will make the track pop ' +
+        'in.',
       77,
       '',
     ).replace(/\n(?!-)/g, '\n  '),

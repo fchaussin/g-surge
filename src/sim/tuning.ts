@@ -139,7 +139,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   fixAmount: 40,
   supChance: 0.0024,
   supTime: 2.6,
-  supFactor: 1.08,
+  supFactor: 1.22,
   pickRadius: 3.6,
   haloTime: 0.45,
   coinTier2: 138.9,

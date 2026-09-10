@@ -18,6 +18,17 @@ import type { ThrustTier } from './thrust.js';
 const REVERB_SECONDS = 3;
 
 /**
+ * Ceiling on the engine's speed ratio.
+ *
+ * Above 1 under boost, which is what keeps the top end from flattening — but it
+ * is a ceiling, and past it every layer stops moving while the ship keeps
+ * accelerating. That makes it a constraint on the tuning and not only on this
+ * file: `boostFactor * supFactor` must stay under it. Exported so a test can
+ * say so, since nothing else would notice the day it stopped being true.
+ */
+export const ENGINE_R_MAX = 1.7;
+
+/**
  * Engine drive by thrust tier.
  *
  * Index 1 is 1, which is what the boolean this replaced always gave a boost, so
@@ -184,7 +195,7 @@ export class Audio {
 
     const t = ctx.currentTime;
     // Above 1 under boost, which is what keeps the top end from flattening.
-    const r = Math.min(1.7, speed / speedMax);
+    const r = Math.min(ENGINE_R_MAX, speed / speedMax);
     const bst = DRIVE_BY_TIER[tier];
     const wnd = WIND_BY_TIER[tier];
 

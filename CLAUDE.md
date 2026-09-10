@@ -114,7 +114,8 @@ rebuilt in front of it every frame. Consequences:
   so at devicePixelRatio 2 you see the top-left quarter of the frame. This one
   cost two wrong diagnoses before it was found.
 - **Chevron aliasing.** Track markings need a period above twice the per frame
-  travel. At 335 m/s and 60 fps that is 11.2 m. Below it the track decomposes and
+  travel. At 409 m/s — the super boost, which is the real ceiling — and 60 fps
+  that is 13.6 m. Below it the track decomposes and
   it looks like a frame rate problem, which it is not.
 - **Shader precision.** Never declare `precision mediump float` in the sky
   shader. The hash loses its spread and stars fuse into large blobs. Let

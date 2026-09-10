@@ -193,7 +193,7 @@ regenerated. The spray is parented to the ship and its reach is a checked
 constant rather than a comment: `tests/drift.test.ts` fails if a longer life or
 a faster recoil pushes it near the camera 19 m behind.
 
-### Step 5 — decide what `supFactor` should be — a decision, then possibly a day
+### Step 5 — decide what `supFactor` should be — done
 
 `supFactor` is 1.08: a super boost is eight per cent faster than a boost. Give it
 a catapult's signature and the feedback promises what the physics does not pay.
@@ -207,12 +207,44 @@ Deliberately after step 1, not before. A number cannot be judged before the
 feedback that goes with it exists, and this is the one step where reasoning from
 the symptom is the documented way to get it wrong.
 
-**`supChance` joins this decision**, measured while doing step 1: over 120 s at
+**`supChance` joined this decision**, measured while doing step 1: over 120 s at
 medium, four pickups appear across 25 322 m — one every 6 331 m — a centring
 pilot collects one, and the run spends 2.6 s of 120 at tier 2. Two per cent. The
-effects are strong and the state is rare, which is the same complaint as
-`supFactor` seen from the other side: the super boost promises more than it
-gives, in time as well as in speed.
+effects are strong and the state is rare, which looked like the same complaint
+as `supFactor` seen from the other side.
+
+**Decided: `supFactor` 1.08 → 1.22, `supChance` unchanged.**
+
+The measurement reframed it. Boost adds +279 km/h to the cruise and the super
+boost added +97 to that — the top rung was a third of the one below it, and that
+is what made the feedback a promise the physics did not keep. At 1.22 it adds
++266, so the ladder is even end to end.
+
+Two things bounded the choice rather than taste. `audio.ts` clamps the engine's
+speed ratio at 1.7, so `boostFactor * supFactor` must stay under it or every
+layer flattens while the ship keeps accelerating — that caps `supFactor` at
+1.308, and 1.22 keeps margin against a later change to `speedMax`. And steering
+authority costs nothing: `yawMax` reaches its floor at 360 m/s, which the super
+boost already passed at 1.08. What does grow is the corner load, ×1.49 against
+boost, which is the right price for a catapult.
+
+The rarity stays. The two per cent came from a centring autopilot that collected
+one pickup in four, which is not a player, and the palette asks for a super boost
+that is met rather than relied on. What the pickup already gives is worth 1.68
+full reserves — 100 refilled plus 68 not drained — and none of that was ever
+legible; the sensory layer, not the frequency, was the thing missing.
+
+**The frozen references did not move, and that is a finding rather than a
+relief.** The traces cover 1 345 m and a super boost appears every 6 300 m, so
+`superOn` was outside every reference and this change was invisible to all of
+them. `tests/speed.test.ts` now pins the three tiers and brackets the value from
+both sides: at 1.08 the top rung stops being worth taking, at 1.31 it crosses the
+engine's ceiling, and each brings down a named test.
+
+`GAMEPLAY.md` gained the super boost, and its two generated constants now
+compute against the true top speed instead of the boost — the chevron margin was
+being stated against 335 m/s while the game reached 362, quietly wrong before
+this step and less quietly after.
 
 ### Step 6 — specify `G_SURGE` — 1 day, no code
 

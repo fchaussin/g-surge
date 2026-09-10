@@ -71,6 +71,13 @@ Formerly listed as missing, and closed since:
   differing results over three million arguments, because fdlibm's coefficients
   carry more precision than the double result can express.
 
+Closed since, and worth naming because nothing announced it: the frozen traces
+cover 1 345 m and a super boost appears every 6 300 m, so the `superOn` branch
+of `step()` was outside every reference. `supFactor` moved from 1.08 to 1.22
+without a single one changing. `tests/speed.test.ts` now pins the three tiers
+and brackets the value on both sides — below, the top rung stops being worth
+taking; above, it crosses the ceiling `audio.ts` clamps the engine to.
+
 Still missing:
 
 - The interface modules — settings, HUD, screens — are covered only through

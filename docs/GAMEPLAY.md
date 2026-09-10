@@ -45,6 +45,10 @@ wrong for exactly that reason.
 Top speed without boost is 929 km/h, and boost takes it to 1207, so tier 3
 requires boosting. Boost is fed by drifting. That is the intended loop: **drift
 to charge, boost to score**.
+
+A super boost, picked up on the track, reaches 1473 km/h for 2.6 s and costs no
+reserve. It opens no scoring tier — boost already clears the last one — so what
+it buys is time at the top and a reserve refilled on the way in.
 <!-- /generated:speed-tiers -->
 
 An earlier revision closed this section with a table of "measured outcomes at
@@ -134,11 +138,12 @@ recharge. At zero the run ends.
 ## Constants worth knowing before touching anything
 
 <!-- generated:constants -->
-- **Chevron period must stay above twice the per frame travel.** At 335 m/s
-  and 60 fps that is 11.2 m, hence `stripeEvery: 2` for a 24 m period. Below
-  that the track visually decomposes and no amount of GPU fixes it.
-- **Draw distance is 1440 m**, which is 4.3 seconds at full boost. Raising
-  top speed without raising `COUNT` will make the track pop in.
+- **Chevron period must stay above twice the per frame travel.** At 409 m/s
+  under a super boost and 60 fps that is 13.6 m, hence `stripeEvery: 2` for a
+  24 m period. Below that the track visually decomposes and no amount of GPU
+  fixes it.
+- **Draw distance is 1440 m**, which is 3.5 seconds at the top speed. Raising
+  it without raising `COUNT` will make the track pop in.
 <!-- /generated:constants -->
 
 - **The ceiling on a corner is `gripLimit`, not the stick.** Past it the corner
