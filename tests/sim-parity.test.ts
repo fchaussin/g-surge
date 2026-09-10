@@ -152,6 +152,40 @@ describe('parité du noyau avec le jeu', () => {
     matchFixture('track-checksums', got);
   });
 
+  /**
+   * Pourquoi une mécanique fondée sur le drift ne peut pas déplacer ces
+   * fixtures.
+   *
+   * `chain` et `surgeT` ne sont pas dans la trace, mais ils pourraient déplacer
+   * ce qui y est — vitesse, réserve, score — si une exécution de référence
+   * décrochait. Aucune ne décroche, et ce test est ce qui le garantit plutôt
+   * que de l'espérer. S'il tombe un jour, la classe B de cette mécanique tombe
+   * avec lui et les références sont à revoir.
+   */
+  it('ne décroche à aucun pas, dans aucune des trois difficultés', () => {
+    for (const diff of ['easy', 'medium', 'hard'] as const) {
+      const sim = new Sim({ seed: 'reference', difficulty: diff });
+      sim.reset('reference');
+      const held = { steer: 0, brake: false, boost: false };
+      let si = 0;
+      let cur = REFERENCE_SCRIPT[0]!;
+
+      for (let i = 0; i < 1800; i++) {
+        while (si < REFERENCE_SCRIPT.length && REFERENCE_SCRIPT[si]!.from <= i) {
+          cur = REFERENCE_SCRIPT[si++]!;
+        }
+        held.steer = cur.steer ?? 0;
+        held.brake = !!cur.brake;
+        held.boost = !!cur.boost;
+        sim.step(held, 1 / 120, false);
+
+        expect(sim.state.drift, `${diff} a décroché au pas ${i}`).toBe(false);
+        expect(sim.state.chain).toBe(0);
+        expect(sim.state.surgeT).toBe(0);
+      }
+    }
+  });
+
   for (const diff of ['easy', 'medium', 'hard'] as const) {
     it(`rejoue la trace de physique en ${diff}`, () => {
       const got = trace({

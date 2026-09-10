@@ -65,6 +65,10 @@ export function step(
     boost = input.boost;
   }
 
+  if (state.surgeT > 0) {
+    state.surgeT = Math.max(0, state.surgeT - dt);
+    if (state.surgeT === 0) out.push({ type: 'surgeEnd' });
+  }
   if (state.superT > 0) {
     state.superT = Math.max(0, state.superT - dt);
     // même arithmétique qu'avant, on ne fait que nommer l'instant où elle
@@ -73,15 +77,21 @@ export function step(
     if (state.superT === 0) out.push({ type: 'supEnd' });
   }
   const superOn = state.superT > 0 && !attract;
+  const surgeOn = state.surgeT > 0 && !attract;
+  // Le G-SURGE roule à la vitesse d'un super boost, pas au-delà : il ne reste
+  // que 7 % de marge sous le plafond auquel `audio.ts` borne le moteur, et §15
+  // de la palette veut de toute façon une perception altérée, pas une
+  // accélération. Ce qu'il ajoute est de la durée et du retour.
+  const topped = superOn || surgeOn;
   if (attract) state.boosting = false;
-  else if (superOn) state.boosting = true;
+  else if (topped) state.boosting = true;
   else {
     if (boost && !state.boosting && state.energy >= T.boostMin) state.boosting = true;
     if (!boost || state.energy <= 0) state.boosting = false;
   }
   const dmg = 1 - state.hull / 100;
-  if (state.boosting && !superOn) state.energy -= T.boostDrain * dt;
-  else if (!superOn) state.energy += T.boostRecharge * (1 - dmg * 0.5) * dt;
+  if (state.boosting && !topped) state.energy -= T.boostDrain * dt;
+  else if (!topped) state.energy += T.boostRecharge * (1 - dmg * 0.5) * dt;
   state.energy = clamp(state.energy, 0, 100);
   if (!attract) state.hull = Math.min(100, state.hull + T.hullRegen * dt);
 
@@ -92,7 +102,7 @@ export function step(
     const ramp = Math.min(1, state.dist / T.speedRamp);
     target = T.speedStart + (T.speedMax - T.speedStart) * ramp;
     if (state.boosting) {
-      target *= superOn ? T.boostFactor * T.supFactor : T.boostFactor;
+      target *= topped ? T.boostFactor * T.supFactor : T.boostFactor;
       gain *= T.boostGain;
     }
     if (brake) target *= T.brakeFactor;
@@ -152,6 +162,7 @@ export function step(
         state.shake = 0.8;
         state.scrape = 0.4;
         state.mult = 1 + (state.mult - 1) * T.multWallCut;
+        state.chain = 0;
         out.push({ type: 'badLanding' });
       }
     }
@@ -183,6 +194,17 @@ export function step(
   }
   if (state.drift) state.driftHeld += dt;
 
+  // La chaîne : du drift cumulé, qui se vide lentement hors drift. Elle ne
+  // rétroagit sur rien — aucune ligne de physique ne la lit — donc elle n'est
+  // pas dans la trace et ne déplace aucune référence.
+  if (state.drift && !attract) state.chain += dt;
+  else if (state.chain > 0) state.chain = Math.max(0, state.chain - T.chainDecay * dt);
+  if (!attract && state.surgeT <= 0 && state.chain >= T.surgeHold) {
+    state.chain = 0;
+    state.surgeT = T.surgeTime;
+    out.push({ type: 'surgeStart' });
+  }
+
   let grip = state.drift ? T.gripDrift : T.gripHold;
   if (state.air) grip *= T.airSteer;
   state.latVel += dv * Math.min(1, dt * grip);
@@ -202,6 +224,8 @@ export function step(
     if (Math.sign(state.latVel) === Math.sign(state.lat)) {
       state.latVel = -state.latVel * T.wallBounce;
       if (!attract && !state.air) {
+        // Un mur casse la chaîne : elle récompense la propreté, pas l'obstination.
+        state.chain = 0;
         state.speed -= state.speed * T.wallPenalty * dt * 6;
         state.energy = Math.max(0, state.energy - T.wallDrain * dt);
         if (!state.contact) {

@@ -307,6 +307,32 @@ for.
 Three choices are left open rather than guessed, and they are named at the end
 of §16.
 
+### Step 7 — build the surge — the mechanic and its sound are done
+
+Not in the original plan: the roadmap ended at specifying the state. It is being
+built in the two slices §16 describes, and the first is in.
+
+The chain, the fourth rung across the four tier tables, the two events, and the
+audio white-out — engine layers ducked to 0.16, the drift band cut, the wind
+pushed through a low pass at 340 Hz until only a breath is left. The mix cannot
+go up, so it goes down.
+
+The class B claim held and is now pinned rather than assumed: `sim-parity`
+asserts that no reference run drifts, in any of the three difficulties, at any
+of its 1 800 steps. If that ever stops being true, a drift-gated mechanic can
+reach the frozen traces and they need revisiting — the test says so by name.
+
+One plan did not survive contact. `surgeHold` was to be uniform, since the drift
+is the one difficulty-neutral quantity. Measured, the reachable chain tops out
+at 0.95 s on easy against 2.65 on medium: high grip makes easy's drifts too
+short, and a single threshold would have put the game's signature state out of
+reach of the setting beginners pick. It is overridden per difficulty, which is
+what the `DIFF` table is for.
+
+What is left is the visual half: the masked `backdrop-filter` layer, a shake
+held through the state rather than struck at its two ends, and the HUD offset in
+CSS.
+
 **Total: five to eight days**, of which one is paper and one is a decision.
 
 ## What this roadmap does not cover

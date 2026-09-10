@@ -31,6 +31,9 @@ export interface Tuning {
   gripLimit: number;
   driftExit: number;
   driftCharge: number;
+  chainDecay: number;
+  surgeHold: number;
+  surgeTime: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -119,6 +122,9 @@ export const DEFAULTS: Readonly<Tuning> = {
   gripLimit: 34,
   driftExit: 12,
   driftCharge: 17,
+  chainDecay: 0.25,
+  surgeHold: 0.85,
+  surgeTime: 5,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,
@@ -200,6 +206,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       fixChance: 0.0022,
       rollChance: 0.18,
       climbRate: 27,
+      surgeHold: 1.8,
     },
   },
   hard: {
@@ -216,6 +223,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       rollChance: 0.24,
       climbRate: 31,
       gripLimit: 29,
+      surgeHold: 1.4,
     },
   },
 };

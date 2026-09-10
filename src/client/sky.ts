@@ -152,7 +152,7 @@ const DUST_COUNT = 900;
  * colour-only signalling debt 10 is about. The super boost also streaks the
  * stars, which is a different kind of effect rather than more of the same one.
  */
-const WARP_BY_TIER = [0, 1, 1.35] as const;
+const WARP_BY_TIER = [0, 1, 1.35, 1.6] as const;
 
 /** Rise and fall of the streak, per second. It hits, then it lets go. */
 const STREAK_ATTACK = 16;
@@ -248,7 +248,12 @@ export class Sky {
     // repère, cette direction est donc Ry(-yaw) appliqué à +Z.
     this.axis.set(-Math.sin(this.yaw), 0, Math.cos(this.yaw));
 
-    const want = tier === 2 ? 1 : 0;
+    // Plafonné à 1, et pas par timidité : la longueur du filé a été choisie
+    // par recherche sous la contrainte que l'écart entre prélèvements ne
+    // dépasse jamais leur diamètre. Au-delà de 1 la traînée se lit en
+    // pointillés, exactement là où elle est la plus longue. Le palier 3 se
+    // distingue par la luminosité et par le reste, pas en cassant ça.
+    const want = tier >= 2 ? 1 : 0;
     const rate = want > this.streak ? STREAK_ATTACK : STREAK_RELEASE;
     this.streak += (want - this.streak) * Math.min(1, dt * rate);
     this.material.uniforms.uStreak!.value = this.streak;

@@ -317,6 +317,15 @@ function consume(events: readonly SimEvent[]): void {
         // drift d'un seul pas la caméra n'a rien à rattraper.
         if (e.held > DRIFT_SNAP_MIN) camera.driftExitSnap();
         break;
+      case 'surgeStart':
+        flashHalo(0xfff6d0, 1.6);
+        fxShake = 1;
+        haptics.buzz([40, 30, 40, 30, 90]);
+        break;
+      case 'surgeEnd':
+        flashHalo(0x8af4ff, 0.9);
+        haptics.buzz([20, 40, 20]);
+        break;
       case 'supEnd':
         // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
         // le ramassage a rempli la réserve et le superboost ne l'a pas

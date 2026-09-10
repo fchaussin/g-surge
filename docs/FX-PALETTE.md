@@ -352,9 +352,9 @@ catapulte et en est une : +266 km/h sur le boost, quand le boost en ajoute +279
 
 ## 16. Spécification du G-SURGE
 
-**Écrit à l'étape 6, révisé après relecture, et rien n'en est implémenté.**
-C'est une spécification : elle existe pour que la décision de construire puisse
-être prise sur des chiffres plutôt que sur un nom.
+**Écrit à l'étape 6, révisé après relecture. La mécanique et la couche sonore
+existent depuis ; la couche visuelle non.** Ce qui suit reste la spécification
+complète, avec l'état de chaque morceau.
 
 ### Ce que la mesure avait déjà tranché
 
@@ -407,14 +407,22 @@ trouve, le G-SURGE se mérite — et les trois vont à la même vitesse maximale
 
 ### Entrée, durée, sortie
 
-- `state.chain` monte pendant un drift, proportionnellement à `driftIntensity`,
-  et redescend lentement hors drift. Remise à zéro par un contact de mur ou une
-  réception hors piste : la chaîne récompense la propreté, pas l'obstination.
-- Le G-SURGE s'arme quand `chain` franchit `surgeHold`. Ordre de grandeur : les
-  drifts font 104 / 189 / 853 ms de médiane et 772 / 1 322 / 1 457 ms au
-  neuvième décile, donc deux à trois secondes cumulées sont un exploit dans les
-  trois difficultés sans être hors d'atteinte dans aucune. `surgeHold` est un
-  candidat à une surcharge par difficulté, comme `gripLimit`.
+- **Fait.** `state.chain` cumule du temps de drift et redescend à `chainDecay`
+  hors drift. Remise à zéro par un contact de mur ou une réception hors piste :
+  la chaîne récompense la propreté, pas l'obstination. Pas de pondération par
+  l'intensité — la mesure qui a choisi cette porte portait sur des *durées*, et
+  pondérer irait au-delà de ce qu'elle établit.
+- **`surgeHold` est surchargé par difficulté, et il a bien fallu.** Le seuil
+  uniforme était le plan ; la mesure l'a réfuté. La chaîne maximale atteignable
+  vaut 0,95 s en facile, 2,65 en moyen, 2,02 en difficile : l'adhérence élevée
+  du mode facile y rend les drifts trop courts, et un seuil unique aurait rendu
+  l'état signature inaccessible précisément au niveau que choisissent les
+  nouveaux joueurs. Valeurs : 0,85 / 1,8 / 1,4.
+- **Ces valeurs sont un point de départ, pas un réglage.** Elles donnent un
+  déclenchement toutes les 25 à 45 s en facile et toutes les 90 à 120 s ailleurs
+  — mais le pilote de test drifte moins bien qu'un humain, et le taux n'est même
+  pas monotone en `surgeHold` : le verrou de cinq secondes interagit avec le
+  rythme des drifts. À rejuger en jouant, comme `supFactor` l'a été.
 - Durée `surgeTime` = 5 s, sans drain. Valeur réelle pour le joueur : 100 points
   rechargés plus 130 non consommés, soit **2,3 réserves pleines**, contre 1,68
   pour un superboost.
@@ -535,8 +543,11 @@ ses propres tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 
 
 ### Découpage
 
-1. **Le palier sensoriel**, porte = chaîne de drift, vitesse inchangée : blanc
-   audio, calque de flou, secousse, décalage HUD en CSS, filé au maximum.
+1. **Le palier sensoriel**, porte = chaîne de drift, vitesse inchangée.
+   *Fait* : la mécanique, le quatrième palier dans les quatre tables, le blanc
+   audio, les deux événements et leurs retours. *Reste* : le calque de flou, la
+   secousse tenue pendant l'état plutôt qu'à ses deux bouts, et le décalage du
+   HUD.
 2. **Puis, et seulement si la sensation le réclame**, la question de la vitesse
    se rouvre — avec le relèvement du plafond audio et le re-réglage des paliers
    intermédiaires, qui régénéreraient les références.
@@ -546,8 +557,9 @@ l'étape 1, et le chiffre s'est bien mieux tranché avec le retour en place.
 
 ### Ce qui reste ouvert
 
-1. La valeur de `surgeHold`, et sa surcharge par difficulté.
-2. Le palier 3 de vitesse est-il exigé en plus de la chaîne ? Il rendrait l'état
-   presque inatteignable en difficile, où le palier 3 n'occupe que 7 % du temps.
-3. Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
+1. Les valeurs de `surgeHold`, à rejuger en jouant.
+2. Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
    certain budget de frame ?
+
+Tranché depuis : le palier 3 de vitesse **n'est pas exigé** en plus de la
+chaîne. Il n'occupe que 7 % du temps en difficile, l'état y serait mort-né.

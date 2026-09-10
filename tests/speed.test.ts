@@ -13,7 +13,7 @@ import { ENGINE_R_MAX } from '../src/client/audio.js';
 const DT = 1 / 720;
 
 /** Vitesse d'équilibre, rampe au maximum et coque intacte. */
-function settle(opts: { boost: boolean; superBoost: boolean }): number {
+function settle(opts: { boost: boolean; superBoost?: boolean; surge?: boolean }): number {
   const sim = new Sim({ seed: 'ladder', difficulty: 'easy' });
   sim.reset('ladder');
   const T = sim.tuning;
@@ -26,6 +26,7 @@ function settle(opts: { boost: boolean; superBoost: boolean }): number {
     // super boost en chemin — il roule au centre — et le palier « croisière »
     // mesurait 313 m/s au lieu de 258.
     sim.state.superT = opts.superBoost ? T.supTime : 0;
+    sim.state.surgeT = opts.surge ? T.surgeTime : 0;
     // Et la réserve est reconduite, sinon le boost s'éteint au bout de quatre
     // secondes et la mesure retombe sur la croisière.
     sim.state.energy = 100;
@@ -63,6 +64,17 @@ describe('the speed ladder', () => {
     const lower = boost - T.speedMax;
     const upper = sup - boost;
     expect(upper / lower).toBeGreaterThan(0.6);
+  });
+
+  it("surges at the super boost's speed and not past it", () => {
+    // Le quatrième palier ne gagne aucune vitesse : il ne reste que 7 % sous le
+    // plafond auquel audio.ts borne le moteur, et la §15 de la palette veut une
+    // perception altérée plutôt qu'une accélération. Ce test est ce qui empêche
+    // quelqu'un de « juste un peu » l'augmenter.
+    const sup = settle({ boost: false, superBoost: true });
+    const surge = settle({ boost: false, surge: true });
+    expect(surge).toBeCloseTo(sup, 6);
+    expect(T.boostFactor * T.supFactor).toBeLessThan(ENGINE_R_MAX);
   });
 
   it('does not need the reserve while it lasts', () => {

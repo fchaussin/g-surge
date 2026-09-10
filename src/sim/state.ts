@@ -31,6 +31,10 @@ export interface SimState {
   drift: boolean;
   /** Durée du drift en cours, en secondes. Lue par personne dans la physique. */
   driftHeld: number;
+  /** Drift cumulé, en secondes. Se vide hors drift, s'annule contre un mur. */
+  chain: number;
+  /** Temps restant de G-SURGE, en secondes. */
+  surgeT: number;
 
   /* Saut */
   air: boolean;
@@ -74,6 +78,8 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.slip = 0;
   state.drift = false;
   state.driftHeld = 0;
+  state.chain = 0;
+  state.surgeT = 0;
 
   state.air = false;
   state.hop = 0;

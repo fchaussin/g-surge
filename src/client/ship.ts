@@ -37,12 +37,16 @@ import {
 } from 'three';
 import type { ThrustTier } from './thrust.js';
 
-/** Thrust tiers: cruising, boosting, super boost. */
+/** Thrust tiers: cruising, boosting, super boost, surge. */
 const THRUST_LEVELS = [
   { len: 1.1, rad: 0.3, opacity: 0.35, colour: 0x5fd8ff },
   { len: 3.0, rad: 0.44, opacity: 0.75, colour: 0xbdf0ff },
   { len: 5.0, rad: 0.56, opacity: 0.95, colour: 0xff8ae0 },
+  { len: 7.2, rad: 0.66, opacity: 1.0, colour: 0xfff0a8 },
 ] as const;
+
+/** Couleur du cœur de flamme par palier. Le G-SURGE vire au blanc chaud. */
+const CORE_BY_TIER = [0xffffff, 0xffffff, 0xffe6fb, 0xfff6d0] as const;
 
 const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
@@ -142,7 +146,7 @@ export class Ship {
     this.flameCore.opacity += (lv.opacity - this.flameCore.opacity) * ko;
     const kc = Math.min(1, frameDt * 6);
     this.flameOuter.color.lerp(this.tmpA.setHex(lv.colour), kc);
-    this.flameCore.color.lerp(this.tmpB.setHex(level === 2 ? 0xffe6fb : 0xffffff), kc);
+    this.flameCore.color.lerp(this.tmpB.setHex(CORE_BY_TIER[level]), kc);
   }
 
   /**
@@ -165,7 +169,7 @@ export class Ship {
     this.flameOuter.opacity = lv.opacity * 0.55;
     this.flameCore.opacity = lv.opacity;
     this.flameOuter.color.setHex(lv.colour);
-    this.flameCore.color.setHex(level === 2 ? 0xffe6fb : 0xffffff);
+    this.flameCore.color.setHex(CORE_BY_TIER[level]);
   }
 
   updateSmoke(frameDt: number, speed: number, level: ThrustTier): void {

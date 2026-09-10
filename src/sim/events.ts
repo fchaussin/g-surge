@@ -50,5 +50,15 @@ export type SimEvent =
    * clic. Même forme que `wallImpact.force`, l'événement porte la quantité.
    */
   | { readonly type: 'driftEnd'; readonly held: number }
+  /**
+   * Entrée en G-SURGE : la chaîne de drift vient d'aboutir.
+   *
+   * L'état ne va pas plus vite qu'un super boost — il n'y a plus de place sous
+   * le plafond du moteur — il dure plus longtemps et se voit autrement. Voir
+   * docs/FX-PALETTE.md §16.
+   */
+  | { readonly type: 'surgeStart' }
+  /** Fin du G-SURGE, au pas où le compteur atteint zéro. */
+  | { readonly type: 'surgeEnd' }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };

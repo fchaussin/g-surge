@@ -38,9 +38,9 @@ const FOLLOW_SPAN = 0.7;
  * a super boost should read as a catapult rather than a stronger push, and a
  * camera that stays glued reads as a stronger push. See docs/FX-PALETTE.md §15.
  */
-const FOV_KICK = [0, 7, 18] as const;
-const FOV_EASE = [3, 6, 11] as const;
-const LAG_SCALE = [1, 1, 0.55] as const;
+const FOV_KICK = [0, 7, 18, 26] as const;
+const FOV_EASE = [3, 6, 11, 14] as const;
+const LAG_SCALE = [1, 1, 0.55, 0.4] as const;
 
 /**
  * Catch-up multiplier applied to the lag after a drift, and how long it lasts.

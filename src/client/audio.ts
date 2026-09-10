@@ -36,7 +36,7 @@ export const ENGINE_R_MAX = 1.7;
  * `update` never received `superT` at all: the reactor and the wind were the
  * plainest case of the super boost being a boost with a different plume.
  */
-const DRIVE_BY_TIER = [0, 1, 2] as const;
+const DRIVE_BY_TIER = [0, 1, 2, 0] as const;
 
 /**
  * The wind is the one layer a boost never lifted, so there is no previous
@@ -44,7 +44,23 @@ const DRIVE_BY_TIER = [0, 1, 2] as const;
  * asks for a reinforced wind under a plain boost; that is a change to how a
  * boost sounds, and it is not this step's business.
  */
-const WIND_BY_TIER = [0, 0, 1] as const;
+const WIND_BY_TIER = [0, 0, 1, 1] as const;
+
+/**
+ * The surge does not sound louder, it sounds *blocked*.
+ *
+ * There is no room left above: `boostFactor * supFactor` is 1.586 against a
+ * ceiling of 1.7, so a fourth rung cannot be built by adding. It is built by
+ * taking away — the engine layers ducked to almost nothing, the drift band cut,
+ * and the wind pushed through a low pass until only a breath is left. Swollen
+ * eardrums. See docs/FX-PALETTE.md §16.
+ *
+ * The time constant is long on purpose: pressure closing, not a switch.
+ */
+const SURGE_DUCK = 0.16;
+const SURGE_WIND_HZ = 340;
+const SURGE_WIND_GAIN = 0.11;
+const SURGE_EASE = 0.28;
 
 /**
  * Shortest drift, in seconds, that earns a realignment whoosh.
@@ -154,6 +170,12 @@ export class Audio {
         case 'supEnd':
           this.superRelease();
           break;
+        case 'surgeStart':
+          this.surgeIn();
+          break;
+        case 'surgeEnd':
+          this.surgeOut();
+          break;
         case 'driftStart':
           this.driftEntry();
           break;
@@ -198,28 +220,56 @@ export class Audio {
     const r = Math.min(ENGINE_R_MAX, speed / speedMax);
     const bst = DRIVE_BY_TIER[tier];
     const wnd = WIND_BY_TIER[tier];
+    const surge = tier === 3;
+    const duck = surge ? SURGE_DUCK : 1;
+    /** Les constantes de temps de chaque couche, allongées pendant le surge. */
+    const tc = (normal: number) => (surge ? SURGE_EASE : normal);
 
     eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.1);
-    eng.rumble.gain.gain.setTargetAtTime(playing ? 0.13 + r * 0.2 : 0, t, 0.18);
+    eng.rumble.gain.gain.setTargetAtTime(playing ? (0.13 + r * 0.2) * duck : 0, t, tc(0.18));
 
     eng.body.filter.frequency.setTargetAtTime(250 + r * 850 + bst * 380, t, 0.1);
-    eng.body.gain.gain.setTargetAtTime(playing ? 0.05 + r * 0.12 + bst * 0.05 : 0, t, 0.16);
+    eng.body.gain.gain.setTargetAtTime(
+      playing ? (0.05 + r * 0.12 + bst * 0.05) * duck : 0,
+      t,
+      tc(0.16),
+    );
 
     eng.hiss.filter.frequency.setTargetAtTime(2600 + r * 2400, t, 0.14);
-    eng.hiss.gain.gain.setTargetAtTime(playing ? 0.012 + r * 0.055 + bst * 0.02 : 0, t, 0.18);
+    eng.hiss.gain.gain.setTargetAtTime(
+      playing ? (0.012 + r * 0.055 + bst * 0.02) * duck : 0,
+      t,
+      tc(0.18),
+    );
 
     eng.whine.frequency.setTargetAtTime(430 + r * 2000, t, 0.12);
-    eng.whineGain.gain.setTargetAtTime(playing ? 0.004 + r * 0.016 + bst * 0.008 : 0, t, 0.2);
+    eng.whineGain.gain.setTargetAtTime(
+      playing ? (0.004 + r * 0.016 + bst * 0.008) * duck : 0,
+      t,
+      tc(0.2),
+    );
 
-    this.wind.filter.frequency.setTargetAtTime(650 + r * 1500 + wnd * 520, t, 0.25);
-    this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.1 + wnd * 0.06 : 0, t, 0.18);
+    this.wind.filter.frequency.setTargetAtTime(
+      surge ? SURGE_WIND_HZ : 650 + r * 1500 + wnd * 520,
+      t,
+      tc(0.25),
+    );
+    this.wind.gain.gain.setTargetAtTime(
+      playing ? (surge ? SURGE_WIND_GAIN : 0.02 + r * 0.1 + wnd * 0.06) : 0,
+      t,
+      tc(0.18),
+    );
 
-    this.driftNoise.gain.gain.setTargetAtTime(playing ? drift * DRIFT_AIRFLOW : 0, t, 0.07);
+    this.driftNoise.gain.gain.setTargetAtTime(
+      playing && !surge ? drift * DRIFT_AIRFLOW : 0,
+      t,
+      0.07,
+    );
 
     // La recharge : elle monte avec la réserve et ne s'entend qu'en drift,
     // parce que c'est là qu'elle est trois fois plus rapide et que le joueur a
     // une raison d'écouter.
-    const charging = drift > 0 && charge < 0.995;
+    const charging = drift > 0 && charge < 0.995 && !surge;
     this.charge.osc.frequency.setTargetAtTime(300 + charge * 560, t, 0.08);
     this.charge.gain.gain.setTargetAtTime(playing && charging ? 0.018 : 0, t, 0.09);
   }
@@ -499,6 +549,27 @@ export class Audio {
       0.22 + k * 0.12,
       true,
     );
+  }
+
+  /**
+   * Entering the surge: the world closes rather than opens.
+   *
+   * A descending sweep under the duck, so the ear reads a pressure change
+   * rather than merely noticing that the engine went away.
+   */
+  private surgeIn(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(520, 0.5, 'sine', 0.16, 90);
+    this.noiseHit(ctx.currentTime, 0.2, 'lowpass', 2600, 260, 0.8, 0.45, true);
+  }
+
+  /** Leaving it: the mix comes back, and it should read as surfacing. */
+  private surgeOut(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(140, 0.42, 'sine', 0.15, 900);
+    this.noiseHit(ctx.currentTime, 0.18, 'bandpass', 500, 3200, 1.1, 0.38, true);
   }
 
   /**
