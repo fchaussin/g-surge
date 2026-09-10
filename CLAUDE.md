@@ -262,6 +262,16 @@ cache name is the digest of the list, so there is no version to remember to
 bump — but the markers must survive: the plugin fails the build if they stop
 matching, which is deliberate.
 
+A second plugin, `gs-build-stamp`, writes the build's identity into the splash
+the same way and with the same assertion. It is the package version plus the
+commit — from `CF_PAGES_COMMIT_SHA` on Pages, from git locally, `DEV` when
+neither answers. Still no number anyone maintains: it exists so that a bug
+report or a deploy check has something short to quote.
+
+The manifest asks for `landscape`, which an installed app honours; in a tab it
+is `Fullscreen` that requests the lock, because that is the only place a
+browser accepts one.
+
 It registers only over https, so it stays out of the way in development.
 Content hashing makes the cache-first path safe by construction: a changed file
 has a different URL and can never be served stale.

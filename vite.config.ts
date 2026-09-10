@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
@@ -76,13 +77,59 @@ function serviceWorkerAssets(): Plugin {
 }
 
 /**
+ * Stamps the build's identity into the splash screen.
+ *
+ * The service worker's cache name is a digest and needs no bumping, which is
+ * the right answer for a cache and the wrong one for a person: a player
+ * reporting a bug, or anyone checking that a deploy actually landed, needs
+ * something short they can read off the screen and repeat.
+ *
+ * So it is the package version and the commit, not a number anyone maintains.
+ * On Cloudflare Pages the commit comes from the environment, since the build
+ * runs without a git checkout to ask; locally it comes from git; and when
+ * neither answers it says DEV rather than inventing something.
+ *
+ * The replacement asserts, like the service worker's: a marker that stops
+ * matching fails the build instead of silently shipping a stale stamp.
+ */
+function buildStamp(): Plugin {
+  const marker = /<!-- build:stamp -->[^<]*/;
+
+  const commit = (): string => {
+    const fromPages = process.env.CF_PAGES_COMMIT_SHA;
+    if (fromPages) return fromPages.slice(0, 7).toUpperCase();
+    try {
+      return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' })
+        .trim()
+        .toUpperCase();
+    } catch {
+      return 'DEV';
+    }
+  };
+
+  return {
+    name: 'gs-build-stamp',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        if (!marker.test(html)) {
+          throw new Error('build stamp: marker "build:stamp" not found in index.html');
+        }
+        const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
+        return html.replace(marker, `<!-- build:stamp -->V${version} \u00b7 ${commit()}`);
+      },
+    },
+  };
+}
+
+/**
  * The legacy game in `legacy/` is served by its own static server and is not
  * part of this build, so `publicDir` points at `static/` instead. Vite's
  * default would have copied `engine.js`, `game.js` and their `index.html` into
  * `dist/`, which is exactly what the migration is removing.
  */
 export default defineConfig({
-  plugins: [serviceWorkerAssets()],
+  plugins: [buildStamp(), serviceWorkerAssets()],
   publicDir: 'static',
   build: {
     // `public/` and not `dist/`, so that the Cloudflare Pages project keeps

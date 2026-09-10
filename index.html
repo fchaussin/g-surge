@@ -391,6 +391,8 @@
     box-shadow:0 0 12px rgba(37,226,255,.7);transition:width .45s ease}
   .boot .lbl{position:relative;margin-top:12px;font-size:10px;letter-spacing:.22em;
     color:rgba(223,242,248,.35)}
+  .boot .ver{position:relative;margin-top:24px;font-size:9px;letter-spacing:.26em;
+    color:rgba(223,242,248,.2)}
 
   /* ---- Reduced motion -----------------------------------------------------
      Everything that moves on its own stops: the splash road and its sheen, the
@@ -425,6 +427,10 @@
   </div>
   <div class="bar"><i id="bootBar"></i></div>
   <div class="lbl" id="bootLabel">STARTING UP</div>
+  <!-- Réécrit à la construction par le greffon gs-build-stamp de vite.config.ts.
+       Le marqueur doit survivre : le greffon casse la construction s'il ne le
+       trouve plus, exactement comme celui du service worker. -->
+  <div class="ver"><!-- build:stamp -->DEV</div>
 </div>
 
 <script>

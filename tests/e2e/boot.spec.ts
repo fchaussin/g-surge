@@ -35,6 +35,25 @@ const ready = async (page: import('@playwright/test').Page): Promise<void> => {
 };
 
 test.describe('new client, skeleton', () => {
+  /**
+   * The splash carries the build's identity, written in by a Vite plugin.
+   *
+   * The plugin already fails the build when its marker goes missing, which is
+   * the same guard the service worker has. What that cannot catch is a
+   * replacement that runs and produces the wrong thing, so this checks the
+   * shape on the served page instead of the source.
+   *
+   * The commit half is deliberately loose: the end-to-end image has no git, so
+   * it falls back to DEV there, and pinning it would only pin the container.
+   */
+  test('shows the build it is, on the splash', async ({ page }) => {
+    await page.goto('/');
+    const stamp = (await page.locator('#boot .ver').textContent())?.trim() ?? '';
+    expect(stamp).toMatch(/^V\d+\.\d+\.\d+ \u00b7 \S+$/);
+    // Le texte du marqueur non remplacé, qu'on ne doit jamais servir tel quel.
+    expect(stamp).not.toBe('DEV');
+  });
+
   test('boots without errors, on a live context, pinned to r128', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto('/');
