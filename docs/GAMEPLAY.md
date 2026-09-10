@@ -1,8 +1,7 @@
 # Gameplay and tuning
 
 Written so nobody has to reverse engineer the numbers again. Every value below
-lives in `DEFAULTS` in `engine.js` and is reachable at runtime through
-`window.TUNING`.
+lives in `DEFAULTS` in `src/sim/tuning.ts`.
 
 ## Scoring
 

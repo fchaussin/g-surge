@@ -12,6 +12,7 @@
  * be reached at all.
  */
 import { DEFAULTS, type Difficulty, type Tuning } from '../sim/index.js';
+import type { Preferences } from './preferences.js';
 import { SLIDERS } from './sliders.js';
 
 /** Labels and blurbs live with the UI, not with the tuning tables. */
@@ -31,6 +32,8 @@ const DIFF_UI: Record<Difficulty, { label: string; note: string }> = {
 };
 
 export interface SettingsOptions {
+  /** Where every control starts, restored from the last visit. */
+  initial: Preferences;
   tuning: () => Tuning;
   difficulty: () => Difficulty;
   scoreMultiplier: (d: Difficulty) => number;
@@ -39,10 +42,12 @@ export interface SettingsOptions {
   setTuning: (key: keyof Tuning, value: number) => void;
   resetTuning: () => void;
 
-  setSound: (on: boolean) => void;
-  setHaptics: (on: boolean) => void;
+  /** `byUser` is false when a stored value is being restored at startup. */
+  setSound: (on: boolean, byUser: boolean) => void;
+  setHaptics: (on: boolean, byUser: boolean) => void;
   hapticsAvailable: boolean;
   setTips: (on: boolean) => void;
+  setLefty: (on: boolean) => void;
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
   setShowFps: (on: boolean) => void;
@@ -212,35 +217,49 @@ export class Settings {
   }
 
   private bindToggles(): void {
-    const simple = (id: string, initial: boolean, apply: (on: boolean) => void) => {
+    const initial = this.options.initial;
+
+    // Each toggle is painted from the stored value and then applied, so the
+    // control and the thing it controls cannot start out disagreeing.
+    //
+    // `byUser` separates restoring a setting from choosing one. Anything that
+    // answers back — a confirmation buzz, starting the audio graph — is only
+    // allowed on a real press: browsers refuse both without a gesture, and
+    // rightly so.
+    const simple = (id: string, start: boolean, apply: (on: boolean, byUser: boolean) => void) => {
       const el = byId(id);
-      let on = initial;
+      let on = start;
       paintToggle(el, on);
+      apply(on, false);
       el?.addEventListener('click', () => {
         on = !on;
         paintToggle(el, on);
-        apply(on);
+        apply(on, true);
       });
     };
 
-    simple('tglTips', true, (on) => this.options.setTips(on));
-    simple('tglSky', true, (on) => this.options.setSky(on));
-    simple('tglSkyHi', true, (on) => this.options.setSkyDetail(on));
-    simple('tglFps', false, (on) => {
+    simple('tglTips', initial.tips, (on) => this.options.setTips(on));
+    simple('tglSky', initial.sky, (on) => this.options.setSky(on));
+    simple('tglSkyHi', initial.skyDetail, (on) => this.options.setSkyDetail(on));
+    simple('tglFps', initial.showFps, (on) => {
       byId('fps')?.classList.toggle('on', on);
       this.options.setShowFps(on);
     });
     // Left-handed layout is pure presentation, so it stays here.
-    simple('tglLefty', false, (on) => document.body.classList.toggle('lefty', on));
+    simple('tglLefty', initial.lefty, (on) => {
+      document.body.classList.toggle('lefty', on);
+      this.options.setLefty(on);
+    });
 
     // Sound has a second control in the corner, so both are painted together.
     const sound = byId('tglSound');
-    let soundOn = true;
+    let soundOn = initial.sound;
     this.paintSound(soundOn);
+    this.options.setSound(soundOn, false);
     const flipSound = () => {
       soundOn = !soundOn;
       this.paintSound(soundOn);
-      this.options.setSound(soundOn);
+      this.options.setSound(soundOn, true);
     };
     sound?.addEventListener('click', flipSound);
     byId('btnMute')?.addEventListener('click', flipSound);
@@ -250,7 +269,7 @@ export class Settings {
       const row = byId('rowHaptics');
       if (row) row.style.display = 'none';
     } else {
-      simple('tglHaptics', true, (on) => this.options.setHaptics(on));
+      simple('tglHaptics', initial.haptics, (on, byUser) => this.options.setHaptics(on, byUser));
     }
   }
 

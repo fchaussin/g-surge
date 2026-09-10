@@ -174,11 +174,16 @@ make a CodePen preview watchable and had no other purpose.
 
 ## Storage
 
-`localStorage`, key `gsurge.scores.v1`, top five runs with score, coin count,
-difficulty letter and date. A board written under the previous name,
-`voidrunner.scores.v1`, is picked up once and the old key removed. Guarded by a
-write probe because private browsing throws on access. Settings are not
-persisted yet.
+Two keys, both guarded by a write probe because private browsing throws on
+access rather than returning null.
+
+`gsurge.scores.v1` holds the top five runs — score, coin count, difficulty
+letter and date. A board written under the previous name,
+`voidrunner.scores.v1`, is picked up once and the old key removed.
+
+`gsurge.prefs.v1` holds the settings a player chose deliberately, validated on
+read and coalesced on write. The advanced tuning sliders are not among them:
+they are a workshop, not a preference.
 
 ## Debug surface
 

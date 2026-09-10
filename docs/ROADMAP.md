@@ -100,7 +100,7 @@ said "a distance enters the board" where the board shows a score.
 Acceptance: offline works on a compiled build, an update is picked up without
 clearing the cache by hand, the icon shows on install.
 
-### Step 6 — the functional gaps — ½ d
+### Step 6 — the functional gaps — done
 
 Also worth folding in here, now that the splash does real work: it is the
 natural place to prewarm anything else the first seconds need.

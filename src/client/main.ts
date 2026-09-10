@@ -21,6 +21,7 @@ import { InputSource } from './input.js';
 import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
 import { Pickups, COIN_COLOURS } from './pickups.js';
+import { PreferenceStore } from './preferences.js';
 import { ScoreScreen } from './score-screen.js';
 import { Scores } from './scores.js';
 import { Screens } from './screens.js';
@@ -51,8 +52,9 @@ function freshSeed(): string {
   );
 }
 
+const prefs = new PreferenceStore();
 const pinnedSeed = seedFromUrl();
-const sim = new Sim({ seed: pinnedSeed ?? freshSeed(), difficulty: 'easy' });
+const sim = new Sim({ seed: pinnedSeed ?? freshSeed(), difficulty: prefs.values.difficulty });
 
 /* ---------------------------------------------------------------- scene -- */
 
@@ -110,8 +112,8 @@ const input = new InputSource({
   canBoost: () => sim.state.energy >= sim.tuning.boostMin,
 });
 
-let difficulty: Difficulty = 'easy';
-let showFps = false;
+let difficulty: Difficulty = prefs.values.difficulty;
+let showFps = prefs.values.showFps;
 
 const perf = new PerformanceGovernor({
   isPlaying: () => screens.isPlaying,
@@ -122,11 +124,13 @@ const perf = new PerformanceGovernor({
     sim.tuning.renderScale = v;
     viewport.setRenderScale(v);
     settings.syncRow('renderScale');
+    prefs.set('renderScale', v);
   },
 });
-let skyDetail = true;
+let skyDetail = prefs.values.skyDetail;
 
 const settings = new Settings({
+  initial: prefs.values,
   tuning: () => sim.tuning,
   difficulty: () => difficulty,
   scoreMultiplier: (d) => DIFF[d].mul,
@@ -136,24 +140,45 @@ const settings = new Settings({
     const scale = sim.tuning.renderScale;
     sim.setDifficulty(d);
     sim.tuning.renderScale = scale;
+    prefs.set('difficulty', d);
   },
   setTuning: (key, value) => {
     (sim.tuning as unknown as Record<string, number>)[key] = value;
-    if (key === 'renderScale') viewport.setRenderScale(value);
+    // Render scale is the one tuning value that is also a preference: it
+    // describes the machine, not the game.
+    if (key === 'renderScale') {
+      viewport.setRenderScale(value);
+      prefs.set('renderScale', value);
+    }
   },
   resetTuning: () => {
     const scale = sim.tuning.renderScale;
     Object.assign(sim.tuning, tuningFor(difficulty));
     sim.tuning.renderScale = scale;
   },
-  setSound: (on) => { audio.setMuted(!on); if (on) audio.resume(); },
-  setHaptics: (on) => { haptics.setEnabled(on); if (on) haptics.buzz(20); },
+  setSound: (on, byUser) => {
+    audio.setMuted(!on);
+    // A press is a gesture, so it may open the audio; a restore may not.
+    if (on && byUser) audio.unlock();
+    prefs.set('sound', on);
+  },
+  setHaptics: (on, byUser) => {
+    haptics.setEnabled(on);
+    // The confirmation buzz is an answer to a press, not to a restore.
+    if (on && byUser) haptics.buzz(20);
+    prefs.set('haptics', on);
+  },
   hapticsAvailable: haptics.available,
-  setTips: (on) => tips.setEnabled(on),
-  setSky: (on) => sky.setVisible(on),
-  setSkyDetail: (high) => { skyDetail = high; sky.setDetail(high); },
-  setShowFps: (on) => { showFps = on; },
-  setFrameTarget: (hz) => { perf.setTarget(hz); loop.frameMin = perf.frameMin; },
+  setTips: (on) => { tips.setEnabled(on); prefs.set('tips', on); },
+  setLefty: (on) => prefs.set('lefty', on),
+  setSky: (on) => { sky.setVisible(on); prefs.set('sky', on); },
+  setSkyDetail: (high) => { skyDetail = high; sky.setDetail(high); prefs.set('skyDetail', high); },
+  setShowFps: (on) => { showFps = on; prefs.set('showFps', on); },
+  setFrameTarget: (hz) => {
+    perf.setTarget(hz);
+    loop.frameMin = perf.frameMin;
+    prefs.set('frameTarget', hz);
+  },
   frameTargets: () => perf.targetOptions(),
   refreshHz: () => perf.refreshHz,
   redetect: () => perf.redetect(),
@@ -385,15 +410,31 @@ if (!fullscreen.available) {
 
 // The start state is set by calling setMode, not by a class in the HTML: the
 // class alone would show the right screen with an empty navigation list.
+// Restored before anything reads them. The frame target is what the player
+// last chose; detection snaps it to what this display can do, once it knows.
+sim.tuning.renderScale = prefs.values.renderScale;
+viewport.setRenderScale(prefs.values.renderScale);
+perf.setTarget(prefs.values.frameTarget);
+loop.frameMin = perf.frameMin;
+
 screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
 settings.rebuildFrameTargets();
 settings.paintFrameTarget(perf.targetHz);
+settings.syncAll();
+
+// A tab closed or hidden never runs a pending timer, and mobile browsers may
+// never fire `unload` at all.
+window.addEventListener('pagehide', () => prefs.flush());
 hud.setBest(scores.bestLabel);
 // Built ahead of the first crash: its impulse response is 288 000 samples and
 // generating it on the impact lands as a hitch at the worst possible moment.
-window.addEventListener('pointerdown', () => { audio.resume(); audio.warmUp(); }, { once: true });
-window.addEventListener('keydown', () => { audio.resume(); audio.warmUp(); }, { once: true });
+const openAudio = () => {
+  audio.unlock();
+  audio.warmUp();
+};
+window.addEventListener('pointerdown', openAudio, { once: true });
+window.addEventListener('keydown', openAudio, { once: true });
 
 /**
  * Holds the splash until the game can actually run, rather than for a fixed

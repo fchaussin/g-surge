@@ -38,6 +38,8 @@ export class Audio {
   private driftNoise: Band | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
+  /** No graph exists before a gesture; see `unlock`. */
+  private unlocked = false;
 
   get isMuted(): boolean {
     return this.muted;
@@ -51,10 +53,25 @@ export class Audio {
   }
 
   /**
-   * Creates the graph, or resumes it. Call from a user gesture; calling it
-   * more often is harmless.
+   * Opens the audio, from a user gesture.
+   *
+   * Nothing before this creates a context. A browser suspends one created
+   * outside a gesture and warns about it, which used to happen six times on
+   * every load because the screen machine resumed on its own first
+   * transition.
+   */
+  unlock(): void {
+    this.unlocked = true;
+    this.resume();
+  }
+
+  /**
+   * Resumes a context suspended by the browser — a backgrounded tab, an
+   * interrupting call. A no-op until `unlock`, so it is safe to call from any
+   * screen change.
    */
   resume(): void {
+    if (!this.unlocked) return;
     this.init();
     if (this.ctx?.state === 'suspended') void this.ctx.resume();
   }
@@ -67,6 +84,7 @@ export class Audio {
    * the worst possible moment.
    */
   warmUp(): void {
+    if (!this.unlocked) return;
     this.reverb();
   }
 

@@ -20,13 +20,13 @@ classic scripts, and those are gone.
 | 2 | Engine reads game state | — | **gone with the legacy** |
 | 3 | No tests at all | Low | largely covered, gaps below |
 | 4 | Variable time step | — | **done**, fixed 720 Hz |
-| 5 | Settings are not persisted | Medium | open |
+| 5 | Settings are not persisted | — | **done** |
 | 6 | Hardcoded DOM ids, no UI layer | Low | halved: modules split, ids remain |
 | 7 | three.js pinned to r128, no SRI | Low | SRI gone with the CDN; the pin stands |
 | 8 | No types | — | **gone**, the codebase is TypeScript |
 | 9 | Long functions | — | **gone with the legacy** |
 | 10 | Accessibility is absent | Low | mostly done, colour-only signals remain |
-| 11 | 38 of 70 tuning keys unreachable from the UI | Low | open |
+| 11 | 37 of 69 tuning keys unreachable from the UI | Low | open |
 | 12 | Dead code | — | **gone with the legacy** |
 | 13 | No lint, no formatter, no CI | Low | CI done, no formatter |
 | 14 | All strings hardcoded in English | Low | open |
@@ -76,13 +76,23 @@ frame always lands on an exact simulation state and the rendering needs no
 interpolation. See `src/sim/clock.ts` for the full reasoning, and
 `ARCHITECTURE.md` for the residual on 75 and 165 Hz.
 
-## 5. Settings are not persisted
+## 5. Settings — done
 
-Only scores are stored. Difficulty, reversed layout, sound, haptics, tips,
-background quality, frame rate target and render scale all reset on every
-reload. This is the single most visible gap for a returning player.
+Difficulty, reversed layout, sound, haptics, tips, background and its detail,
+frame rate target, render scale and the frame counter are kept under
+`gsurge.prefs.v1`. Writes are coalesced and flushed on `pagehide`, since a
+closing tab never runs a pending timer and mobile browsers may skip `unload`
+entirely.
 
-Now that the client is one place, it is a short job.
+Every field is validated on read. Storage is shared with anything else on the
+origin and outlives any one version of this code, so what comes out of it is
+untrusted: a bad value is dropped for its default rather than allowed to
+produce a game with a negative render scale.
+
+The advanced tuning sliders are deliberately **not** persisted. They are a
+workshop, not a preference, and a value nudged once and forgotten would follow
+someone through every later session with no obvious way back. Render scale is
+the exception, because it describes the machine rather than the game.
 
 ## 6. DOM coupling, halved
 
@@ -156,10 +166,13 @@ alone, and the keyboard navigation is custom and hijacks Tab.
 
 ## 11. Tuning coverage
 
-70 keys in `DEFAULTS`, 32 exposed as sliders. The 38 hidden ones include things
+69 keys in `DEFAULTS`, 32 exposed as sliders. The 37 hidden ones include things
 a designer will want first: camera distance and height, field of view, coin
 pickup radius, jump gravity, damage from scraping, boost minimum. They are
-reachable from the console through `window.TUNING` but nothing says so.
+reachable through `window.__gsNext.defaults()` but nothing says so.
+
+`coinValue` was among them and is now gone: nothing had read it since coins
+started feeding the multiplier instead of paying a fixed bonus.
 
 ## 13. Tooling
 

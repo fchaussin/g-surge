@@ -52,7 +52,6 @@ export interface Tuning {
   damageSteer: number;
 
   /* Objets et score */
-  coinValue: number;
   coinChance: number;
   fixChance: number;
   fixAmount: number;
@@ -111,7 +110,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   curveLoad: 30, curveMin: 0.0012, curveMax: 0.011, climbRate: 23,
   rollChance: 0.14, rollNodes: 44, stripeEvery: 2,
   hullImpact: 2.0, hullScrape: 15, hullRegen: 1.7, damageSpeed: 0.30, damageSteer: 0.28,
-  coinValue: 100, coinChance: 0.015, fixChance: 0.003, fixAmount: 40, supChance: 0.0024,
+  coinChance: 0.015, fixChance: 0.003, fixAmount: 40, supChance: 0.0024,
   supTime: 2.6, supFactor: 1.08, pickRadius: 3.6, haloTime: 0.45,
   coinTier2: 138.9, coinTier3: 277.8,
   multDecay: 0.10, multDecayFast: 0.5, multWallCut: 0.5, multMax: 30,
