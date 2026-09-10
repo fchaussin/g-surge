@@ -35,21 +35,27 @@ classic scripts, and those are gone.
 | 16 | Missing PWA icons | — | **done** |
 | 17 | `Math` transcendentals are not bit-identical across engines | — | **done**, the core carries its own |
 | 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
+| 20 | Modules over the 300-line rule | Low | seven, `main.ts` at 824 the worst |
 
 ## 3. Tests
 
 There were none. There is now a net:
 
-- Playwright, 53 tests over three profiles: boot, canvas geometry at
-  `devicePixelRatio` 2, state machine, keyboard navigation, visual references of
-  the screens at zero pixel tolerance.
+- Playwright, 66 tests over three profiles, of which 6 are skipped because
+  the scene references run on the desktop profile alone: boot, canvas geometry at `devicePixelRatio` 2,
+  state machine, keyboard navigation, visual references of the screens at zero
+  pixel tolerance, the bundle replayed against the frozen traces, and the
+  core's trigonometry compared between Chromium and Node.
 - Frozen references for track generation over sixty seeds and for physics over
   three difficulties, captured by `__gs.trace` at fixed step. Each was validated
   by deliberately breaking what it protects: a physics constant, a generation
   probability to one percent, and a PRNG misalignment all bring down the
   matching reference.
-- Vitest on `src/sim/`: the PRNG, the clock, and parity against those
-  references.
+- Vitest, 81 tests in ten files: the PRNG, the clock, the trigonometry and
+  parity against those references on the core; the event emission, the speed
+  tiers, the drift chain and the surge, which the frozen traces cannot see; and
+  on the client side the quality governor, the drift scale and the spray
+  envelope, the only presentation modules that run without a browser.
 
 Formerly listed as missing, and closed since:
 
@@ -349,6 +355,37 @@ a test that fails on drift. The rest of `docs/` is prose and counts that are
 still typed: they were all re-measured, but nothing stops them rotting again.
 Generating a handful of them — line counts, the tuning coverage figures — would
 be cheap, and is the obvious next move if this recurs.
+
+It recurred, mildly, on 11 September 2026: `ARCHITECTURE.md` had not been
+touched through steps 3 to 7 of the roadmap, so five client modules and the
+core's barrel were missing from its tables, the client's line count stood at
+2 100 against 5 200 measured, and the debug surface listed nine of its fifteen
+entries. Nothing was wrong, everything was incomplete. Re-measured and
+completed by hand, again.
+
+## 20. Modules over the 300-line rule
+
+`CLAUDE.md` asks for modules under 300 lines with one reason to change each,
+and names the legacy `game.js` at 1 340 as the counter-example. Measured on the
+current tree, comments included:
+
+| File | Lines | Why it grew |
+|---|---|---|
+| `src/client/main.ts` | 824 | Wiring, event consumption, the per-frame assembly, the debug surface, the reset for a capture |
+| `src/client/audio.ts` | 625 | One synthesised engine, ten event responses, the drift band and the surge white-out |
+| `src/sim/track.ts` | 398 | Ring buffers, generation, path integration and sampling |
+| `src/client/ship.ts` | 377 | Hull, plumes, smoke, halo and the drift glow |
+| `src/client/sliders.ts` | 341 | The tuning workshop, mostly the table itself |
+| `src/sim/step.ts` | 315 | One physics step |
+| `src/client/track-mesh.ts` | 311 | Five ribbons and the gantries |
+
+Low, and deliberately not acted on yet. `main.ts` is the only one with several
+reasons to change: the debug surface, `trace` and `freeze`, is a hundred and
+sixty lines that serves the tests alone and would move cleanly into its own
+module; `consume` is the observer end of `events.ts` and could go with the
+things it drives. The rest are one thing each written at length, and splitting
+`step.ts` or `track.ts` to satisfy a number would cost the reader more than it
+saves. The line counts here are typed by hand, which is item 19.
 
 ## What is deliberately not debt
 

@@ -15,9 +15,12 @@ public/            build output, gitignored — what Cloudflare Pages serves
 
 | File | Lines | Role |
 |---|---|---|
-| `src/sim/` | ~1 570 | Tuning, PRNG, clock, trigonometry, track, state, events, step |
-| `src/client/` | ~2 100 | Viewport, loop, camera, sky, track mesh, ship, pickups, HUD, screens, settings, audio, input, scores |
-| `index.html` | 665 | Markup and all the CSS |
+| `src/sim/` | ~1 700 | Tuning, PRNG, clock, trigonometry, track, state, events, step |
+| `src/client/` | ~5 200 | Viewport, loop, camera, sky, track mesh, ship, pickups, drift and surge presentation, HUD, screens, settings, preferences, audio, input, scores |
+| `index.html` | 703 | Markup and all the CSS |
+
+Line counts include comments, which this codebase writes at length; they are
+re-measured by hand and `TECH-DEBT.md` §19 says why that is a weakness.
 
 ## The one idea that explains everything
 
@@ -63,10 +66,11 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `clock.ts` | The fixed-step accumulator and the reasoning behind 720 Hz |
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
 | `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
-| `state.ts` | Simulation state, track space only |
-| `events.ts` | What the simulation reports, instead of calling the audio |
+| `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
+| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly |
+| `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
 
 ### Track model
 
@@ -126,6 +130,15 @@ Grip breaks when the demanded lateral acceleration exceeds `gripLimit`, which
 starts a drift: grip drops, the ship slides wide while still pointing into the
 corner, and the boost reserve refills fast.
 
+A drift held builds `state.chain`, which drains when the drift ends and is cut
+by a wall. The chain is the gate of the surge — `G_SURGE`, the state the game
+is named after: when it passes `surgeHold` while a super boost is running, the
+super boost escalates into `surgeTime` seconds at the **same** top speed. The
+surge gains no speed, because the engine's audio ratio is already near its
+ceiling; it gains duration and a sensory world that goes down rather than up.
+Specified in `FX-PALETTE.md` §16. It costs no frozen reference by construction:
+the traces contain no drift, and `sim-parity` asserts that they never will.
+
 Airborne state is triggered physically: when the track falls away faster than
 `airThresh × g`, the ship keeps its vertical velocity and the gap opens.
 
@@ -137,7 +150,7 @@ which is what makes the step runnable outside a page.
 
 | File | Role |
 |---|---|
-| `main.ts` | Wiring, and nothing else |
+| `main.ts` | Wiring: event consumption in `consume`, the per-frame assembly in `renderFrame`, the debug surface |
 | `loop.ts` | The frame loop, and the boundary between the two clocks |
 | `viewport.ts` | Renderer, camera, resize, render scale |
 | `camera.ts` | The chase camera and its roll blend |
@@ -145,7 +158,12 @@ which is what makes the step runnable outside a page.
 | `track-mesh.ts` | Five ribbons and the gantries |
 | `ship.ts` | Hull, plumes, smoke trail, halo |
 | `pickups.ts` | Pooled coin, repair and boost meshes |
+| `drift.ts` | `SLIP_CEILING`, 35 m/s, and the one drift intensity and side every effect reads |
+| `drift-spray.ts` | The lateral spray — pooled, allocated once, parented to the ship |
+| `surge.ts` | `SurgeMeter`, the intensity a surge earns by driving clean — presentation, reset for a capture |
+| `overlay.ts` | The surge's masked DOM layer: white veil and peripheral `backdrop-filter` blur |
 | `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface |
+| `preferences.ts` | `gsurge.prefs.v1` — validated on read, coalesced on write |
 | `input.ts` | Devices in, `{ steer, brake, boost }` out |
 | `audio.ts`, `haptics.ts` | Feedback, driven by events |
 | `scores.ts`, `score-screen.ts`, `tips.ts` | Leaderboard and prompts |
@@ -214,9 +232,12 @@ replay features to come, and it is not a game API.
 
 | | |
 |---|---|
-| `seed()`, `mode()`, `state()`, `clock()`, `defaults()` | current run |
+| `seed()`, `mode()`, `state()`, `clock()`, `fixedStep()`, `defaults()` | current run |
+| `revision`, `renderScale()` | the three.js revision and the live render scale |
 | `tuning()` | the **live** tuning object — mutations apply on the next step |
 | `nodes()`, `items()` | the ring buffers and live pickups |
+| `setSkyDetail(high)`, `setSkyVisible(visible)` | what the quality governor would do, by hand |
+| `trig(xs)` | the core's `sin`, `cos`, `atan` over a vector, replayed against Node |
 | `trace(opts)` | replays a run at fixed step, outside the render loop |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |
 

@@ -7,7 +7,7 @@
  * en choisiraient deux différents se contrediraient à l'écran. Ce module est ce
  * plafond, et le seul.
  *
- * Comme `thrust.ts`, c'est de la présentation dérivée de l'état : la simulation
+ * Comme `surge.ts`, c'est de la présentation dérivée de l'état : la simulation
  * ignore ce fichier.
  */
 import type { SimState } from '../sim/index.js';
