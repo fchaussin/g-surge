@@ -1,215 +1,212 @@
 # Roadmap
 
-État au 10 septembre 2026. Ce document remplace la feuille de route en phases
-0-3, dont la numérotation avait divergé du travail réellement fait.
+State as of 10 September 2026. This replaces the earlier phase 0-3 plan, whose
+numbering had drifted from the work actually done.
 
-## Où on en est
+## Where we are
 
-Six commits sur `refactor/tooling`, non fusionnée, arbre propre.
+Eight commits, merged into `main`.
 
-| Fait | Effet |
+| Done | Effect |
 |---|---|
-| Outillage | TypeScript strict, Vitest, ESLint, `npm run verify` |
-| Filet Playwright | 53 tests, trois profils, références visuelles à tolérance nulle |
-| Renommage G-SURGE | interface, manifeste, Docker, classement repris |
-| Simulation déterministe | PRNG seedé, `?seed=`, références de piste et de physique figées |
-| Noyau extrait | `src/sim/` en TypeScript strict, parité prouvée contre le jeu |
-| Pas fixe | 720 Hz, sans interpolation, cibles de cadence dérivées de l'appareil |
+| Tooling | Strict TypeScript, Vitest, ESLint, `npm run verify` |
+| Playwright net | 53 tests, three profiles, visual references at zero tolerance |
+| Rename to G-SURGE | UI, manifest, Docker, leaderboard migrated |
+| Deterministic simulation | Seeded PRNG, `?seed=`, frozen track and physics references |
+| Extracted core | `src/sim/` in strict TypeScript, parity proven against the game |
+| Fixed step | 720 Hz, no interpolation, refresh targets derived from the device |
 
-Dettes soldées : 4 (pas de temps). Largement entamées : 3 (tests), 13
-(outillage), 8 et 9 côté `src/sim/`. Intactes : 1, 5, 6, 10, 11, 12, 14, 15.
+Debt closed: 4 (time step). Largely covered: 3 (tests), 13 (tooling), 8 and 9
+inside `src/sim/`. Untouched: 1, 5, 6, 10, 11, 12, 14, 15, 16.
 
-## Le legacy et le nouveau code
+## Legacy and new code
 
-`public/engine.js`, `public/game.js` et `public/index.html` sont **la version
-legacy**. Elle est gelée : on n'y écrit plus rien. Ce n'est pas une seconde
-implémentation à tenir synchronisée avec `src/sim/`, c'est l'ancienne version
-qui sera supprimée à la bascule.
+`public/engine.js`, `public/game.js` and `public/index.html` are the **legacy**
+version. It is frozen — nothing new is written there. It is not a second
+implementation to keep in sync with `src/sim/`, it is the old version, and it
+will be deleted at the switch.
 
-Trois conséquences, et elles commandent tout le reste :
+Three consequences, and they drive everything below:
 
-- **Aucun correctif ne descend dans le legacy.** Les manques fonctionnels —
-  persistance des réglages, accessibilité, code mort, réverbération — attendent
-  le nouveau client. Le jeu déployé ne reçoit donc plus rien jusqu'à la
-  bascule ; c'est le prix, il est assumé.
-- **Pas d'état intermédiaire jetable.** On ne renomme pas deux gros fichiers en
-  `.ts` pour les découper ensuite : le nouveau code naît directement à la
-  structure cible, sous-système par sous-système.
-- **On porte, on ne réécrit pas.** `CLAUDE.md` recense des pièges payés cher
-  dans les shaders, la géométrie des rubans, la caméra et la traînée. Le code
-  qui les évite est juste ; il change de fichier et de langage, pas de contenu.
+- **No fix goes into the legacy.** The functional gaps — settings persistence,
+  accessibility, dead code, reverb — wait for the new client. The deployed game
+  therefore receives nothing until the switch. That is the price, and it is
+  deliberate.
+- **No throwaway intermediate state.** We do not rename two large files to
+  `.ts` and split them afterwards: the new code is written straight into the
+  target structure, one subsystem at a time.
+- **Port, do not rewrite.** `CLAUDE.md` lists traps paid for the hard way in the
+  shaders, the ribbon geometry, the camera and the trail. The code that avoids
+  them is correct; it changes file and language, not content.
+- **Structure is allowed to change, behaviour is not.** Porting means keeping
+  the numerics and the traps, while the layering follows the standards in
+  `CLAUDE.md` — ports and adapters, events rather than calls into the audio,
+  input as data, no allocation in the frame loop. Patterns that do not remove a
+  real problem here are refused by name in that same section.
 
-Les références figées de `tests/e2e/fixtures/` sont le **contrat de
-comportement**, et elles survivent au legacy. Le jour où le nouveau client les
-satisfait, les trois fichiers disparaissent sans que rien ne soit perdu.
+The frozen references in `tests/e2e/fixtures/` are the **behavioural contract**,
+and they outlive the legacy. The day the new client satisfies them, the three
+files go away and nothing is lost.
 
-## La cible
+## The target
 
-Un seul code source, en TypeScript, compilé vers `dist/`.
+One codebase, TypeScript, compiled to `dist/`.
 
 ```
-index.html            point d'entrée Vite
+index.html            Vite entry point
 src/
-  sim/                le noyau, déjà écrit — sans DOM ni three.js
-  client/             rendu, interface, audio, entrées, boucle
-public/               actifs copiés tels quels : _headers, manifeste, icônes, sw
-dist/                 produit par `npm run build`, non versionné
+  sim/                the core, already written — no DOM, no three.js
+  client/             rendering, UI, audio, input, loop
+public/               copied verbatim: _headers, manifest, icons, sw
+dist/                 produced by `npm run build`, not committed
 ```
 
-`public/` change de sens : il ne contient plus de source, seulement des actifs
-statiques, ce qui est la convention Vite. Cloudflare Pages passe d'un
-déploiement sans compilation à `npm run build` avec `dist` en sortie.
+`public/` changes meaning: no more sources, only static assets, which is the
+Vite convention. Cloudflare Pages moves from no build command to
+`npm run build` with `dist` as output.
 
-Conséquence directe : la règle « `public/` is the artefact, no build step » de
-`CLAUDE.md` disparaît. C'est un changement délibéré, pas un effet de bord.
+Direct consequence: the "`public/` is the artefact, no build step" ground rule
+in `CLAUDE.md` goes away. That is a deliberate change, not a side effect.
 
-## L'invariant qui rend la migration sûre
+## The invariant that makes this safe
 
-**Les références de `tests/e2e/fixtures/` ne sont pas régénérées**, sauf à
-l'étape 7 qui déclare son changement de comportement. Le nouveau client doit
-les satisfaire, pas les redéfinir : c'est ce qui distingue un portage d'une
-réécriture.
+**The references in `tests/e2e/fixtures/` are not regenerated**, except at
+step 7, which declares its behavioural change. The new client has to satisfy
+them, not redefine them: that is what separates a port from a rewrite.
 
-Pendant les étapes 2 et 3, le nouveau client n'est que partiellement testable —
-c'est le creux inhérent à un portage en parallèle. Ce qui le couvre pendant ce
-temps : les tests de parité du noyau, déjà verts, et le legacy qui reste la
-référence exécutable tant qu'il est là.
+During steps 2 and 3 the new client is only partly testable — that is the trough
+inherent to porting in parallel. What covers the gap: the core parity tests,
+already green, and the legacy, which stays the executable reference while it is
+there.
 
-Les références visuelles bougeront quand l'interface bougera : chaque
-régénération doit être un commit qui ne fait que ça.
+Visual references will move when the UI moves. Every regeneration must be a
+commit that does nothing else.
 
-## Étapes
+## Steps
 
-Estimations en journées de travail concentré, pour un seul intervenant.
+Estimates in days of focused work, one person.
 
-### Étape 0 — remettre les documents d'aplomb — ½ j
+### Step 0 — get the documents straight — ½ d
 
-Les corrections relevées en début de session et jamais appliquées :
+Corrections found at the start of the session and never applied:
 
-- `TECH-DEBT.md` §2 : `engine.js` ne lit qu'un symbole de `game.js`, `state`.
-  `step` et `L` étaient des faux positifs, fonction GLSL et étiquettes de
-  sommets.
-- `TECH-DEBT.md` §1, §6, §8, §10 : comptages faux — 235 liaisons et non 178,
-  74 `getElementById` et non 72, 27 champs d'état et non 25, 8 interrupteurs et
-  2 groupes segmentés et non 9 et 3.
-- `ARCHITECTURE.md` : nombres de lignes, dont `sw.js` donné pour 60 au lieu de
-  74.
-- `GAMEPLAY.md` : la ligne « share of steering authority » 62/80/98 % est
-  fausse. Le numérateur est bon, le diviseur ne correspond à rien dans le code.
-  Les vraies valeurs sont 51/66/80 % du manche, et surtout la métrique est la
-  mauvaise : le plafond est `gripLimit`, franchi dès Medium.
-- Trancher la langue des documents. Ils sont aujourd'hui bilingues, ce qui est
-  pire que l'un ou l'autre.
+- `TECH-DEBT.md` §2: `engine.js` reads one symbol from `game.js`, `state`.
+  `step` and `L` were false positives — a GLSL builtin and vertex labels.
+- `TECH-DEBT.md` §1, §6, §8, §10: wrong counts — 251 bindings not 178, 70
+  `getElementById` not 72, 27 state fields not 25, 8 toggles and 2 segmented
+  groups not 9 and 3.
+- `ARCHITECTURE.md`: line counts, including `sw.js` given as 60 instead of 74.
+- `GAMEPLAY.md`: the "share of steering authority" row, 62/80/98 %, is wrong.
+  The numerator is right, the divisor matches nothing in the code. The real
+  figures are 51/66/80 % of full stick, and more importantly the metric is the
+  wrong one: the ceiling is `gripLimit`, crossed from Medium onwards.
+- Settle the language. Documents and UI in English, code comments stay French
+  as they have always been.
 
-Acceptation : plus aucun chiffre de `docs/` invérifiable dans le code.
+Acceptance: no figure in `docs/` that cannot be checked against the code.
 
-### Étape 1 — squelette du nouveau client — 1 j
+### Step 1 — skeleton of the new client — 1 d
 
-- Vite, three.js depuis npm épinglé à `0.128.0`, version identique.
-- `index.html` à la racine, `src/client/main.ts`, `tsconfig` client permissif.
-- Le filet e2e doit pouvoir viser soit le legacy, soit le nouveau build : c'est
-  lui l'outil de migration, pas une vérification de fin de course.
+- Vite, three.js from npm pinned to `0.128.0`, exactly the same version.
+- `index.html` at the root, `src/client/main.ts`, permissive client `tsconfig`.
+- The e2e net must be able to target either the legacy or the new build: it is
+  the migration tool, not an end-of-run check.
 
-Acceptation : `npm run build` produit un `dist/` servi par le serveur statique,
-la page monte une scène et rend une image, les 53 tests contre le legacy
-passent toujours.
+Acceptance: `npm run build` produces a `dist/` the static server serves, the
+page mounts a scene and renders a frame, the 53 tests against the legacy still
+pass.
 
-### Étape 2 — porter le rendu — 1 à 2 j
+### Step 2 — port the rendering — 1 to 2 d
 
-Depuis `engine.js`, vers `src/client/` : `scene`, `sky`, `track-mesh`, `ship`,
-`pickups`. Chaque piège de `CLAUDE.md` traversé est vérifié en arrivant —
-précision du shader de ciel, période des chevrons, taille CSS du canvas,
-bornage de l'échelle des sprites.
+From `engine.js` into `src/client/`: `scene`, `sky`, `track-mesh`, `ship`,
+`pickups`. Every trap from `CLAUDE.md` is re-checked on arrival — sky shader
+precision, chevron period, canvas CSS size, sprite scale clamping.
 
-`buildPath`, `sample` et `gradeAt` rejoignent le noyau : ce sont des fonctions
-pures des tampons de piste, elles n'ont rien à faire dans la couche de rendu.
+`buildPath`, `sample` and `gradeAt` move into the core instead: they are pure
+functions of the track buffers and have no business in the rendering layer.
 
-Acceptation : la piste, le vaisseau et le ciel s'affichent depuis `src/sim/`,
-sans un seul appel au legacy.
+Acceptance: track, ship and sky render from `src/sim/`, with no call into the
+legacy.
 
-### Étape 3 — porter le client de jeu — 1 à 2 j
+### Step 3 — port the game client — 1 to 2 d
 
-Depuis `game.js` : boucle et horloge, HUD, écrans et navigation clavier,
-réglages, audio, haptique, entrées. Le tout consommant les événements de
-`src/sim/events.ts` à la place des appels qui étaient dans `step()`.
+From `game.js`: loop and clock, HUD, screens and keyboard navigation, settings,
+audio, haptics, input. All of it consuming the events from `src/sim/events.ts`
+instead of the calls that used to sit inside `step()`.
 
-Le CSS de `index.html` est repris tel quel : les références visuelles le figent
-au pixel, c'est la partie la moins risquée du portage.
+The CSS in `index.html` carries over as is: the visual references pin it to the
+pixel, which makes it the least risky part of the port.
 
-Acceptation : le nouveau client se joue, tous les écrans répondent.
+Acceptance: the new client is playable, every screen responds.
 
-### Étape 4 — parité, puis bascule — 1 j
+### Step 4 — parity, then switch — 1 d
 
-- La suite e2e complète passe contre le nouveau build, sur les trois profils.
-- Les références de simulation passent **sans être régénérées**.
-- Suppression de `public/engine.js`, `public/game.js`, `public/index.html`.
-- Cloudflare Pages : commande `npm run build`, sortie `dist`.
+- The full e2e suite passes against the new build, on all three profiles.
+- The simulation references pass **without being regenerated**.
+- Delete `public/engine.js`, `public/game.js`, `public/index.html`.
+- Cloudflare Pages: build command `npm run build`, output `dist`.
 
-C'est ici que le legacy meurt, et pas avant : tant qu'il est là, il reste la
-référence exécutable si une divergence apparaît.
+The legacy dies here and not before: while it is there, it remains the
+executable reference if a divergence shows up.
 
-### Étape 5 — service worker et actifs — ½ j
+### Step 5 — service worker and assets — ½ d
 
-- Vite produit des noms de fichiers avec empreinte : la liste `ASSETS` de
-  `sw.js` doit être engendrée à la compilation, et `VERSION` en découler. C'est
-  la partie la moins prévisible de la migration.
-- Créer `public/icons/`, absent depuis toujours : le manifeste et le service
-  worker pointent aujourd'hui sur quatre 404 et la PWA n'a pas d'icône.
+- Vite emits hashed filenames, so the `ASSETS` list in `sw.js` has to be
+  generated at build time and `VERSION` derived from it. This is the least
+  predictable part of the migration.
+- Create `public/icons/`, missing since forever: the manifest and the service
+  worker currently point at four 404s and the PWA has no icon.
 
-Acceptation : le mode hors ligne fonctionne sur un build compilé, une mise à
-jour est prise sans vider le cache à la main, l'icône apparaît à l'installation.
+Acceptance: offline works on a compiled build, an update is picked up without
+clearing the cache by hand, the icon shows on install.
 
-### Étape 6 — les manques fonctionnels — ½ j
+### Step 6 — the functional gaps — ½ d
 
-Persistance des réglages sous `gsurge.prefs.v1`, `prefers-reduced-motion`,
-`aria-pressed` et `role="radiogroup"`, code mort (`fmtM`, `TUNING.coinValue`),
-réverbération construite hors de l'impact.
+Settings persistence under `gsurge.prefs.v1`, `prefers-reduced-motion`,
+`aria-pressed` and `role="radiogroup"`, dead code (`fmtM`, `TUNING.coinValue`),
+reverb built outside the crash.
 
-Le SRI sur three.js sort de la liste : le paquet étant compilé dans le bundle,
-il n'y a plus de script tiers à sceller.
+SRI on three.js drops off the list: the package is bundled, there is no
+third-party script left to seal.
 
-### Étape 7 — piste déterministe — ½ j
+### Step 7 — deterministic track — ½ d
 
-`genSpeed = state.speed` fait dépendre la géométrie de la vitesse du joueur.
-Le remplacer par le profil de vitesse nominal, déjà déterministe, rend la piste
-fonction de la seule graine.
+`genSpeed = state.speed` makes the geometry depend on the player's speed.
+Replacing it with the nominal speed profile, which is already deterministic,
+makes the track a function of the seed alone.
 
-**Changement de comportement assumé** : les références de piste et de physique
-sont régénérées, dans un commit qui ne fait que ça, après validation à l'œil.
+**Declared behavioural change**: track and physics references are regenerated,
+in a commit that does nothing else, after checking by eye.
 
-Débloque : rejeu de partie, piste du jour partagée, arbitrage serveur.
+Unblocks: run replay, shared daily track, server-side validation.
 
-### Étape 8 — documents engendrés — ½ j
+### Step 8 — generated documents — ½ d
 
-Les tableaux de `GAMEPLAY.md` calculés depuis `src/sim/tuning.ts` par
-`npm run docs:tuning`, et vérifiés en test. Le 62/80/98 % n'aurait pas pu
-exister.
+The tables in `GAMEPLAY.md` computed from `src/sim/tuning.ts` by
+`npm run docs:tuning`, and checked in a test. The 62/80/98 % could not have
+happened.
 
-### Étape 9 — intégration continue — ½ j
+### Step 9 — continuous integration — ½ d
 
-Une action GitHub qui exécute `verify` et Playwright. Prettier si voulu.
+A GitHub action running `verify` and Playwright. Prettier if wanted.
 
-**Total : sept à neuf journées.** Plus que les six annoncées avant : porter
-proprement coûte davantage qu'une conversion mécanique, et c'est ce qui évite
-un découpage à refaire ensuite.
+**Total: seven to nine days.** More than the six first announced: porting
+properly costs more than a mechanical conversion, and saves a split that would
+otherwise have to be redone.
 
-## Décisions ouvertes
+## Open decisions
 
-- **CodePen.** `scripts/build-codepen.mjs` découpe les fichiers legacy en trois
-  panneaux. Il meurt donc avec eux à l'étape 4, sauf à le réécrire en cible
-  IIFE secondaire. À trancher avant l'étape 4, pas avant l'étape 1.
-- **Langue des documents.** Français ou anglais, mais un seul.
-- **`dist/` versionné ou non.** Recommandation : non, Cloudflare Pages compile.
-- **Fusion de `refactor/tooling`.** Six commits qui tiennent debout. Les
-  fusionner dans `main` avant l'étape 1 évite une branche de trois semaines.
+- **CodePen.** `scripts/build-codepen.mjs` slices the legacy files into three
+  panels, so it dies with them at step 4 unless it is rewritten as a secondary
+  IIFE target. To settle before step 4, not before step 1.
 
-## Hors périmètre
+## Out of scope
 
-- **Multijoueur.** Les spécifications viendront après ces étapes. L'étape 6 en
-  lève le dernier verrou technique ; rien d'autre n'est engagé.
-- **three.js au-delà de r151.** Gestion des couleurs et intensités lumineuses
-  changées : c'est une passe de retouche visuelle, pas une montée de version.
-- **Boucles verticales.** Demandent des repères en quaternions et une
-  dégénérescence à la verticale. La vrille couvre l'essentiel de l'intérêt.
-- **Rendu interpolé.** Le pas à 720 Hz divise les cadences d'écran courantes,
-  l'interpolation n'a plus d'objet. Ne pas la réintroduire sans mesurer.
+- **Multiplayer.** Specifications come after these steps. Step 7 lifts the last
+  technical blocker; nothing else is committed.
+- **three.js past r151.** Colour management and lighting intensity defaults
+  changed: that is a visual re-tuning pass, not a dependency bump.
+- **True vertical loops.** They need quaternion frames and have a degeneracy at
+  the vertical. The corkscrew covers most of the appeal for none of the risk.
+- **Interpolated rendering.** The 720 Hz step divides the common refresh rates,
+  so interpolation has no purpose. Do not reintroduce it without measuring.

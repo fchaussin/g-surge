@@ -4,111 +4,121 @@ Measured on the current tree, not estimated. Every number below came from
 scanning the sources. Severity is about risk of breaking something or of
 slowing future work, not about how ugly it looks.
 
+Read `ROADMAP.md` first: `public/` is now frozen legacy, so several items below
+are not going to be fixed where they stand — they disappear with the file.
+
 ## Summary
 
-| # | Item | Severity | Effort |
+| # | Item | Severity | Status |
 |---|---|---|---|
-| 1 | No module system, 178 shared global bindings | High | L |
-| 2 | Circular dependency between the two files | High | M |
-| 3 | ~~No tests at all~~ Couverture partielle depuis le filet e2e | Medium | M |
-| 4 | ~~Variable time step physics~~ Pas fixe à 720 Hz | — | fait |
-| 5 | Settings are not persisted | Medium | S |
-| 6 | 71 hardcoded DOM ids, no UI layer | Medium | L |
-| 7 | three.js pinned to r128 from 2021, no SRI | Medium | M |
-| 8 | No types, no JSDoc | Medium | L |
-| 9 | `step()` is 176 lines, `frame()` is 123 | Medium | M |
-| 10 | Accessibility is absent | Medium | M |
-| 11 | 38 of 70 tuning keys unreachable from the UI | Low | S |
-| 12 | Dead code | Low | S |
-| 13 | No lint, no formatter, no CI | Low | S |
-| 14 | All strings hardcoded in English | Low | M |
-| 15 | Reverb built on the main thread | Low | S |
+| 1 | No module system, 251 shared global bindings | High | dies with the legacy |
+| 2 | Legacy engine reads game state | Medium | reduced to one symbol |
+| 3 | No tests at all | Medium | largely covered |
+| 4 | Variable time step physics | — | **done**, fixed 720 Hz |
+| 5 | Settings are not persisted | Medium | open, roadmap step 6 |
+| 6 | 69 hardcoded DOM ids, no UI layer | Medium | dies with the legacy |
+| 7 | three.js pinned to r128 from 2021, no SRI | Medium | SRI dies with the bundler |
+| 8 | No types, no JSDoc | Medium | done in `src/sim/` |
+| 9 | `step()` is 176 lines, `frame()` is 136 | Medium | done in `src/sim/` |
+| 10 | Accessibility is absent | Medium | open, roadmap step 6 |
+| 11 | 38 of 70 tuning keys unreachable from the UI | Low | open |
+| 12 | Dead code | Low | open, roadmap step 6 |
+| 13 | No lint, no formatter, no CI | Low | lint and types done, no CI |
+| 14 | All strings hardcoded in English | Low | open |
+| 15 | Reverb built on the main thread | Low | open, roadmap step 6 |
+| 16 | Missing PWA icons | Medium | open, roadmap step 5 |
 
 ## 1. No module system
 
-`engine.js` declares 67 top-level bindings, `game.js` declares 111. All 178 live
+`engine.js` declares 94 top-level bindings, `game.js` declares 157. All 251 live
 in the same lexical scope because they are classic scripts. Consequences:
 
 - A name declared in both files is a parse error that only shows at runtime.
-- Nothing states what `game.js` needs from `engine.js`. The answer happens to be
-  34 symbols, but you have to grep to find out.
-- No dead code elimination, no minification pipeline, no code splitting.
+- Nothing states what `game.js` needs from `engine.js`.
+- No dead code elimination, no minification, no code splitting.
 
-The guard rail today is a one-line check:
-`cat public/engine.js public/game.js > /tmp/x.js && node --check /tmp/x.js`.
-That catches collisions and nothing else.
+The guard rail is `npm run check:globals`, which concatenates the two files and
+re-parses them. It catches collisions and nothing else. Both the guard rail and
+the problem disappear when the legacy files do.
 
-## 2. Circular dependency
+Note that an earlier revision of this document said 178 bindings. That was a
+count of declaration *statements*: a single line like
+`const COUNT = 130, SEG = 12, BACK = 10, HALF = 11.5, SHIP = 1.9;` declares five.
 
-`engine.js` reads three symbols that `game.js` owns: `state`, `step` and `L`.
-The load order says engine comes first, so this only works because the reads
-happen inside functions called later. It is invisible until someone moves a
-call to module scope.
+## 2. The legacy engine reads game state
 
-The fix is to invert it: engine should receive what it needs as arguments, or
-own the state it reads. `updateSmoke` and `updateItems` are the main offenders,
-both reaching into `state` for speed, cursor and lateral position.
+`engine.js` reads exactly one symbol that `game.js` owns, `state`, over nine
+sites and three properties: `state.speed` in `coinTier` and `updateSmoke`,
+`state.halo` and `state.haloPow` in the halo helpers. Load order says engine
+comes first, so this only works because the reads happen inside functions called
+later.
 
-## 3. Tests, partiellement traité
+`sample` and `gradeAt` used to read `state.cursor` as well; they now take it as
+an argument. In `src/sim/` the problem does not exist: `halo` is an event and
+`coinTier` takes the speed.
 
-Il n'y en avait aucun. Il y a désormais un filet de non régression :
+An earlier revision claimed three symbols, `state`, `step` and `L`. The other
+two were false positives — `step` is the GLSL builtin in the sky shader, `L` is
+a vertex label in the ship geometry table.
 
-- Playwright, 49 tests sur trois profils : démarrage, géométrie du canvas,
-  machine à états, navigation clavier, références visuelles des écrans.
-- Des références figées de la génération de piste, sur soixante graines, et de
-  la physique, sur trois difficultés, capturées par `__gs.trace` à pas fixe.
-  Elles ont été validées en perturbant délibérément le code : une constante de
-  physique, une probabilité de génération à un pour cent près, et un décalage
-  du PRNG font toutes tomber la référence correspondante.
-- Vitest sur `src/sim/rng.ts`.
+## 3. Tests
 
-Ce qui manque encore :
+There were none. There is now a net:
 
-- `buildPath` et `sample`, le cœur géométrique, ne sont couverts
-  qu'indirectement par les traces.
-- Le régulateur de cadence, qui avait déjà le bug du 144 Hz visant 120 et
-  retombant à 72, n'est pas testé du tout.
-- Aucune référence pixel du rendu 3D : le canvas est écarté des captures, faute
-  d'un pas de simulation fixe côté jeu. Voir la dette 4.
+- Playwright, 53 tests over three profiles: boot, canvas geometry at
+  `devicePixelRatio` 2, state machine, keyboard navigation, visual references of
+  the screens at zero pixel tolerance.
+- Frozen references for track generation over sixty seeds and for physics over
+  three difficulties, captured by `__gs.trace` at fixed step. Each was validated
+  by deliberately breaking what it protects: a physics constant, a generation
+  probability to one percent, and a PRNG misalignment all bring down the
+  matching reference.
+- Vitest on `src/sim/`: the PRNG, the clock, and parity against those
+  references.
 
-Les bugs visuels se trouvaient à l'œil, sur un téléphone, après un déploiement.
-Cette boucle est raccourcie, pas supprimée.
+Still missing:
 
-## 4. Pas de temps, traité
+- `buildPath` and `sample`, the geometric core, are only covered indirectly.
+- The frame rate governor, which already had the bug where a 144 Hz display
+  targeting 120 dropped to 72, is not covered at all.
+- No pixel reference of the 3D rendering: the canvas is excluded from the
+  screenshots. That is now only a matter of adding a hook that renders after a
+  fixed number of steps, since the simulation itself is deterministic.
 
-La simulation avance par pas fixes de 1/720 s. Mesuré avant la bascule, sur
-quinze secondes de jeu : 6,6 m d'écart entre 60 et 144 Hz, et à 30 Hz la
-trajectoire déviait assez pour ramasser d'autres pièces. Toutes les machines
-simulent maintenant la même chose.
+A known resolution limit, measured: swapping the two lateral terms of `step` — a
+pure floating point reassociation — shifts `latVel` by about 4e-16 over 1800
+steps without amplifying, and is not detected. The references catch behavioural
+changes, not numerically equivalent rewrites.
 
-720 est le plus petit entier divisible par 60, 72, 90, 120, 144 et 240. Une
-image tombe donc toujours sur un état de simulation exact, ce qui évite
-d'interpoler le rendu : douze pas par image à 60 Hz, cinq à 144. Un pas coûte
-0,45 µs mesuré, soit 0,03 % d'un cœur.
+## 4. Time step — done
 
-Sur 75 et 165 Hz, qui ne divisent pas 720, le compte alterne entre deux entiers
-voisins et le déplacement d'une image varie de ±11 %. Une simulation à 120 Hz
-sur un écran 144 aurait alterné entre zéro et un pas, soit ±120 % : c'est la
-finesse du pas qui rend l'interpolation superflue, pas sa cadence nominale.
+The simulation now advances in fixed 1/720 s steps. Measured before the switch,
+over fifteen seconds of play: 6.6 m of divergence between 60 and 144 Hz, and at
+30 Hz the trajectory deviated enough to collect different coins. Every machine
+now simulates the same thing.
 
-Ce qui reste : le rendu n'est pas interpolé, donc sur ces deux cadences le
-résidu subsiste. Il est sous le seuil de perception, mais il est là.
+720 is the smallest integer divisible by 60, 72, 90, 120, 144 and 240, so a
+frame always lands on an exact simulation state and the rendering needs no
+interpolation. See `src/sim/clock.ts` for the full reasoning, and
+`ARCHITECTURE.md` for the residual on 75 and 165 Hz.
 
 ## 5. Settings are not persisted
 
 Only scores are stored. Difficulty, reversed layout, sound, haptics, tips,
 background quality, frame rate target and render scale all reset on every
-reload. This is the single most visible gap for a returning player, and the
-cheapest to close.
+reload. This is the single most visible gap for a returning player.
+
+It is deliberately not being fixed in the legacy files: that work would be
+thrown away at the switch. Roadmap step 6.
 
 ## 6. DOM coupling
 
-72 `getElementById` calls over 71 distinct ids, plus 10 `querySelector` calls,
+70 `getElementById` calls over 69 distinct ids, plus 11 `querySelector` calls,
 spread through `game.js`. The ids exist in three places at once: the HTML, the
-lookup, and often a CSS rule. Renaming anything means a three way search.
+lookup, and often a CSS rule.
 
 There is no UI module. Screen logic, settings generation, audio switches and
-HUD updates are interleaved in the same file.
+HUD updates are interleaved in the same file. Roadmap step 3 splits them.
 
 ## 7. three.js r128
 
@@ -117,28 +127,35 @@ behaviour, including `MeshLambertMaterial` ignoring `flatShading` and the
 absence of colour management. Upgrading is a real project, not a version bump,
 because r152 changed colour space handling and lighting intensity by default.
 
-Separately, the CDN script tag has no `integrity` attribute. A compromised cdnjs
-would execute arbitrary code. Either add SRI or vendor the file.
+The CDN script tag has no `integrity` attribute, so a compromised cdnjs would
+execute arbitrary code. The fix is not to add SRI but to take the package from
+npm at `0.128.0` and bundle it, which roadmap step 1 does. The hash of the
+vendored copy used by the tests is in the Playwright commit if it is needed
+before then.
 
-## 8. No types
+## 8. Types
 
-70 tuning keys, a `state` object with 25 fields, and geometry helpers that
-return bare objects with eleven properties. Nothing declares any of it.
-JSDoc plus `checkJs` would catch most of it without moving to TypeScript.
+70 tuning keys, a `state` object with 27 fields, and geometry helpers returning
+bare objects with eleven properties. In `src/sim/` all of it is typed under
+`strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. In the
+legacy files nothing is, and nothing will be.
 
 ## 9. Long functions
 
 `step()` is 176 lines and does input, boost, difficulty erosion, distance,
-jumps, lateral dynamics, walls, pickups and damage. `frame()` is 123 lines.
-Both are readable today because they were written linearly, but neither can be
-tested in pieces and both are where merge conflicts will land.
+jumps, lateral dynamics, walls, pickups and damage. `frame()` is 136. In
+`src/sim/` the step is split across `step.ts`, `track.ts` and `tuning.ts`; the
+frame loop is split at roadmap step 3.
 
 ## 10. Accessibility
 
-No `aria-pressed` on the nine custom toggles, no `role="radiogroup"` on the
-three segmented controls, no `prefers-reduced-motion` handling despite a splash
-screen and a HUD full of animation. Damage, boost tier and difficulty are all
-signalled by colour alone. The keyboard navigation is custom and hijacks Tab.
+No `aria-pressed` on the eight custom toggles, no `role="radiogroup"` on the two
+segmented controls, no `prefers-reduced-motion` handling despite a splash screen
+and a HUD full of animation. Damage, boost tier and difficulty are all signalled
+by colour alone. The keyboard navigation is custom and hijacks Tab.
+
+An earlier revision said nine toggles and three segmented controls. Roadmap
+step 6.
 
 ## 11. Tuning coverage
 
@@ -157,15 +174,17 @@ reachable from the console through `window.TUNING` but nothing says so.
   `bootLabel`, `diffEasy`, `diffMedium`, `diffHard`. The first three are used by
   the inline splash script, the last three only by CSS, but that is not obvious.
 
-## 13. No tooling
+## 13. Tooling
 
-No linter, no formatter, no CI, no dependencies at all. `npm run check` is two
-`node --check` calls. A `git push` can break the build and nothing will say so.
+Lint, types and tests are in place behind `npm run verify`, and Playwright
+behind `npm run test:e2e`. There is still no formatter and, more importantly,
+**no CI**: a push can break the build and nothing will say so. Roadmap step 9.
 
 ## 14. Strings
 
 Every label is inline, split between the HTML and two JavaScript tables
-(`TIPS`, `SLIDERS`, `DIFF`). Localising means touching all three.
+(`TIPS`, `SLIDERS`, `DIFF`). Localising means touching all three. `src/sim/`
+deliberately keeps none: difficulty labels and notes stayed with the UI.
 
 ## 15. Reverb on the main thread
 
@@ -173,13 +192,19 @@ The 3 s impulse response is 288000 samples over two channels, generated with a
 `Math.random` loop the first time the player crashes. That is a visible hitch at
 the worst possible moment. Generate it during the run or offload it.
 
+## 16. Missing PWA icons
+
+`public/icons/` does not exist and never has. `manifest.webmanifest` points at
+three icons and `sw.js` lists four in its cache manifest, so all of them 404.
+The service worker survives — each asset is cached inside its own try/catch —
+but the installed app has no icon. Roadmap step 5.
+
 ## What is deliberately not debt
 
-- **No bundler** is a choice, not an accident, and it is why the project has
-  zero install and deploys as static files. It becomes debt the moment the
-  codebase grows past two files.
-- **The ship at the origin** is unusual but correct, and it removes a whole class
-  of precision bugs.
-- **Synthesised audio** keeps the payload at 192 KB with no asset pipeline.
+- **The ship at the origin** is unusual but correct, it removes a whole class of
+  precision bugs, and it is what makes several ships on one track cheap later.
+- **Synthesised audio** keeps `public/` at 130 KB with no asset pipeline.
 - **`MeshBasicMaterial` everywhere** is what makes the neon look work and keeps
   the fragment cost low.
+- **No bundler** was a defensible choice for two files and zero dependencies. It
+  stopped being one, which is what `ROADMAP.md` is about.

@@ -21,8 +21,13 @@ The multiplier starts at 1 and:
 - **is halved** by a wall impact or a bad landing (`multWallCut`),
 - is capped at `multMax`, default 30.
 
-Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 107 m,
+Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 119 m,
 so a faster ship both collects more per second and gets more per coin.
+
+That 119 m is one cycle of `1 / coinChance` segments without a coin plus a run
+of five to ten with one on every segment: no fresh roll happens while a run is
+playing out. Dividing `1 / coinChance` by the run length gives 107 m and is
+wrong for exactly that reason.
 
 ## Speed tiers
 
@@ -53,7 +58,9 @@ less than easy.
 | | Easy | Medium | Hard |
 |---|---|---|---|
 | Corner radius at top speed | 189 m | 149 m | 123 m |
-| Outward push, share of steering authority | 62 % | 80 % | 98 % |
+| Load in that corner, bank deducted | 27.3 m/s² | 35.3 | 43.2 |
+| Grip threshold, `gripLimit` | 34 | 34 | 29 |
+| Share of grip demanded | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
 | Average impact cost | 24 pts | 31 pts | 41 pts |
 | Repair time for that impact | 14 s | 26 s | 51 s |
@@ -112,7 +119,20 @@ halves boost recharge. At zero the run ends.
 - **Chevron period must stay above twice the per frame travel.** At 335 m/s and
   60 fps that is 11.2 m, hence `stripeEvery: 2` for a 24 m period. Below that the
   track visually decomposes and no amount of GPU fixes it.
-- **Corner load above roughly 100 % of steering authority** makes a corner
-  physically impossible to hold. Hard sits at 98 % on purpose.
+- **The ceiling on a corner is `gripLimit`, not the stick.** Past it the corner
+  is taken sliding, not gripping. Easy stays under; Medium crosses it at its
+  minimum radius; Hard crosses it on roughly a third of its corners. That is
+  the drift-to-charge loop working as designed, not a flaw.
+
+  A previous revision of this document gave an "outward push as a share of
+  steering authority" of 62 / 80 / 98 % and claimed Hard sat just under an
+  impossible 100 %. The numerator was right — it is the bank-corrected outward
+  load above — but it was divided by 44.1 m/s², a figure that appears nowhere
+  in the code. Actual steering authority is `sin(yawMax) x v x gripHold`, about
+  53.8 m/s² and almost speed-independent since `yawMax` scales as `1/v`, which
+  puts the three levels at 51 / 66 / 80 % of full stick. Hard therefore has
+  stick left over, while being 49 % past its grip ceiling. Simulated to check:
+  at its minimum radius Easy holds the line with zero drift, Medium and Hard
+  slide to the wall.
 - **Draw distance is 1440 m**, which is 4.3 seconds at full boost. Raising top
   speed without raising `COUNT` will make the track pop in.

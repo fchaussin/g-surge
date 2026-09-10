@@ -1,6 +1,9 @@
 # G-SURGE
 
-Endless antigrav runner. Three.js r128, no build step, no framework.
+Endless antigrav runner on three.js r128.
+
+A migration is under way, see `docs/ROADMAP.md`. `public/` is the frozen legacy
+version and is what ships today; `src/` is the TypeScript codebase replacing it.
 
 ## Layout
 
@@ -11,67 +14,72 @@ public/            everything that gets deployed, as is
   game.js          physics, score, screens, input, audio, main loop
   sw.js            offline cache
   manifest.webmanifest
-  icons/           MANQUANT : référencé par le manifeste et sw.js, absent du dépôt
-src/               le refactor en cours, pas encore servi
-  sim/             noyau déterministe en TypeScript strict, sans DOM ni three.js
+  icons/           MISSING: referenced by the manifest and sw.js, absent from the repo
+src/
+  sim/             deterministic core, strict TypeScript, no DOM and no three.js
 tests/
-  rng.test.ts      Vitest, unitaire
-  e2e/             Playwright : démarrage, écrans, références visuelles
+  *.test.ts        Vitest: PRNG, clock, parity against the frozen references
+  e2e/             Playwright: boot, screens, visual and simulation references
 scripts/
-  build-codepen.mjs  splits the sources into three CodePen panels
-  check-globals.mjs  détecte un nom déclaré dans engine.js et game.js à la fois
+  build-codepen.mjs  splits the legacy sources into three CodePen panels
+  check-globals.mjs  catches a name declared in both engine.js and game.js
+  serve-static.mjs   dependency-free static server, used by the e2e suite
 ```
 
-`public/` reste l'artefact déployé et fonctionne seul. `src/` est construit à
-côté et ne sera branché qu'une fois le noyau à parité, voir `docs/ROADMAP.md`.
+`public/` still runs on its own and is what Cloudflare Pages serves. `src/sim/`
+is proven equivalent to it but is not wired in yet.
 
 ## Local
 
-    npm install      # outillage de dev uniquement, le jeu n'a aucune dépendance
+    npm install      # dev tooling only, the game itself has no dependency
     npm run dev      # serves public/ on http://localhost:5173
-    npm run verify   # syntaxe, collisions de noms, types, lint, tests
+    npm run verify   # syntax, name collisions, types, lint, unit tests
+    npm run test:e2e # Playwright: boot, screens, visual and simulation references
 
-    npm run test:e2e # Playwright : démarrage, écrans, références visuelles
+`npm run verify` is the command to run after any change. The five steps are also
+callable on their own: `check`, `check:globals`, `typecheck`, `lint`, `test`.
+`npm run verify:all` adds the Playwright suite.
 
-`npm run verify` est la commande à passer après toute modification. Les cinq
-étapes sont aussi appelables séparément : `check`, `check:globals`, `typecheck`,
-`lint`, `test`. `npm run verify:all` y ajoute la suite Playwright.
+End-to-end tests run on the host only, the dev image carries no browser. They
+replay three.js from a local copy rather than from cdnjs, so the suite works
+offline and a failure points at the game rather than at the network.
 
-Les tests de bout en bout tournent sur l'hôte uniquement, l'image de dev ne
-contenant pas de navigateur. Ils rejouent three.js depuis une copie locale
-plutôt que depuis cdnjs, pour être exécutables hors ligne et pour qu'un échec
-désigne le jeu et pas le réseau.
+`npm run fixtures:update` regenerates the frozen simulation references. It is
+not a routine command: those references are the behavioural contract of the
+port, see `docs/ROADMAP.md`.
 
 A plain static server is enough. Open over http, not file://, or the service
 worker and the manifest are ignored.
 
-Le paramètre `?seed=` fige la piste : `http://localhost:5173/?seed=alpha` rejoue
-exactement la même génération à chaque chargement. Sans lui, chaque partie tire
-sa propre graine.
+The `?seed=` parameter pins the track: `http://localhost:5173/?seed=alpha`
+replays exactly the same generation on every load. Without it, each run draws
+its own seed.
 
 ## Docker
 
-Même chose sans rien installer sur la machine, Node et le serveur statique
-vivent dans l'image :
+Same thing without installing anything on the machine — Node and the static
+server live in the image:
 
     docker compose up --build          # http://localhost:5173
     docker compose run --rm tools npm run check
     docker compose run --rm tools npm run build
     docker compose down
 
-Les sources sont montées, pas copiées : une édition est servie au rechargement
-suivant, l'image n'est à reconstruire que si le `Dockerfile` change. Le port se
-change avec `GSURGE_PORT=8080`.
+Sources are mounted, not copied: an edit is served on the next reload, and the
+image only needs rebuilding when the `Dockerfile` changes. Change the port with
+`GSURGE_PORT=8080`.
 
-Le démon local est en mode rootless, où l'uid 0 du conteneur est déjà
-l'utilisateur de l'hôte, et `compose.yaml` en tient compte. Sur un démon
-classique, lancer avec `GSURGE_USER="$(id -u):$(id -g)"` pour que `dist/` ne
-sorte pas en root.
+The local daemon runs rootless, where uid 0 inside the container is already the
+host user, and `compose.yaml` assumes that. On a rootful daemon, run with
+`GSURGE_USER="$(id -u):$(id -g)"` so that build output is not owned by root.
 
-Le serveur force `Cache-Control: no-cache` (`docker/serve.json`), sans quoi le
-cache heuristique du navigateur sert un `engine.js` périmé. Le service worker,
-lui, garde sa propre copie : pendant une session de dev, cocher *Update on
-reload* dans l'onglet Application, ou bumper `VERSION` dans `sw.js`.
+The server forces `Cache-Control: no-cache` (`docker/serve.json`); without it
+the browser's heuristic cache serves a stale `engine.js`. The service worker
+keeps its own copy, but it only registers over https, so it is out of the way on
+localhost. On a deployed build, tick *Update on reload* in the Application tab
+or bump `VERSION` in `sw.js`.
+
+Playwright is not available in the image. Run `npm run test:e2e` on the host.
 
 ## Cloudflare Pages
 
@@ -111,4 +119,6 @@ Fullscreen is refused inside the embedded preview but works in debug view.
 - The leaderboard lives in `localStorage` under `gsurge.scores.v1`. A board
   written under the previous name, `voidrunner.scores.v1`, is picked up once and
   the old key removed. Private browsing falls back to memory for the session.
+- Settings are not persisted at all yet. That is deliberate for now: fixing it
+  in the legacy files would be thrown away at the switch.
 - `navigator.vibrate` does not exist on iOS, the haptics switch hides itself.

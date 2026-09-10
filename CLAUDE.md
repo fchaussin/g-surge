@@ -19,15 +19,17 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 - **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
   past r151 changes colour management and lighting defaults and is a re-tuning
   pass, not a version bump.
-- **`src/` is the refactor, `public/` is still the game.** The migration is
-  staged: `src/sim/` holds the deterministic core in TypeScript, `public/` keeps
-  running the shipped classic scripts until the client split lands. Both are
-  checked by `npm run verify`. Do not wire one into the other halfway.
-- **The core is ported but not yet plugged in.** `src/sim/` reproduces tuning,
+- **`public/` is frozen legacy.** Do not write anything new there, and do not
+  fix anything there either: that work is thrown away at the switch described in
+  `docs/ROADMAP.md`. It stays because it is the executable reference until the
+  new client reaches parity.
+- **`src/` is where the project goes.** `src/sim/` already reproduces tuning,
   track generation and `step()` exactly; `tests/sim-parity.test.ts` replays the
-  frozen references against it in Node and they match to the digit. Until the
-  client split, a change to the simulation has to land on **both sides** — the
-  parity test is what says so, immediately.
+  frozen references against it in Node and they match to the digit. It is not
+  wired into the game yet — that is roadmap step 2.
+- **Documents and UI in English, code comments in French.** That is the existing
+  convention of this repository, and mixing the two inside one file is worse
+  than either.
 - **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
   from `lib` and empties `types`, so `document`, `window` or `fetch` are
   compile errors, not review comments. ESLint additionally rejects `Math.random`,
@@ -40,7 +42,7 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
   roadmap replaces the static server with Vite: `compose.yaml` is part of that
   phase, not a follow-up to it.
 - **The simulation is seeded.** Track generation and pickup placement go
-  through `makeRng` in `engine.js`, section « 1b ». A run picks a fresh seed
+  through `makeRng` in `engine.js`, section "1b". A run picks a fresh seed
   unless `?seed=` pins one. Never reintroduce `Math.random` there: the frozen
   references depend on it, and so does every replay feature to come. What stays
   on `Math.random` on purpose is listed in that same section.
@@ -74,20 +76,22 @@ Everything also runs in the image: `docker compose run --rm tools npm run verify
 End to end, on top, with a real browser:
 
 ```
-npm run test:e2e            # Playwright, 33 tests, 3 profils, ~2 min
-npm run test:e2e:update     # régénère les références visuelles
+npm run test:e2e            # Playwright, 53 tests, 3 profiles, ~3 min
+npm run test:e2e:update     # regenerate the visual references
+npm run fixtures:update     # regenerate the simulation references
 npm run verify:all          # verify + test:e2e
 ```
 
-Les références figées de simulation vivent dans `tests/e2e/fixtures/` et se
-régénèrent avec `npm run fixtures:update`, jamais à la légère : elles décrivent
-la piste sur soixante graines et la physique sur trois difficultés.
+The frozen simulation references live in `tests/e2e/fixtures/` and regenerate
+with `npm run fixtures:update` — never casually: they describe the track over
+sixty seeds and the physics over three difficulties, and they are the
+behavioural contract of the port in progress.
 
-`test:e2e` ne tourne **que sur l'hôte** : l'image ne contient pas de navigateur.
-Les références visuelles sont comparées à zéro pixel de tolérance ; une montée
-de version de Playwright change l'anticrénelage du texte et impose de les
-régénérer sciemment. Ce que la suite couvre et, tout aussi important, ce qu'elle
-ne couvre pas, est écrit en tête de chaque fichier de `tests/e2e/`.
+`test:e2e` runs **on the host only**: the image carries no browser. Visual
+references are compared at zero pixel tolerance; a Playwright upgrade changes
+text antialiasing and forces a deliberate regeneration. What the suite covers
+and, just as important, what it does not, is written at the top of each file in
+`tests/e2e/`.
 
 ## Where things live
 
@@ -160,6 +164,64 @@ rebuilt in front of it every frame. Consequences:
 - **`SIM_EPS` is not cosmetic.** `1/72` and `1/144` are not representable in
   binary, so without it the accumulator periodically yields one step fewer and
   the judder comes back. A test caught exactly that.
+
+## Coding standards for the port
+
+Pragmatic, not doctrinal. A pattern that does not remove a real problem here is
+worse than none: it adds indirection for a reader who then has to unwind it.
+
+**The patterns already carrying this codebase.** They were arrived at, not
+imposed, and the port must preserve them rather than invent new ones.
+
+- **Ports and adapters.** `src/sim/` depends on nothing — no DOM, no three.js,
+  no clock. The client adapts to it, never the reverse. This is enforced by the
+  compiler, not by discipline: `src/sim/tsconfig.json` drops `DOM` from `lib`
+  and empties `types`. It is what lets the core run in Node, be tested against
+  frozen references, and one day be executed by a server.
+- **Observer.** `step()` pushes typed events instead of calling `SFX.hit` and
+  `flashHalo`. Keep the discriminated union in `events.ts` and let each
+  consumer — audio, haptics, HUD — read the ones it cares about. Do not promote
+  this into a global publish/subscribe bus; the array is drained once per step
+  and that is enough.
+- **Command.** Input is data: `{ steer, brake, boost }`, passed in, never read
+  from the keyboard by the simulation. That single choice is what makes replay,
+  ghosts and server validation possible later. Never let the core reach for an
+  input device.
+- **Strategy as data.** Difficulty is a table of overrides in `DIFF`, not a
+  class hierarchy. Ship profiles, when they come, follow the same shape.
+- **Facade.** `Sim` is the one entry point over state, track and step. The
+  client should not need to know the three exist.
+- **Object pool.** Sprites, ribbons and the track buffers are allocated once and
+  rewritten in place. See below.
+
+**Rules that come from this game's shape.**
+
+- **No allocation in the frame loop.** The simulation runs at 720 Hz and the
+  render at up to 240: a per-frame object is 720 garbage objects a second, and
+  the collector pause lands as a visible stutter. Reuse the `SBACK`/`SFRONT`
+  style of scratch objects, write into typed arrays, avoid `map`/`filter` on hot
+  paths.
+- **Pure functions wherever a reference tests them.** The generator, the step,
+  the geometry helpers. If a function needs a clock, a random source or the
+  DOM to be tested, it is in the wrong layer.
+- **Data tables over branches.** `DIFF`, `COIN_GAIN`, `SLIDERS` and `NAV_IDS`
+  all read as data. Prefer extending the table to adding a case.
+- **Name the unit in the type or the name.** This code mixes m/s, km/h, rad/m
+  and rad. Most of the bugs worth fearing here are unit confusions.
+- **Modules under 300 lines, one reason to change each.** `game.js` at 1340 is
+  the counter-example the split exists to remove.
+
+**Refuse these, explicitly.**
+
+- **An ECS.** There is one ship. It would be architecture for its own sake.
+- **A dependency injection container.** Constructor arguments are enough at this
+  size, and they are readable.
+- **An abstraction over three.js**, in case the renderer is swapped. It will not
+  be, and r128 behaviour is depended upon in half a dozen documented places.
+- **Class hierarchies over meshes or screens.** Composition and plain data have
+  covered every case so far.
+- **Premature generality in the network layer.** There is no protocol yet; see
+  `docs/ROADMAP.md`.
 
 ## Editing style that works here
 
