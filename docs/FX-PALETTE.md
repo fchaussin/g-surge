@@ -1,5 +1,30 @@
 # Extensions système — Drift & Superboost
 
+> **Ce document est une base de ressources, pas une liste de features à
+> implémenter.** Il sert de palette où puiser — surtout pour les FX qui
+> renforcent l'impression de vitesse. Rien ici n'est un engagement, et l'ordre
+> des sections n'est pas un ordre de travail.
+>
+> **Ce qui existe déjà dans le code** (relevé le 2026-09-10), parce que
+> plusieurs concepts ci-dessous sont des extensions de mécaniques en place et
+> non des ajouts :
+>
+> - **Le drift est implémenté et boucle déjà avec le boost.** `state.drift` et
+>   `state.slip` dans la simulation, recharge à `driftCharge` = 17 points/s,
+>   sortie sous `driftExit`. Retours existants : lacet du vaisseau via
+>   `driftYaw`, mention « DRIFT » et jauge de charge au HUD, bande de bruit
+>   dédiée à 2600 Hz dans `audio.ts`. Manquent surtout les *événements* —
+>   entrée, sortie, réalignement — le drift n'a aujourd'hui qu'un retour continu.
+> - **Le superboost est implémenté**, ramassé sur la piste (`supChance`), d'une
+>   durée `supTime` = 2,6 s. Mais il n'est pas différencié : `supFactor` = 1,08
+>   ne le place que 8 % au-dessus d'un boost normal, et côté sensoriel il est
+>   **identique** — même `+7` de champ de vision dans `camera.ts`, même `uWarp`
+>   dans le ciel, seule la plume du réacteur change de palier. C'est exactement
+>   ce contre quoi la section 15 met en garde.
+> - **L'état `G_SURGE` n'existe pas.** Le jeu porte le nom d'un état qu'il n'a
+>   pas encore.
+
+
 ## 1. Nouveaux concepts gameplay
 
 | Terme | Définition | Fonction gameplay |

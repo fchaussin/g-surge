@@ -9,8 +9,10 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 `docs/GAMEPLAY.md` is the design reference. Its tables are generated from
 `src/sim/tuning.ts` by `npm run docs:tuning` and a test fails if they drift —
 do not edit them by hand.
-`docs/SPEC-DRIFT-SUPERBOOST.md` is a design spec for future features — drift
-charge, superboost, the G-SURGE state. Nothing of it is implemented yet.
+`docs/FX-PALETTE.md` is a resource palette to draw effects from, mainly for
+the sense of speed — not a feature backlog. Its own header records what the
+code already does, since drift and superboost are implemented and what they
+lack is the sensory layer, not the mechanic.
 
 ## Ground rules
 
