@@ -11,6 +11,11 @@ aucun. Les termes d'origine venaient d'un middleware audio (`RTPC`, `Trigger
 Tag`, `Bundle`) qui n'a pas de référent ici, et on ne peut pas sélectionner un
 effet dont on ignore s'il coûte une ligne ou une boucle de jeu.
 
+Les colonnes `Statut` ont été revues après l'étape 1 de la roadmap, qui a
+différencié le superboost. Elles disent l'état du code, pas une intention : un
+effet ne passe à « existe » qu'une fois écrit, mesuré, et vérifié contre les
+références figées.
+
 Les chiffres cités le sont toujours avec leur symbole, et `src/sim/tuning.ts`
 reste la source de vérité — voir la dette §19, qui existe précisément parce
 qu'un document a porté un chiffre faux pendant des mois.
@@ -48,14 +53,19 @@ qu'un document a porté un chiffre faux pendant des mois.
   de 0 à 100. La recharge de drift vaut `driftCharge` = 17 points/s, à comparer à
   `boostRecharge` = 10. Deux concepts dans la palette, un seul champ dans le code.
 - **Le superboost est implémenté**, ramassé sur la piste (`supChance`), d'une
-  durée `supTime` = 2,6 s. Il n'est pas différencié : `supFactor` = 1,08 ne le
-  place que 8 % au-dessus d'un boost normal, et **côté sensoriel il est
-  identique** — `camera.ts` lit `state.boosting` pour son `+7` de champ, `sky.ts`
-  lit `boosting` pour `uWarp`, et `audio.update()` ne reçoit même pas `superT`.
-  Seule la plume du réacteur change de palier. C'est exactement ce contre quoi
-  la section 15 met en garde.
-- **`uWarp` ne déforme rien.** Malgré son nom, le shader n'en fait qu'un gain de
-  luminosité, `col *= 1.0 + uWarp * 0.55`. Une vraie distorsion reste à écrire.
+  durée `supTime` = 2,6 s. **Il est différencié depuis l'étape 1** : le palier
+  de poussée, `thrustTier()` dans `src/client/thrust.ts`, est lu par la caméra,
+  le ciel, l'audio et le vaisseau, là où chacun relisait `state.boosting`. Ce
+  qui n'est toujours pas différencié est la vitesse elle-même : `supFactor` =
+  1,08 ne le place que 8 % au-dessus d'un boost, et c'est la décision laissée à
+  l'étape 5 de la roadmap.
+- **`uWarp` ne déforme toujours rien** : le shader n'en fait qu'un gain de
+  luminosité, `col *= 1.0 + uWarp * 0.55`, désormais gradué par palier. Le filé
+  du superboost est un effet distinct, `uStreak`, qui prélève la couche
+  d'étoiles en dix points le long de la ligne radiale. Une première version
+  étirait la cellule et ne pouvait pas marcher : la grille vaut 2,4 px par
+  cellule à l'écran et `fract` y boucle, donc la traînée saturait à 2,9 px sur
+  une étoile de 0,8 px. Mesurer avant de régler, ici comme ailleurs.
 - **Il n'y a pas de post-process.** Aucun `EffectComposer`, aucune passe : tout
   blur ou aberration est un ajout de pipeline, pas un réglage.
 - **Les seules particules sont la traînée de fumée** : 18 sprites parentés au
@@ -89,19 +99,21 @@ qu'un document a porté un chiffre faux pendant des mois.
 ## 2. Hiérarchie des accélérations
 
 La palette en voulait cinq. Le code en a **trois**, portées par une seule
-variable : `thrust`, calculée dans `main.ts` en `superT > 0 ? 2 : boosting ? 1 : 0`,
-puis lue par `ship.updateThrust` et `ship.updateSmoke`.
+variable : le palier, `thrustTier()` dans `src/client/thrust.ts`, lu par la
+caméra, le ciel, l'audio et le vaisseau. Avant l'étape 1 le ternaire était
+recopié à deux endroits de `main.ts` et personne d'autre ne le voyait.
 
 | Niveau | Palette | Dans le code | Statut |
 |---:|---|---|---|
-| 0 | `CRUISE` | `thrust` 0 | existe |
+| 0 | `CRUISE` | palier 0 | existe |
 | 1 | `FAST` | — confondu avec 0, seule la vitesse change | absent |
-| 2 | `BOOST` | `thrust` 1, `state.boosting` | existe |
-| 3 | `SUPERBOOST` | `thrust` 2, `state.superT` | existe, non différencié |
+| 2 | `BOOST` | palier 1, `state.boosting` | existe |
+| 3 | `SUPERBOOST` | palier 2, `state.superT` | existe, différencié |
 | 4 | `G_SURGE` | — | absent |
 
-Le joueur doit pouvoir identifier chaque niveau sans regarder l'interface.
-Aujourd'hui il ne peut distinguer 2 de 3 que par la couleur de la plume.
+Le joueur doit pouvoir identifier chaque niveau sans regarder l'interface. Le
+palier 3 se distingue maintenant du 2 par le champ, la caméra, le ciel et le
+son ; le palier 1 reste confondu avec le 0, et le 4 n'existe pas.
 
 ## 3. Déclencheurs
 
@@ -169,11 +181,11 @@ Un retour haptique est un complément, jamais le seul porteur d'une information.
 
 | Regroupement | Objectif | Déclencheur | Statut |
 |---|---|---|---|
-| `SUP_PICKUP` | donner de la valeur au ramassage | `pickup kind:'sup'` | partiel — halo, pop, son |
+| `SUP_PICKUP` | donner de la valeur au ramassage | `pickup kind:'sup'` | **existe** — onde de choc, secousse, détonation |
 | `SUP_READY` | indiquer la disponibilité | pas de stock | **absent — mécanique, classe C** |
 | `SUP_BUILDUP` | préparer l'activation | pas d'activation | **absent — mécanique, classe C** |
-| `SUP_IMPACT` | rupture sensorielle | `supStart` — confondu avec le ramassage | absent |
-| `SUP_SUSTAIN` | maintenir une accélération supérieure | `state.superT` | partiel — plume seule |
+| `SUP_IMPACT` | rupture sensorielle | le ramassage **est** l'activation | **existe** — classe A, aucun événement neuf |
+| `SUP_SUSTAIN` | maintenir une accélération supérieure | `state.superT` | **existe** — plume, champ, caméra, ciel, moteur, vent |
 | `SUP_END` | donner du poids à la fin | `supEnd` — à créer | absent |
 | `SUP_RECOVERY` | retour progressif | pas de phase de recovery | absent, mécanique |
 
@@ -182,27 +194,28 @@ Un retour haptique est un complément, jamais le seul porteur d'une information.
 | ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
 |---|---|---|---|---|---|---|
 | `FX_SUP_TRAIL` | Traînées de réacteur | `state.superT` → `thrust` 2 | ship.ts | A | **existe** — palier 2 des plumes | P0 |
-| `FX_SUP_PICKUP` | Absorption au ramassage | `pickup kind:'sup'` | ship.ts, hud.ts | A | **partiel** — halo rose et libellé | P0 |
+| `FX_SUP_PICKUP` | Absorption au ramassage | `pickup kind:'sup'` | ship.ts, hud.ts | A | **existe** — halo à puissance 1,8 | P0 |
 | `FX_SUP_PARTICLES` | Flux particulaire accéléré | `state.superT` | ship.ts | A | partiel — la fumée densifie avec le palier | P0 |
-| `CAM_SUP_FOV_KICK` | Kick de champ supérieur au boost | `state.superT` | camera.ts | A | **absent — le champ lit `boosting`, le `+7` est le même** | P0 |
-| `CAM_SUP_LAG` | Forte inertie caméra | `state.superT` | camera.ts | A | absent — `camLag` est constant | P0 |
-| `FX_SUP_SHOCKWAVE` | Onde de choc à l'activation | `supStart` — à créer | ship.ts | B | absent — `setHalo` est le support le plus proche | P0 |
-| `PP_SUP_WARP` | Distorsion spatiale | `uWarp` | sky.ts | A | **trompeur** — l'uniforme existe, vaut `boosting ? 1 : 0`, et ne fait qu'un gain de luminosité | P1 |
+| `CAM_SUP_FOV_KICK` | Kick de champ supérieur au boost | palier | camera.ts | A | **existe** — `+18` contre `+7`, convergence 11 contre 6, soit 22,5 % de vue en plus | P0 |
+| `CAM_SUP_LAG` | Forte inertie caméra | palier | camera.ts | A | **existe** — `camLag` × 0,55, la caméra décroche | P0 |
+| `FX_SUP_SHOCKWAVE` | Onde de choc à l'activation | `pickup kind:'sup'` | ship.ts, main.ts | A | **existe** — halo à 1,8 plus une secousse côté client | P0 |
+| `PP_SUP_WARP` | Distorsion spatiale | `uWarp`, `uStreak` | sky.ts | A | **existe** — luminosité graduée et filé d'étoiles, 14 px à 45° de l'axe | P1 |
 | `HUD_SUP_READY` | Indication de disponibilité | pas de stock | hud.ts | C | absent, mécanique | P0 |
 
-La caméra reçoit `state` en entier : elle peut lire `superT` et `slip` sans
-changer sa signature. `audio.update()` et `sky.update()` prennent des scalaires
-et demanderont un paramètre de plus — c'est délibéré, ces deux-là tournent à
-chaque frame et un objet d'options y serait une allocation par frame.
+La caméra reçoit `state` en entier, donc elle lit le palier sans changer de
+signature. `audio.update()` et `sky.update()` prennent des scalaires et ont reçu
+un paramètre de plus, le palier à la place du booléen — c'est délibéré, ces
+deux-là tournent à chaque frame et un objet d'options y serait une allocation
+par frame.
 
 ## 9. SFX Superboost
 
 | ID | Effet | Déclencheur | Module | Classe | Statut | Prio |
 |---|---|---|---|---|---|---|
-| `SFX_SUP_PICKUP` | Son de collecte | `pickup kind:'sup'` | audio.ts | A | **existe** — `superBoost()` | P0 |
-| `SFX_SUP_REACTOR` | Réacteur en superboost | `state.superT` | audio.ts | A | **absent — `update()` ne reçoit que `boosting`, le moteur sonne comme un boost** | P0 |
-| `SFX_SUP_WIND` | Vent très haute vitesse | `state.superT` | audio.ts | A | absent, même cause | P0 |
-| `SFX_SUP_IMPACT` | Signature d'activation | `supStart` — à créer | audio.ts | B | absent | P0 |
+| `SFX_SUP_PICKUP` | Son de collecte | `pickup kind:'sup'` | audio.ts | A | **existe** — détonation grave sous la montée | P0 |
+| `SFX_SUP_REACTOR` | Réacteur en superboost | palier | audio.ts | A | **existe** — drive 2 sur le corps, le souffle et la turbine | P0 |
+| `SFX_SUP_WIND` | Vent très haute vitesse | palier | audio.ts | A | **existe** — le vent ne montait pour aucun palier, il est au superboost seul | P0 |
+| `SFX_SUP_IMPACT` | Signature d'activation | le ramassage **est** l'activation | audio.ts | A | **existe** — fondu dans le son de collecte | P0 |
 | `SFX_SUP_RELEASE` | Décharge de fin | `supEnd` — à créer | audio.ts | B | absent | P0 |
 | `SFX_SUP_BUILDUP` | Pré-charge | pas d'activation | audio.ts | C | absent, mécanique | P0 |
 | `SFX_SUP_READY` | Feedback de disponibilité | pas de stock | audio.ts | C | absent, mécanique | P1 |
@@ -213,17 +226,19 @@ chaque frame et un objet d'options y serait une allocation par frame.
 |---|---|---|---|---|
 | Disponibilité | rechargeable | ramassé | conforme | condition signature |
 | Vitesse cible | `boostFactor` 1,3 | `× supFactor` 1,08 | **+8 %** | — |
-| Champ de vision | modéré | fort | **identique**, `+7` sur `boosting` | très fort |
-| Distorsion | faible | moyenne | **identique**, `uWarp` sur `boosting` | forte |
+| Champ de vision | modéré | fort | **différencié** — `+18` contre `+7` | très fort |
+| Distorsion | faible | moyenne | **différencié** — luminosité graduée, filé au 3 | forte |
 | Réacteurs | standard | haute puissance | **différencié** — palier 2 | extrême |
-| Vent, moteur | renforcé | très fort | **identique**, `update()` ignore `superT` | extrême |
-| Secousse | faible | moyenne | aucune des deux | forte mais contrôlée |
+| Vent, moteur | renforcé | très fort | **différencié** — drive 2, vent au 3 seul | extrême |
+| Secousse | faible | moyenne | **différencié** — à l'impact du 3, aucune au 2 | forte mais contrôlée |
 | HUD | normal | disponibilité | classe `.sup` sur la vitesse | simplifié |
 | Sensation visée | « accélération » | « énorme poussée » | — | « dépassement des limites » |
 
-Trois lignes sont marquées identiques, et la secousse est absente des deux
-côtés : quatre propriétés sur neuf ne distinguent rien entre un boost et un
-superboost. C'est le constat qui rend la §15 opérante plutôt que théorique.
+Avant l'étape 1, quatre propriétés sur neuf ne distinguaient rien. Il en reste
+**une** : la vitesse cible, à `+8 %`. Le retour promet donc une catapulte que la
+physique ne paie pas, et c'est exactement la décision que l'étape 5 de la
+roadmap garde ouverte — délibérément après, parce qu'un chiffre ne se juge pas
+avant le retour qui l'accompagne.
 
 ## 11. Règles d'empilement
 
@@ -245,8 +260,8 @@ superboost. C'est le constat qui rend la §15 opérante plutôt que théorique.
 Il n'y a pas de middleware : une grandeur continue est un paramètre de fonction.
 Signatures actuelles, à étendre plutôt qu'à contourner :
 
-- `audio.update(playing, speed, speedMax, boosting, drifting)`
-- `sky.update(time, camX, camY, camZ, curvature, speed, dt, boosting)`
+- `audio.update(playing, speed, speedMax, tier, drifting)`
+- `sky.update(time, camX, camY, camZ, curvature, speed, dt, tier)`
 - `camera.update(state, track, tuning, frameDt, shake)` — reçoit l'état complet
 
 | Grandeur | Source | Manque |
@@ -316,4 +331,6 @@ G-SURGE    = altération complète de la perception de vitesse
 
 C'est ce qui garde une progression sensorielle lisible et empêche le G-SURGE de
 perdre son statut d'état ultime. Le tableau §10 mesure l'écart entre ce principe
-et l'état du code : quatre propriétés sur neuf ne distinguent rien du tout.
+et l'état du code. L'étape 1 l'a refermé partout sauf sur une ligne : la vitesse
+elle-même. Le superboost se *ressent* maintenant comme une catapulte, il n'en
+est pas encore une.

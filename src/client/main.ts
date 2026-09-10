@@ -37,6 +37,7 @@ import { Screens } from './screens.js';
 import { Settings } from './settings.js';
 import { Ship } from './ship.js';
 import { Sky } from './sky.js';
+import { thrustTier } from './thrust.js';
 import { Tips } from './tips.js';
 import { TrackMesh } from './track-mesh.js';
 import { Viewport } from './viewport.js';
@@ -45,6 +46,15 @@ const VOID = 0x05060a;
 
 /** How long a pickup glow takes to fade, in seconds. */
 const HALO_TIME = 0.45;
+
+/**
+ * How long the presentation shake takes to fade, in seconds.
+ *
+ * Deliberately not `state.shake`: that field belongs to the simulation and
+ * writing to it from here would move every frozen reference. The camera adds
+ * the two.
+ */
+const FX_SHAKE_TIME = 0.42;
 
 function seedFromUrl(): string | null {
   try {
@@ -212,6 +222,8 @@ let yawVisual = 0;
 let halo = 0;
 let haloPower = 1;
 let haloColour = 0xffffff;
+/* Impact shake owned by the client. See FX_SHAKE_TIME. */
+let fxShake = 0;
 
 function flashHalo(colour: number, power = 1): void {
   haloColour = colour;
@@ -257,8 +269,11 @@ function consume(events: readonly SimEvent[]): void {
           haptics.buzz([22, 40, 22]);
         } else {
           hud.showPop('SUPER BOOST', '#ff2f9a');
-          flashHalo(0xff2f9a);
-          haptics.buzz([30, 30, 70]);
+          // Le ramassage est l'activation : c'est le seul instant où l'onde de
+          // choc peut partir, et elle n'a donc besoin d'aucun événement neuf.
+          flashHalo(0xff2f9a, 1.8);
+          fxShake = 1;
+          haptics.buzz([30, 30, 70, 40, 120]);
         }
         break;
       case 'wreck':
@@ -279,6 +294,7 @@ function startRun(): void {
   camera.reset(sim.tuning);
   hud.reset();
   halo = 0;
+  fxShake = 0;
   lean = 0;
   yawVisual = 0;
   loop.reset();
@@ -318,7 +334,7 @@ function renderFrame(frameDt: number): void {
   const tier = coinTier(state.speed, sim.tuning);
   pickups.update(sim.track, state.cursor, tier, frameDt);
 
-  const thrust = state.superT > 0 ? 2 : state.boosting ? 1 : 0;
+  const thrust = thrustTier(state);
   ship.setPose(state.lat, state.hop, bank);
   // Lean and yaw are shown, not simulated: they lag the state so the hull
   // reads as having mass instead of snapping between attitudes.
@@ -335,7 +351,8 @@ function renderFrame(frameDt: number): void {
   if (halo > 0) halo = Math.max(0, halo - frameDt / HALO_TIME);
   ship.setHalo(haloColour, halo, haloPower);
 
-  camera.update(state, sim.track, sim.tuning, frameDt, state.shake);
+  if (fxShake > 0) fxShake = Math.max(0, fxShake - frameDt / FX_SHAKE_TIME);
+  camera.update(state, sim.track, sim.tuning, frameDt, state.shake + fxShake);
 
   const position = viewport.camera.position;
   sky.update(
@@ -346,7 +363,7 @@ function renderFrame(frameDt: number): void {
     sim.track.nk[BACK]!,
     state.speed,
     frameDt,
-    state.boosting,
+    thrust,
   );
 
   perf.detect(frameDt);
@@ -356,7 +373,7 @@ function renderFrame(frameDt: number): void {
     if (el) el.textContent = String(Math.round(perf.fps));
   }
 
-  audio.update(screens.isPlaying, state.speed, sim.tuning.speedMax, state.boosting, state.drift);
+  audio.update(screens.isPlaying, state.speed, sim.tuning.speedMax, thrust, state.drift);
 
   if (screens.isPlaying) {
     hud.update(state, sim.tuning, frameDt);
@@ -654,12 +671,13 @@ window.__gsNext = {
     lean = 0;
     yawVisual = 0;
     halo = 0;
+    fxShake = 0;
     const dt = loop.fixedStep;
     for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
     renderFrame(dt);
     // The plumes ease over many frames, so one frame after a reset lands
     // wherever the previous run left them. Snap them, then draw again.
-    ship.snapThrust(sim.state.superT > 0 ? 2 : sim.state.boosting ? 1 : 0);
+    ship.snapThrust(thrustTier(sim.state));
     viewport.render(scene);
   },
 };

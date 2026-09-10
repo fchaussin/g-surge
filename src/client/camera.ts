@@ -16,6 +16,7 @@
  */
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 import { trackPoint, type SimState, type Track, type Tuning } from '../sim/index.js';
+import { thrustTier, type ThrustTier } from './thrust.js';
 
 /** Fraction of the ship's lateral offset applied behind and ahead. */
 const OFFSET_BEHIND = 0.55;
@@ -24,6 +25,22 @@ const OFFSET_AHEAD = 0.25;
 /** Bank below which the camera only partly follows, and the width of the blend. */
 const FOLLOW_FROM = 0.5;
 const FOLLOW_SPAN = 0.7;
+
+/**
+ * Field of view, its convergence, and the positional lag, by thrust tier.
+ *
+ * Index 1 holds exactly what a boost used to get — `+7` degrees, converging at
+ * 6, no change to the lag — so a boost looks today as it looked yesterday and
+ * only the super boost is new. That is also what keeps the frozen scene
+ * captures out of this: they are attract-mode frames, where the tier is 0.
+ *
+ * The kick at index 2 is deliberately more than double, and the lag lets go:
+ * a super boost should read as a catapult rather than a stronger push, and a
+ * camera that stays glued reads as a stronger push. See docs/FX-PALETTE.md §15.
+ */
+const FOV_KICK = [0, 7, 18] as const;
+const FOV_EASE = [3, 6, 11] as const;
+const LAG_SCALE = [1, 1, 0.55] as const;
 
 export class ChaseCamera {
   /* Reused every frame. See the no-allocation rule in CLAUDE.md. */
@@ -59,11 +76,13 @@ export class ChaseCamera {
   }
 
   /**
-   * @param shake 0 to 1, decayed by the simulation. Applied as positional
-   *   noise, which is why it is passed rather than read: the jitter is
-   *   presentation and must not reach the simulation.
+   * @param shake the simulation's own shake plus whatever the client adds for
+   *   an impact. Applied as positional noise, which is why it is passed rather
+   *   than read: the jitter is presentation and must not reach the simulation,
+   *   and the client's share must not be written back into `state.shake`.
    */
   update(state: SimState, track: Track, tuning: Tuning, frameDt: number, shake: number): void {
+    const tier = thrustTier(state);
     const behind = track.sample(state.cursor, -tuning.camDist, this.behind);
     const ahead = track.sample(state.cursor, tuning.lookAhead, this.ahead);
 
@@ -80,7 +99,7 @@ export class ChaseCamera {
       this.position.copy(this.want);
       this.placed = true;
     }
-    this.position.lerp(this.want, Math.min(1, frameDt * tuning.camLag));
+    this.position.lerp(this.want, Math.min(1, frameDt * tuning.camLag * LAG_SCALE[tier]));
     this.camera.position.copy(this.position);
 
     if (shake > 0) {
@@ -102,17 +121,17 @@ export class ChaseCamera {
     );
     this.camera.lookAt(this.target);
 
-    this.updateFov(state, tuning, frameDt);
+    this.updateFov(state, tuning, frameDt, tier);
   }
 
-  /** Widens with speed, and a little more under boost or against a wall. */
-  private updateFov(state: SimState, tuning: Tuning, frameDt: number): void {
+  /** Widens with speed, by tier under thrust, and a little against a wall. */
+  private updateFov(state: SimState, tuning: Tuning, frameDt: number, tier: ThrustTier): void {
     const wanted =
       tuning.fovBase +
       Math.min(1, state.speed / tuning.speedMax) * tuning.fovSpeed +
-      (state.boosting ? 7 : 0) +
+      FOV_KICK[tier] +
       (state.scrape > 0 ? 3 : 0);
-    this.fov += (wanted - this.fov) * Math.min(1, frameDt * (state.boosting ? 6 : 3));
+    this.fov += (wanted - this.fov) * Math.min(1, frameDt * FOV_EASE[tier]);
     this.camera.fov = this.fov;
     this.camera.updateProjectionMatrix();
   }

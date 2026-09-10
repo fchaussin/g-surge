@@ -35,6 +35,7 @@ import {
   Sprite,
   SpriteMaterial,
 } from 'three';
+import type { ThrustTier } from './thrust.js';
 
 /** Thrust tiers: cruising, boosting, super boost. */
 const THRUST_LEVELS = [
@@ -119,7 +120,7 @@ export class Ship {
    * @param level 0 cruising, 1 boosting, 2 super boost.
    * @param frameDt real frame delta: this is display easing, not simulation.
    */
-  updateThrust(frameDt: number, level: 0 | 1 | 2): void {
+  updateThrust(frameDt: number, level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
     // Deliberately still on Math.random: per-frame visual noise, outside the
     // simulation, and seeding it would couple presentation to the core.
@@ -152,7 +153,7 @@ export class Ship {
    * of them is not reproducible — which showed up as a 7 000 pixel difference
    * between two captures of the same frozen simulation state.
    */
-  snapThrust(level: 0 | 1 | 2): void {
+  snapThrust(level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
     for (let i = 0; i < this.flames.length; i++) {
       const m = this.flames[i]!;
@@ -167,7 +168,7 @@ export class Ship {
     this.flameCore.color.setHex(level === 2 ? 0xffe6fb : 0xffffff);
   }
 
-  updateSmoke(frameDt: number, speed: number, level: 0 | 1 | 2): void {
+  updateSmoke(frameDt: number, speed: number, level: ThrustTier): void {
     if (speed < 1) {
       for (const sp of this.smoke) sp.visible = false;
       return;

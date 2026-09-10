@@ -12,9 +12,28 @@
  * load is noise of a different kind.
  */
 import type { SimEvent } from '../sim/index.js';
+import type { ThrustTier } from './thrust.js';
 
 /** Reverb impulse length, seconds. Built once, on first use. */
 const REVERB_SECONDS = 3;
+
+/**
+ * Engine drive by thrust tier.
+ *
+ * Index 1 is 1, which is what the boolean this replaced always gave a boost, so
+ * a boost sounds exactly as it did and only the super boost is new. Until now
+ * `update` never received `superT` at all: the reactor and the wind were the
+ * plainest case of the super boost being a boost with a different plume.
+ */
+const DRIVE_BY_TIER = [0, 1, 2] as const;
+
+/**
+ * The wind is the one layer a boost never lifted, so there is no previous
+ * value to preserve and the tier can own it outright. §10 of the palette also
+ * asks for a reinforced wind under a plain boost; that is a change to how a
+ * boost sounds, and it is not this step's business.
+ */
+const WIND_BY_TIER = [0, 0, 1] as const;
 
 interface Band {
   filter: BiquadFilterNode;
@@ -126,7 +145,7 @@ export class Audio {
     playing: boolean,
     speed: number,
     speedMax: number,
-    boosting: boolean,
+    tier: ThrustTier,
     drifting: boolean,
   ): void {
     const ctx = this.ctx;
@@ -136,7 +155,8 @@ export class Audio {
     const t = ctx.currentTime;
     // Above 1 under boost, which is what keeps the top end from flattening.
     const r = Math.min(1.7, speed / speedMax);
-    const bst = boosting ? 1 : 0;
+    const bst = DRIVE_BY_TIER[tier];
+    const wnd = WIND_BY_TIER[tier];
 
     eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.1);
     eng.rumble.gain.gain.setTargetAtTime(playing ? 0.13 + r * 0.2 : 0, t, 0.18);
@@ -150,8 +170,8 @@ export class Audio {
     eng.whine.frequency.setTargetAtTime(430 + r * 2000, t, 0.12);
     eng.whineGain.gain.setTargetAtTime(playing ? 0.004 + r * 0.016 + bst * 0.008 : 0, t, 0.2);
 
-    this.wind.filter.frequency.setTargetAtTime(650 + r * 1500, t, 0.25);
-    this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.1 : 0, t, 0.18);
+    this.wind.filter.frequency.setTargetAtTime(650 + r * 1500 + wnd * 520, t, 0.25);
+    this.wind.gain.gain.setTargetAtTime(playing ? 0.02 + r * 0.1 + wnd * 0.06 : 0, t, 0.18);
 
     this.driftNoise.gain.gain.setTargetAtTime(playing && drifting ? 0.09 : 0, t, 0.07);
   }
@@ -344,7 +364,32 @@ export class Audio {
     this.blip(780, 0.2, 'triangle', 0.16, 0, 0.1);
   }
 
+  /**
+   * The super boost, which is also its own activation: the pickup fires it.
+   *
+   * A rising sweep alone reads as "faster". The detonation under it is what
+   * makes it read as a catapult, which is the distinction §15 of the palette
+   * asks for and the one the game did not make.
+   */
   private superBoost(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    const t = ctx.currentTime;
+
+    this.noiseHit(t, 0.3, 'lowpass', 1900, 130, 0.9, 0.24, true);
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(96, t);
+    o.frequency.exponentialRampToValueAtTime(34, t + 0.3);
+    g.gain.setValueAtTime(0.32, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+    o.connect(g);
+    g.connect(this.master!);
+    o.start(t);
+    o.stop(t + 0.46);
+
     this.blip(180, 0.55, 'sawtooth', 0.2, 1500);
     this.blip(360, 0.5, 'square', 0.07, 2400, 0.04);
   }
