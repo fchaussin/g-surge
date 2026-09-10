@@ -1,205 +1,220 @@
 # Roadmap
 
-State as of 10 September 2026. This replaces the earlier phase 0-3 plan, whose
-numbering had drifted from the work actually done.
+State as of 10 September 2026. The migration roadmap it replaces is kept in
+condensed form below: it is finished, and what remains of it is a proof rather
+than a plan.
 
 ## Where we are
 
 The switch is done. One codebase, TypeScript, compiled by Vite into `public/`,
-which is what Cloudflare Pages serves. `legacy/` is deleted.
+which is what Cloudflare Pages serves. `legacy/` is deleted, the game is live.
 
 | Done | Effect |
 |---|---|
-| Tooling | Strict TypeScript, Vitest, ESLint, `npm run verify` |
+| Tooling | Strict TypeScript, Vitest, ESLint, Prettier, `npm run verify` |
 | Playwright net | Three profiles: boot, screens, interface and scene references |
-| Rename to G-SURGE | UI, manifest, Docker, leaderboard migrated |
 | Deterministic simulation | Seeded PRNG, `?seed=`, frozen references |
 | Extracted core | `src/sim/`, proven against those references |
 | Fixed step | 720 Hz, no interpolation, rendering at the display's native rate |
 | Ported client | Rendering, UI, audio, input, leaderboard — all of it |
 | Switch | Legacy deleted, deployment on the compiled build |
+| Owned primitives | `rng.ts`, time as a parameter, `trig.ts` — debt 17 |
+| Continuous integration | `verify` and the end-to-end suite on every push |
 
-Debt closed outright: 1, 2, 8, 9, 12 (they described the classic scripts), plus
-4, 15, 16, 17 and 18. Largely covered: 3, 6, 10. Open: 6, 10, 11, 14.
+**The invariant that held.** The frozen references in `tests/e2e/fixtures/` were
+captured from the legacy before any port and were never regenerated. They pass
+three ways: against the source in Node, against the built bundle in a browser,
+and — since the fixed step made a frame reproducible — as full-frame scene
+captures at zero pixel tolerance. That is the whole claim of the migration, and
+it is checkable rather than asserted.
 
-## The shape it landed on
+Anything that moves them from here is a change of behaviour and gets a commit
+that says so.
 
-```
-index.html            Vite entry point, markup and all the CSS
-src/
-  sim/                the simulation — no DOM, no three.js, runs in Node
-  client/             rendering, UI, audio, input, loop
-static/               copied verbatim: _headers, manifest, service worker
-public/               build output, gitignored — what Cloudflare Pages serves
-```
+## What this roadmap is now
 
-The static directory kept the name `static/` rather than the Vite convention:
-during the migration `public/` already meant "the deployed legacy", and two
-meanings of one folder was the confusion the move was removing. `public/` is
-now the build output, which is what let the Pages project keep its output
-directory and change only its build command.
+The migration produced a game whose simulation is honest and whose sensory layer
+is thin. `docs/FX-PALETTE.md` says where it is thin, in the code's own
+vocabulary, and this roadmap selects from it.
 
-## The invariant that held
+Two decisions frame everything below.
 
-**The frozen references in `tests/e2e/fixtures/` were never regenerated.** They
-were captured from the legacy before any port and they now pass three ways:
-against the source in Node, against the built bundle in a browser, and — since
-the fixed step made a frame reproducible — as full-frame scene captures at zero
-pixel tolerance.
+**The super boost stays instant.** The pickup is the activation. There is no
+stock, no availability, no build-up and no recovery phase, which removes five
+entries from the palette and, more usefully, collapses `SUPERBOOST_START` onto
+an event that already exists — `pickup` of `kind: 'sup'`, already delivered to
+`consume()` in `main.ts`. The impact bundle therefore needs nothing from the
+simulation at all.
 
-That is the whole claim of the migration, and it is checkable rather than
-asserted. Anything that moves them from here is a change of behaviour and gets
-a commit that says so.
+**`G_SURGE` is specified before it is built**, and not in the steps below. The
+game is named after a state it does not have; step 6 writes down what that state
+is, and stops there.
 
-Interface references are a different matter and always were: they move when the
-interface moves, in a commit that does nothing else, and they are judged by
-looking.
+### The three classes, and why the order below follows them
 
-## Steps
+Cost here is measured in frozen references, not in effort:
 
-Estimates in days of focused work, one person.
+| Class | Touches | Price |
+|---|---|---|
+| **A** | the client alone | no simulation fixture moves |
+| **B** | an event in `events.ts`, or a non-physical field | nothing at all: `physics-*.json` records a whitelist of seventeen fields and no events |
+| **C** | the physics or the tuning | a declared behaviour change: `npm run fixtures:update`, in a commit that does nothing else |
 
-### Step 0 — get the documents straight — done
+The steps run A before B before C, so that the cheapest and most visible work
+lands first and the expensive decision is taken with the feedback already in
+hand rather than before it.
 
-Corrections found at the start of the session and never applied:
+### Rules every step below must respect
 
-- `TECH-DEBT.md` §2: `engine.js` reads one symbol from `game.js`, `state`.
-  `step` and `L` were false positives — a GLSL builtin and vertex labels.
-- `TECH-DEBT.md` §1, §6, §8, §10: wrong counts — 251 bindings not 178, 70
-  `getElementById` not 72, 27 state fields not 25, 8 toggles and 2 segmented
-  groups not 9 and 3.
-- `ARCHITECTURE.md`: line counts, including `sw.js` given as 60 instead of 74.
-- `GAMEPLAY.md`: the "share of steering authority" row, 62/80/98 %, is wrong.
-  The numerator is right, the divisor matches nothing in the code. The real
-  figures are 51/66/80 % of full stick, and more importantly the metric is the
-  wrong one: the ceiling is `gripLimit`, crossed from Medium onwards.
-- Settle the language. Documents and UI in English, code comments stay French
-  as they have always been.
+- **New eased state joins the reset list in `freeze()`.** Plume scales, pickup
+  spin and the field of view all converge over many frames; a frozen frame lands
+  wherever the frames before it left it. Three separate bugs, all found by
+  tightening a screenshot tolerance to zero. Every effect that eases is a fourth
+  unless it is reset.
+- **The scene captures are attract-mode frames.** `freeze()` steps with
+  `attract` true, and `step()` forces `state.boosting` false there while
+  `superOn` requires `!attract`. Nothing in steps 1 and 2 can appear in a
+  capture, so they must move no visual reference either. If one moves, the cause
+  is a bug, not a new effect.
+- **No allocation in the frame loop**, and the two clocks never mix: `simulate`
+  takes the fixed step, `render` the real frame delta, and every easing added
+  below belongs to the second.
+- **Do not deepen debt 10.** Damage, boost tier and difficulty are signalled by
+  colour alone today. An effect that differentiates by length, motion, rhythm or
+  timbre pays that debt down; one that differentiates by hue alone adds to it.
 
-Acceptance: no figure in `docs/` that cannot be checked against the code.
+### Step 1 — the super boost stops being a boost — 1 to 2 days
 
-### Steps 1 to 4 — done
+Four of the nine properties in §10 of the palette separate nothing at all
+between a boost and a super boost: the field of view and `uWarp` both read
+`state.boosting`, `audio.update` never receives `superT`, and neither tier
+shakes the camera. Only the plume is differentiated.
 
-Vite and the skeleton, the rendering port, the client port, then parity and the
-switch. The proof that the switch changed nothing: the frozen references were
-never regenerated, and they now pass three ways — against the source in Node,
-against the built bundle in a browser, and as full-frame scene captures at zero
-pixel tolerance.
+The spine of the step is one substitution: `main.ts` already computes a thrust
+tier, `superT > 0 ? 2 : boosting ? 1 : 0`, and hands it to the ship. Pass that
+tier to the sky and to the audio in place of their `boosting` boolean, and three
+of the four properties become a table lookup rather than a branch — the shape
+`THRUST_LEVELS` already has in `ship.ts`.
 
-The one deliberate difference is a single line of text. The legacy leaderboard
-said "a distance enters the board" where the board shows a score.
+- `CAM_SUP_FOV_KICK`, `CAM_SUP_LAG` — `camera.ts` receives the whole state and
+  can read `superT` without a signature change.
+- `SFX_SUP_REACTOR`, `SFX_SUP_WIND` — `audio.update` takes the tier.
+- `PP_SUP_WARP` — `uWarp` exists and spends itself on brightness,
+  `col *= 1.0 + uWarp * 0.55`. Either it gains a tier, or a real distortion is
+  written. Measure the fragment cost either way: the sky is already 46 % of the
+  frame.
+- `FX_SUP_SHOCKWAVE` — on the existing pickup event. `ship.setHalo` is the
+  closest support that exists.
 
-### Step 5 — service worker and assets — done
+Acceptance: the four identical rows of §10 are no longer identical; every frozen
+reference passes untouched, simulation **and** visual; anything that eases is in
+`freeze()`.
 
-- Vite emits hashed filenames, so the `ASSETS` list in `sw.js` has to be
-  generated at build time and `VERSION` derived from it. This is the least
-  predictable part of the migration.
-- Create `legacy/icons/`, missing since forever: the manifest and the service
-  worker currently point at four 404s and the PWA has no icon.
+### Step 2 — the end of a super boost — half a day
 
-Acceptance: offline works on a compiled build, an update is picked up without
-clearing the cache by hand, the icon shows on install.
+`superT` reaches zero and nothing says so. It is the only instant in the super
+boost branch the client cannot recover on its own, and the one class B item the
+instant-pickup decision leaves standing.
 
-### Step 6 — the functional gaps — done
+`supEnd` in `step.ts`, consumed by `audio.ts` as a decompression and by the halo
+as a release. There is already something to stage: the pickup sets `energy` to
+100 and the super boost does not drain it, so a super boost ends on a full boost
+reserve. The transition is a hand-off, not a fall.
 
-Also worth folding in here, now that the splash does real work: it is the
-natural place to prewarm anything else the first seconds need.
+Acceptance: references untouched, which is also the first demonstration that a
+new event costs nothing.
 
+### Step 3 — the drift gets its two ends — half a day
 
-Settings persistence under `gsurge.prefs.v1`, `prefers-reduced-motion`,
-`aria-pressed` and `role="radiogroup"`, dead code (`fmtM`, `TUNING.coinValue`),
-reverb built outside the crash.
+The drift has continuous feedback and no events. Its bascule already exists in
+`step.ts`, with hysteresis: entry at `|dv| * gripHold > gripLimit`, exit under
+`driftExit`. Emitting `driftStart` and `driftEnd` there is two lines.
 
-SRI on three.js drops off the list: the package is bundled, there is no
-third-party script left to seal.
+Consumers: `SFX_DRIFT_ENTRY` as an aerodynamic transient, `SFX_DRIFT_RELEASE` as
+a realignment whoosh, `CAM_DRIFT_EXIT_SNAP`, and a haptic pulse on entry —
+`haptics.ts` exists only where `navigator.vibrate` does, so it complements and
+never carries.
 
-### Step 7 — deterministic track — done
+Emit no event without its consumer in the same commit. An event nobody drains is
+dead code, and this repository refuses speculative generality elsewhere.
 
-`genSpeed = state.speed` makes the geometry depend on the player's speed.
-Replacing it with the nominal speed profile, which is already deterministic,
-makes the track a function of the seed alone.
+### Step 4 — the drift becomes readable — 2 to 3 days
 
-**Declared behavioural change**: track and physics references are regenerated,
-in a commit that does nothing else, after checking by eye.
+Of the seven stages in the palette's sensory loop, two have feedback today: the
+lateral displacement, through the ship's yaw and a noise band, and the charge,
+at the HUD alone. Steps 3 and 4 together close the other five.
 
-Unblocks: run replay, shared daily track, server-side validation.
+- `SFX_DRIFT_AIRFLOW` is all-or-nothing today, a fixed gain on a 2600 Hz band.
+  Make it proportional.
+- `SFX_DRIFT_CHARGE` and `SFX_DRIFT_FULL_CHARGE` — the charge is audible nowhere,
+  and `energy` crossing 100 is the moment the whole loop pays out.
+- `FX_DRIFT_PARTICLES` — the only particles in the game are the eighteen parented
+  smoke sprites. Lateral projection is a new emitter, pooled, allocated once.
 
-### Step 8 — generated documents — done
+**The decision this step forces**: `state.slip` is a lateral velocity error in
+m/s, not an angle. Anything normalising it must choose a ceiling, and the
+renderer already has an implicit one — it saturates at 35 m/s through
+`driftYaw`. Pick that ceiling once, in one place, and let every effect read it.
+Two effects normalising differently is the class of bug this codebase names
+units to avoid.
 
-The tables in `GAMEPLAY.md` are computed from `src/sim/tuning.ts` by
-`npm run docs:tuning` and a test fails if they drift. The 62/80/98 % could not
-have happened.
+### Step 5 — decide what `supFactor` should be — a decision, then possibly a day
 
-Two things were removed rather than generated: a "measured outcomes at
-equilibrium" table and a "stable multiplier" row. Both depended on how someone
-happened to be driving, neither could be derived from the tuning, and they
-were the same species as the figure that started all this. Anyone who wants
-them can measure a run with `window.__gsNext.trace`.
+`supFactor` is 1.08: a super boost is eight per cent faster than a boost. Give it
+a catapult's signature and the feedback promises what the physics does not pay.
 
-### Step 9 — continuous integration — done
+Two exits, and they do not cost the same. Accept that the sensation is the
+reward — free, class A, already done by then. Or raise `supFactor`, which is
+class C: frozen physics references regenerated, `GAMEPLAY.md` regenerated by
+`npm run docs:tuning`, in a commit that does nothing else and says why.
 
-Two jobs on every push and pull request: `verify` on a plain Node runner, and
-the end-to-end suite inside the official Playwright container — the same image
-the references are generated in, which is what makes a zero pixel tolerance
-survive leaving this machine.
+Deliberately after step 1, not before. A number cannot be judged before the
+feedback that goes with it exists, and this is the one step where reasoning from
+the symptom is the documented way to get it wrong.
 
-Both were simulated locally against a clean checkout before being written down,
-`npm ci` included.
+### Step 6 — specify `G_SURGE` — 1 day, no code
 
-Prettier is still absent and is the only piece of item 13 left.
+The palette wants a five-tier ladder. The code has three, carried by one
+variable. `G_SURGE` is a mechanic, entirely class C, and the game is named after
+it.
 
-**Total: seven to nine days.** More than the six first announced: porting
-properly costs more than a mechanical conversion, and saves a split that would
-otherwise have to be redone.
+Write down, in the palette: the entry condition, the duration, the exit, what it
+does to the ladder in §2, and how it interacts with a drift and with the two
+boosts. Write down what it costs — which references move, and whether it needs
+state the trace does not record.
 
-## After the roadmap
+Implementation is not in this roadmap. The specification is what lets the next
+one decide.
 
-The steps above completed, one autonomous pass closed what remained closeable:
-Prettier wired into verify and CI, the frame governor tested and then
-simplified — no frame rate target, no throttle, the display's native rate and
-adaptive quality — eight designer-first sliders plus live console tuning
-restored, and debt 14 recorded as deferred by decision.
+**Total: five to eight days**, of which one is paper and one is a decision.
 
-Debt 17 has since been closed too. The core carries its own `sin`, `cos` and
-`atan` in `src/sim/trig.ts` instead of borrowing the host's, which removes the
-last way an engine could decide part of the result. It cost the frozen
-references nothing — a port of fdlibm agrees bit for bit with what V8 already
-does — and it turned a four-sample finding into a measured one: the two engines
-disagree on 3 to 4 % of arguments, `sin` as much as `cos`.
+## What this roadmap does not cover
 
-What is genuinely open now sits in `TECH-DEBT.md`: the DOM id coupling (6, low),
-the tuning coverage (11, low), the colour-only signals (10, low), and the
-strings (14, deferred).
+**Technical debt.** All of it is Low and none of it blocks the above. In
+`TECH-DEBT.md`: the DOM id coupling (6), the tuning coverage (11), the
+colour-only signals (10), the interface modules tested only through the browser
+(3), and the strings (14, deferred by decision). Item 10 intersects step 1 and
+step 4 — see the rules above.
 
-## Open decisions
+**Open decisions.** CodePen, whose build script was deleted with the legacy and
+which nothing depends on; and whether `static/` should follow the Vite
+convention now that `public/` unambiguously means the build output.
 
-- **CodePen.** `scripts/build-codepen.mjs` sliced the legacy files into three
-  panels and was deleted with them. Bringing it back means a secondary IIFE
-  build target, which is a new feature rather than a port. Nothing depends on
-  it today.
-- **`static/` or `public/`.** The static directory kept the name `static/` to
-  avoid two meanings of `public/` living side by side during the migration.
-  `public/` is now the build output. Renaming `static/` back would follow the
-  Vite convention, at the cost of one more churn.
+**Multiplayer.** Both technical blockers are down: the track is a function of its
+seed, and the core is bit-identical across engines, so a server can replay a
+submitted run and compare for equality. What remains is specification, not
+arithmetic — an equality check proves reproduction, not honesty, since the client
+can be modified; and the server must compare only what the core produces, never
+presentation state. When it is written, do not hand-roll state synchronisation:
+Colyseus, or Cloudflare Durable Objects.
 
-## Out of scope
+**three.js past r151.** Colour management and lighting defaults changed: a visual
+re-tuning pass, not a dependency bump. It would not make the game faster either —
+measured, `TECH-DEBT.md` §7. Worth doing one day for the dependency's age and for
+WebGPU, as its own project.
 
-- **Multiplayer.** Specifications come after these steps. Both technical
-  blockers are down now: step 7 made the track a function of its seed, and
-  debt 17 made the core bit-identical across engines, so a server can replay a
-  submitted run and compare for equality. What remains is not arithmetic and
-  belongs in the specification rather than in the code: an equality check
-  proves reproduction, not honesty, since the client can be modified; and the
-  server must compare only what the core produces, never presentation state.
-  When it is written, do not hand-roll state synchronisation — Colyseus or
-  Cloudflare Durable Objects.
-- **three.js past r151.** Colour management and lighting intensity defaults
-  changed: that is a visual re-tuning pass, not a dependency bump. It would also
-  not make the game faster — measured, see `TECH-DEBT.md` §7: 76 draw calls and
-  5 591 triangles a frame, with 46 % of the time in our own sky shader. Worth
-  doing one day for the dependency's age and for WebGPU, as its own project,
-  after the switch.
-- **True vertical loops.** They need quaternion frames and have a degeneracy at
-  the vertical. The corkscrew covers most of the appeal for none of the risk.
-- **Interpolated rendering.** The 720 Hz step divides the common refresh rates,
-  so interpolation has no purpose. Do not reintroduce it without measuring.
+**True vertical loops**, which need quaternion frames and degenerate at the
+vertical. The corkscrew covers most of the appeal for none of the risk.
+
+**Interpolated rendering.** The 720 Hz step divides the common refresh rates, so
+interpolation has no purpose. Do not reintroduce it without measuring.
