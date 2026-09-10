@@ -2,18 +2,20 @@
    Coquille applicative : le HTML passe par le réseau d'abord pour que les mises
    à jour arrivent, le reste par le cache d'abord car ces fichiers sont versionnés
    par le nom du cache. */
-const VERSION = 'gs-v4';
+const VERSION = 'gs-v5';
+/* Liste volontairement réduite au strict minimum.
+
+   Le bundle porte une empreinte dans son nom, qui change à chaque build : elle
+   ne peut pas être écrite ici à la main. L'engendrer à la compilation est
+   l'étape 5 de docs/ROADMAP.md, et c'est la partie la moins prévisible de la
+   migration. En attendant, seule la coquille est préchargée ; le bundle, lui,
+   est mis en cache à la première visite par la stratégie « cache d'abord »
+   plus bas, ce qui suffit à un rechargement hors ligne mais pas à une première
+   ouverture hors ligne. */
 const ASSETS = [
   './',
   './index.html',
-  './engine.js',
-  './game.js',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
+  './manifest.webmanifest'
 ];
 
 self.addEventListener('install', e => {

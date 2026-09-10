@@ -28,6 +28,8 @@ export default defineConfig({
     // splitting a game's renderer would only add a round trip.
     chunkSizeWarningLimit: 700,
   },
-  server: { port: 5175, strictPort: true },
-  preview: { port: 5175, strictPort: true },
+  // Same port on the host and in the image, now that the legacy no longer
+  // holds it.
+  server: { port: 5173, strictPort: true },
+  preview: { port: 5173, strictPort: true },
 });

@@ -1,7 +1,7 @@
 # G-SURGE — instructions for Claude Code
 
-Endless antigrav runner. Three.js r128, two classic scripts, no bundler.
-Everything in `legacy/` is deployed as is to Cloudflare Pages.
+Endless antigrav runner. TypeScript, Vite, three.js pinned to r128.
+`npm run build` compiles `src/` into `public/`, which is what is deployed.
 
 Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 `docs/TECH-DEBT.md` is the honest state of the codebase.
@@ -10,116 +10,67 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 
 ## Ground rules
 
-- **`legacy/` is the artefact.** No build step today. Do not introduce a bundler
-  as a side effect of another task; that is Phase 1 of the roadmap and it needs
-  its own branch.
-- **Load order matters.** `engine.js` runs before `game.js`. They are classic
-  scripts, so top-level `const` and `let` are shared between them and a name
-  declared in both throws at parse time.
-- **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
-  past r151 changes colour management and lighting defaults and is a re-tuning
-  pass, not a version bump.
-- **`legacy/` is frozen legacy.** Do not write anything new there, and do not
-  fix anything there either: that work is thrown away at the switch described in
-  `docs/ROADMAP.md`. It stays because it is the executable reference until the
-  new client reaches parity.
-- **`src/` is where the project goes.** `src/sim/` already reproduces tuning,
-  track generation and `step()` exactly; `tests/sim-parity.test.ts` replays the
-  frozen references against it in Node and they match to the digit. It is not
-  wired into the legacy game and never will be — the new client in
-  `src/client/` replaces it instead.
-- **Two artefacts, two commands, two test targets.** `npm run dev` is the new
-  client on 5175, `npm run dev:legacy` the old one on 5173. The e2e suite aims
-  at one or the other through `E2E_TARGET`; `next-*.spec.ts` are the specs for
-  the new build, everything else is the legacy's. Keep them disjoint.
-- **Documents and UI in English, code comments in French.** That is the existing
-  convention of this repository, and mixing the two inside one file is worse
-  than either.
+- **One codebase, compiled.** `src/` is TypeScript, Vite builds it into
+  `public/`, and that is what Cloudflare Pages serves. No hand-written
+  JavaScript is left in the deployed artefact.
 - **`src/sim/` must run without a browser.** Its `tsconfig.json` drops `DOM`
   from `lib` and empties `types`, so `document`, `window` or `fetch` are
-  compile errors, not review comments. ESLint additionally rejects `Math.random`,
-  `Date.now` and any `three` import there. The core has to stay replayable in
-  Node; that is what makes it testable, and what keeps a server option open.
-- **A dockerised dev environment sits alongside**, `Dockerfile` + `compose.yaml`.
-  It changes nothing to the sources: the repository is bind-mounted and served
-  as is, so a change is a page reload away. The checks below also run inside the
-  image with `docker compose run --rm tools <command>`. Note that Phase 1 of the
-  roadmap replaces the static server with Vite: `compose.yaml` is part of that
-  phase, not a follow-up to it.
-- **The simulation is seeded.** Track generation and pickup placement go
-  through `makeRng` in `engine.js`, section "1b". A run picks a fresh seed
-  unless `?seed=` pins one. Never reintroduce `Math.random` there: the frozen
-  references depend on it, and so does every replay feature to come. What stays
-  on `Math.random` on purpose is listed in that same section.
-- **`makeRng` and `src/sim/rng.ts` are the same algorithm twice.** A Playwright
-  test compares three hundred draws from each. Change one without the other and
-  it fails, which is exactly the point — it is what will prove the TypeScript
-  extraction changes nothing.
+  compile errors, not review comments. ESLint additionally rejects
+  `Math.random`, `Date.now` and any `three` import there. The core has to stay
+  replayable in Node; that is what makes it testable, and what keeps a server
+  option open.
+- **The simulation is seeded, and its references are frozen.**
+  `tests/e2e/fixtures/` pins track generation over sixty seeds and physics over
+  three difficulties. `tests/sim-parity.test.ts` replays them against the
+  source in Node, `tests/e2e/bundle.spec.ts` against the built bundle in a
+  browser. Neither is regenerated to make a change pass: a change that moves
+  them is a change of behaviour and gets its own commit saying so.
+- **The two clocks never mix.** `simulate` only ever receives the fixed step,
+  `render` only ever the real frame delta. Camera lag, smoke, thrust and every
+  other easing use the latter. That separation is the shape of `Loop`.
+- **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
+  past r151 changes colour management and lighting defaults and is a re-tuning
+  pass, not a version bump. It would also not make the game faster — measured,
+  see `docs/TECH-DEBT.md` §7.
+- **Documents and UI in English, code comments in French.** That is this
+  repository's convention, and mixing the two inside one file is worse than
+  either.
+- **A dockerised dev environment sits alongside**, `Dockerfile` +
+  `compose.yaml`. The repository is bind-mounted and Vite runs inside, so a
+  change is a reload away. `docker compose run --rm tools npm run verify` runs
+  the checks in the image; Playwright does not, the image carries no browser.
 - **Verify before claiming.** This codebase has produced several bugs whose
   obvious explanation was wrong. Measure, do not reason from the symptom. Every
-  guard rail here was checked by breaking what it protects; three of them were
+  guard rail here was checked by breaking what it protects, and several were
   found to test nothing at all that way.
 
 ## After any change
 
 ```
-npm run verify
+npm run verify              # types, lint, unit tests — seconds
+npm run test:e2e            # builds, then Playwright on three profiles — minutes
 ```
-
-It chains five checks, all cheap, and the first two have caught real breakage:
 
 | | |
 |---|---|
-| `check` | `node --check` on both scripts |
-| `check:globals` | concatenates them and re-checks, to catch a name declared in both |
-| `typecheck` | `tsc -p src/sim` |
+| `typecheck` | `tsc` on `src/sim`, `src/client` and `tests` |
 | `lint` | `eslint .` |
-| `test` | `vitest run` |
+| `test` | `vitest run` — PRNG, clock, and parity against the frozen references |
+| `test:e2e` | boot, screens, interface and scene references, plus the bundle check |
 
-Everything also runs in the image: `docker compose run --rm tools npm run verify`.
+`npm run test:e2e:update` regenerates the visual references and
+`npm run fixtures:update` the simulation ones. Neither is routine: visual
+references move when the interface moves, in a commit that does nothing else,
+and simulation references only when behaviour is deliberately changed.
 
-End to end, on top, with a real browser:
-
-```
-npm run test:e2e            # against the legacy: 53 tests, 3 profiles, ~3 min
-npm run test:e2e:next       # against the compiled build: builds first, then runs
-npm run test:e2e:update     # regenerate the visual references
-npm run fixtures:update     # regenerate the simulation references
-npm run verify:all          # verify + test:e2e
-```
-
-The frozen simulation references live in `tests/e2e/fixtures/` and regenerate
-with `npm run fixtures:update` — never casually: they describe the track over
-sixty seeds and the physics over three difficulties, and they are the
-behavioural contract of the port in progress.
-
-`test:e2e` runs **on the host only**: the image carries no browser. Visual
-references are compared at zero pixel tolerance; a Playwright upgrade changes
-text antialiasing and forces a deliberate regeneration. What the suite covers
-and, just as important, what it does not, is written at the top of each file in
-`tests/e2e/`.
+Visual references are compared at zero pixel tolerance. A Playwright upgrade
+changes text antialiasing and forces a deliberate regeneration.
 
 ## Where things live
 
-`engine.js`
-- `DEFAULTS` / `TUNING`: every tunable value. `DEFAULTS` is the Easy baseline.
-- Scene, camera, renderer, `applyRenderScale`.
-- Cosmic background: GLSL in `SKY_VS` / `SKY_FS`, on an inverted sphere centred
-  on the camera.
-- Track generation: `nextNode`, `pushNode`, `seedTrack`, `buildPath`, `sample`,
-  `gradeAt`. The ship never moves; the track is rebuilt in front of it.
-- Ribbons, gantries, pickups, ship mesh, exhaust plumes, smoke trail.
-
-`game.js`
-- Physics `step()`, score, damage, jumps, drift.
-- Screens and state machine `setMode`, keyboard navigation, settings, audio,
-  haptics, main loop.
-
-`index.html`
-- All the CSS, the splash screen and its own inline script, the service worker
-  registration.
-
-`docs/ARCHITECTURE.md` goes further; this is only the map.
+`docs/ARCHITECTURE.md` is the map. In short: `src/sim/` is the simulation and
+touches nothing else, `src/client/` draws it and plays it, `index.html` holds
+the markup and all the CSS, `static/` is copied verbatim into the build.
 
 ## The coordinate system, read this first
 
@@ -148,13 +99,19 @@ rebuilt in front of it every frame. Consequences:
 - **`filter: blur` on a 3D transformed element** rasterises at low resolution and
   looks pixelated. Blur in screen space with `backdrop-filter` instead.
 - **`MeshLambertMaterial` has no `flatShading`** in r128. Non-indexed geometry is
-  already flat shaded; the property only logs a warning.
+  already flat shaded; the property only logs a warning. The ship hull is built
+  from loose triangles for that reason.
 - **Sprite scale must be clamped.** An age factor out of range produced a
   negative scale, hence a mirrored sprite filling the screen.
-- **`resetRun` must clear anything holding a distance.** `clearSmoke()` exists
+- **A run reset must clear anything holding a distance.** `clearSmoke()` exists
   because puffs from the attract mode landed in front of the ship after a reset.
 - **`setMode` builds keyboard navigation.** The start state must be set by
   calling `setMode('menu')`, not by classes in the HTML alone.
+- **Presentation state that eases over frames must be reset for a capture.**
+  Plume scales, pickup spin and the camera's field of view all converge over
+  many frames, so a frozen frame lands wherever the frames before the reset
+  left it — however many the page happened to take to load. Three separate
+  bugs, all found by tightening a screenshot tolerance to zero.
 - **Auto quality never turns the background off** and needs several consecutive
   bad measurements. A single dip used to kill the visual signature.
 - **Frame rate throttling only skips on an integer ratio of at least two.**

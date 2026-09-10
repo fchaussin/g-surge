@@ -5,112 +5,61 @@ numbering had drifted from the work actually done.
 
 ## Where we are
 
-Eight commits, merged into `main`.
+The switch is done. One codebase, TypeScript, compiled by Vite into `public/`,
+which is what Cloudflare Pages serves. `legacy/` is deleted.
 
 | Done | Effect |
 |---|---|
 | Tooling | Strict TypeScript, Vitest, ESLint, `npm run verify` |
-| Playwright net | 53 tests, three profiles, visual references at zero tolerance |
+| Playwright net | Three profiles: boot, screens, interface and scene references |
 | Rename to G-SURGE | UI, manifest, Docker, leaderboard migrated |
-| Deterministic simulation | Seeded PRNG, `?seed=`, frozen track and physics references |
-| Extracted core | `src/sim/` in strict TypeScript, parity proven against the game |
-| Fixed step | 720 Hz, no interpolation, refresh targets derived from the device |
+| Deterministic simulation | Seeded PRNG, `?seed=`, frozen references |
+| Extracted core | `src/sim/`, proven against those references |
+| Fixed step | 720 Hz, no interpolation, targets derived from the device |
+| Ported client | Rendering, UI, audio, input, leaderboard — all of it |
+| Switch | Legacy deleted, deployment on the compiled build |
 
-Debt closed: 4 (time step). Largely covered: 3 (tests), 13 (tooling), 8 and 9
-inside `src/sim/`. Untouched: 1, 5, 6, 10, 11, 12, 14, 15, 16.
+Debt closed outright: 1, 2, 8, 9, 12 (they described the classic scripts), plus
+4 and 15. Largely covered: 3, 6, 10. Open: 5, 11, 13, 14, 16, 17, 18.
 
-## Legacy and new code
-
-`legacy/engine.js`, `legacy/game.js` and `legacy/index.html` are the **legacy**
-version. It is frozen — nothing new is written there. It is not a second
-implementation to keep in sync with `src/sim/`, it is the old version, and it
-will be deleted at the switch.
-
-Three consequences, and they drive everything below:
-
-- **No fix goes into the legacy.** The functional gaps — settings persistence,
-  accessibility, dead code, reverb — wait for the new client. The deployed game
-  therefore receives nothing until the switch. That is the price, and it is
-  deliberate.
-- **No throwaway intermediate state.** We do not rename two large files to
-  `.ts` and split them afterwards: the new code is written straight into the
-  target structure, one subsystem at a time.
-- **Port, do not rewrite.** `CLAUDE.md` lists traps paid for the hard way in the
-  shaders, the ribbon geometry, the camera and the trail. The code that avoids
-  them is correct; it changes file and language, not content.
-- **Structure is allowed to change, behaviour is not.** Porting means keeping
-  the numerics and the traps, while the layering follows the standards in
-  `CLAUDE.md` — ports and adapters, events rather than calls into the audio,
-  input as data, no allocation in the frame loop. Patterns that do not remove a
-  real problem here are refused by name in that same section.
-
-The frozen references in `tests/e2e/fixtures/` are the **behavioural contract**,
-and they outlive the legacy. The day the new client satisfies them, the three
-files go away and nothing is lost.
-
-## The target
-
-One codebase, TypeScript, compiled to `dist/`.
+## The shape it landed on
 
 ```
-index.html            Vite entry point
+index.html            Vite entry point, markup and all the CSS
 src/
-  sim/                the core — no DOM, no three.js
+  sim/                the simulation — no DOM, no three.js, runs in Node
   client/             rendering, UI, audio, input, loop
-static/               copied verbatim: _headers, manifest, icons, sw
-legacy/               the frozen old version, deleted at step 4
+static/               copied verbatim: _headers, manifest, service worker
 public/               build output, gitignored — what Cloudflare Pages serves
-dist-codepen/         the CodePen panels, gitignored, dies with the legacy
 ```
 
-`public/` is the build output rather than `dist/` so that the Pages project
-keeps its existing output directory and only its build command changes. The
-name was freed when the legacy moved to `legacy/`, and `publicDir` is
-explicitly `static/`, so Vite never confuses the two.
+The static directory kept the name `static/` rather than the Vite convention:
+during the migration `public/` already meant "the deployed legacy", and two
+meanings of one folder was the confusion the move was removing. `public/` is
+now the build output, which is what let the Pages project keep its output
+directory and change only its build command.
 
-The static directory is `static/`, not `legacy/`: keeping the Vite convention
-would have meant the same folder holding the legacy sources and the new assets
-at the same time during the migration. `legacy/` disappears at step 4 instead
-of changing meaning.
+## The invariant that held
 
-Cloudflare Pages moves from no build command to `npm run build` with `dist` as
-output.
+**The frozen references in `tests/e2e/fixtures/` were never regenerated.** They
+were captured from the legacy before any port and they now pass three ways:
+against the source in Node, against the built bundle in a browser, and — since
+the fixed step made a frame reproducible — as full-frame scene captures at zero
+pixel tolerance.
 
-Direct consequence: the "`legacy/` is the artefact, no build step" ground rule
-in `CLAUDE.md` goes away. That is a deliberate change, not a side effect.
+That is the whole claim of the migration, and it is checkable rather than
+asserted. Anything that moves them from here is a change of behaviour and gets
+a commit that says so.
 
-## The invariant that makes this safe
-
-The port keeps the spirit, not the pixels. Those are two different bars and
-only one of them is worth defending.
-
-**The simulation references are not regenerated**, except at step 7, which
-declares its behavioural change. They are the objective definition of how the
-ship handles, they are already green, and they cost nothing to keep. They have
-caught three real errors so far.
-
-**Rendering and UI are not held to the legacy pixel for pixel.** The new client
-gets its own visual references, captured once it looks right and reviewed by
-eye. Chasing byte equality on a screenshot would freeze the markup exactly
-where accessibility and reduced-motion work needs it to move, and would buy
-nothing: a layout is judged by looking at it.
-
-The practical line: if a difference would change how the game plays, the
-fixtures must catch it. If it only changes how it is drawn, judgement applies.
-
-During steps 2 and 3 the new client is only partly testable — the trough
-inherent to porting in parallel. What covers the gap: the core parity tests,
-already green, and the legacy, which stays the executable reference while it is
-there.
-
-Every regeneration of a visual reference must be a commit that does nothing
-else, so that what moved is visible in review.
+Interface references are a different matter and always were: they move when the
+interface moves, in a commit that does nothing else, and they are judged by
+looking.
 
 ## Steps
 
 Estimates in days of focused work, one person.
 
-### Step 0 — get the documents straight — ½ d
+### Step 0 — get the documents straight — done
 
 Corrections found at the start of the session and never applied:
 
@@ -129,61 +78,16 @@ Corrections found at the start of the session and never applied:
 
 Acceptance: no figure in `docs/` that cannot be checked against the code.
 
-### Step 1 — skeleton of the new client — done
+### Steps 1 to 4 — done
 
-Vite, three.js from npm at `0.128.0`, `index.html` at the root,
-`src/client/{main,viewport,loop}.ts`, permissive client `tsconfig`. The e2e
-suite aims at either artefact through `E2E_TARGET`.
+Vite and the skeleton, the rendering port, the client port, then parity and the
+switch. The proof that the switch changed nothing: the frozen references were
+never regenerated, and they now pass three ways — against the source in Node,
+against the built bundle in a browser, and as full-frame scene captures at zero
+pixel tolerance.
 
-53 tests against the legacy, 15 against the compiled build, all green. The
-skeleton drives `Sim` through the fixed-step loop and renders a placeholder, so
-that a frame proves the whole chain rather than just that three.js starts.
-
-### Step 2 — port the rendering — 1 to 2 d
-
-From `engine.js` into `src/client/`: `scene`, `sky`, `track-mesh`, `ship`,
-`pickups`. Every trap from `CLAUDE.md` is re-checked on arrival — sky shader
-precision, chevron period, canvas CSS size, sprite scale clamping.
-
-`buildPath`, `sample` and `gradeAt` move into the core instead: they are pure
-functions of the track buffers and have no business in the rendering layer.
-
-Acceptance: track, ship and sky render from `src/sim/`, with no call into the
-legacy.
-
-### Step 3 — port the game client — done
-
-From `game.js`: loop and clock, HUD, screens and keyboard navigation, settings,
-audio, haptics, input, leaderboard, score screen, fullscreen, refresh detection
-and automatic quality. All of it consuming the events from `src/sim/events.ts`
-instead of the calls that used to sit inside `step()`.
-
-Accessibility landed here rather than at step 6, which is why it was moved:
-`aria-pressed` on the eight toggles, `role="radiogroup"` and `role="radio"` with
-labels on the two segmented controls, and a `prefers-reduced-motion` block.
-Writing it alongside the markup cost an hour; retrofitting it would have cost a
-day.
-
-The CSS carries over as the starting point rather than as a constraint. It is
-good and it is tuned; where accessibility, reduced-motion or a cleaner
-structure argue for changing it, change it. The visual references are then
-re-captured for the new client, not inherited from the legacy.
-
-That also pulls the accessibility work of step 6 forward into this step, where
-it belongs: adding `aria-pressed` and a reduced-motion path while writing the
-markup costs an hour, and retrofitting them later costs a day.
-
-Acceptance: the new client is playable, every screen responds.
-
-### Step 4 — parity, then switch — 1 d
-
-- The full e2e suite passes against the new build, on all three profiles.
-- The simulation references pass **without being regenerated**.
-- Delete `legacy/engine.js`, `legacy/game.js`, `legacy/index.html`.
-- Cloudflare Pages: build command `npm run build`, output `dist`.
-
-The legacy dies here and not before: while it is there, it remains the
-executable reference if a divergence shows up.
+The one deliberate difference is a single line of text. The legacy leaderboard
+said "a distance enters the board" where the board shows a score.
 
 ### Step 5 — service worker and assets — ½ d
 
@@ -232,9 +136,14 @@ otherwise have to be redone.
 
 ## Open decisions
 
-- **CodePen.** `scripts/build-codepen.mjs` slices the legacy files into three
-  panels, so it dies with them at step 4 unless it is rewritten as a secondary
-  IIFE target. To settle before step 4, not before step 1.
+- **CodePen.** `scripts/build-codepen.mjs` sliced the legacy files into three
+  panels and was deleted with them. Bringing it back means a secondary IIFE
+  build target, which is a new feature rather than a port. Nothing depends on
+  it today.
+- **`static/` or `public/`.** The static directory kept the name `static/` to
+  avoid two meanings of `public/` living side by side during the migration.
+  `public/` is now the build output. Renaming `static/` back would follow the
+  Vite convention, at the cost of one more churn.
 
 ## Out of scope
 

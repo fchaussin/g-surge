@@ -3,15 +3,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // legacy/ reste en scripts classiques jusqu'à sa suppression : deux fichiers
-    // partagent une portée globale, ce qu'aucune configuration de module ne sait
-    // décrire honnêtement. Le garde-fou y reste « node --check » sur la concaténation.
     ignores: [
       'dist/',
-      'dist-codepen/',
       'public/',
       'node_modules/',
-      'legacy/**',
       'scripts/**',
       // Copie de three.js r128 rejouée aux tests à la place du CDN : ce n'est
       // pas notre source, et minifiée elle produit 1800 faux positifs.
@@ -22,6 +17,24 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Le service worker tourne dans son propre contexte : ni `window`, ni
+    // `document`, mais `self`, `caches` et `clients`. Il est déclaré ici
+    // plutôt qu'exclu — c'est du code livré, il mérite d'être vérifié.
+    files: ['static/sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly', caches: 'readonly', clients: 'readonly',
+        fetch: 'readonly', Request: 'readonly', Response: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: {
+      // `catch (err) {}` volontairement vide : un actif manquant ne doit pas
+      // faire échouer l'installation. La variable reste, elle documente.
+      '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],
+    },
+  },
   {
     files: ['src/sim/**/*.ts'],
     rules: {

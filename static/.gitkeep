@@ -1,3 +1,2 @@
-Vite copies this directory verbatim into dist/. It is where _headers, the
-manifest, the icons and sw.js move at roadmap step 4, when the legacy legacy/
-goes away. Empty until then.
+Copied verbatim into the build by Vite. Holds _headers, the manifest and the
+service worker; static/icons/ belongs here too and does not exist yet.

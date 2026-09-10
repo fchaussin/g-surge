@@ -43,9 +43,19 @@ export class ChaseCamera {
     this.fov = tuning.fovBase;
   }
 
-  /** Drops the lag, so the next frame snaps instead of sweeping in. */
-  reset(): void {
+  /**
+   * Drops everything the camera accumulates: the positional lag, and the field
+   * of view, which eases over several seconds towards the current speed.
+   *
+   * Forgetting the field of view is not cosmetic. It leaves the projection at
+   * whatever the frames before the reset had reached, which is however many
+   * the page took to load — enough to move every star and every gantry in a
+   * captured frame while the simulation is bit-identical. That is exactly how
+   * it was found.
+   */
+  reset(tuning: Tuning): void {
     this.placed = false;
+    this.fov = tuning.fovBase;
   }
 
   /**

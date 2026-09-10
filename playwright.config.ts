@@ -1,24 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * The suite is the migration tool, so it has to be able to aim at either
- * artefact: the frozen legacy in `legacy/`, or the compiled build in `dist/`.
- *
- *   npm run test:e2e        the legacy, the full suite
- *   npm run test:e2e:next   the new build, the specs written for it
- *
- * Different ports so both can be up at once, and disjoint spec sets because
- * the new client has no UI yet — running the legacy screen tests against it
- * would only produce noise.
- */
-const TARGET = process.env.E2E_TARGET === 'next' ? 'next' : 'legacy';
-const PORT = TARGET === 'next' ? 5176 : 5174;
-const SERVE = TARGET === 'next' ? 'public' : 'legacy';
+const PORT = 5176;
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  // `next-*.spec.ts` targets the compiled build, everything else the legacy.
-  testMatch: TARGET === 'next' ? /next-.*\.spec\.ts/ : /^(?!.*next-).*\.spec\.ts$/,
   // Le jeu est une boucle temps réel : deux onglets qui rendent en parallèle sur
   // SwiftShader se volent le CPU et les mesures de cadence deviennent du bruit.
   workers: 1,
@@ -63,7 +48,7 @@ export default defineConfig({
       // trois jeux de références visuelles pour la même mise en page coûteraient
       // plus cher qu'ils ne rapportent.
       name: 'retina',
-      testMatch: TARGET === 'next' ? /next-boot\.spec\.ts/ : /(^|\/)boot\.spec\.ts/,
+      testMatch: /boot\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 },
     },
     {
@@ -73,10 +58,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command:
-      TARGET === 'next'
-        ? `npm run build && node scripts/serve-static.mjs ${SERVE} ${PORT}`
-        : `node scripts/serve-static.mjs ${SERVE} ${PORT}`,
+    // Builds first: the suite tests the artefact, not the sources.
+    command: `npm run build && node scripts/serve-static.mjs public ${PORT}`,
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',

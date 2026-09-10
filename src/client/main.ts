@@ -8,7 +8,10 @@
  * The last piece missing before the switch is the end-of-run score screen.
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Scene } from 'three';
-import { BACK, coinTier, DIFF, Sim, tuningFor, type Difficulty, type SimEvent } from '../sim/index.js';
+import {
+  BACK, coinTier, DEFAULTS, DIFF, Sim, tuningFor,
+  type Difficulty, type SimEvent,
+} from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
 import { Fullscreen } from './fullscreen.js';
@@ -242,7 +245,7 @@ function startRun(): void {
   tips.reset();
   ship.clearSmoke();
   pickups.reset();
-  camera.reset();
+  camera.reset(sim.tuning);
   hud.reset();
   halo = 0;
   lean = 0;
@@ -410,6 +413,18 @@ declare global {
       setSkyDetail(high: boolean): void;
       setSkyVisible(visible: boolean): void;
       freeze(seed: string, steps: number): void;
+      clock(): { hz: number; dt: number };
+      defaults(): Record<string, number>;
+      nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
+      items(): Array<{ id: number; lat: number; type: number }>;
+      trace(opts: {
+        seed: string;
+        diff?: Difficulty;
+        steps?: number;
+        dt?: number;
+        every?: number;
+        script?: Array<{ from: number; steer?: number; brake?: boolean; boost?: boolean }>;
+      }): unknown;
     };
   }
 }
@@ -429,12 +444,72 @@ window.__gsNext = {
    * draws exactly one frame. This is what makes a full-frame visual reference
    * possible: a frame used to depend on when it happened to be taken.
    */
+  clock: () => ({ hz: 1 / loop.fixedStep, dt: loop.fixedStep }),
+  defaults: () => ({ ...DEFAULTS }),
+  nodes: () => ({
+    k: Array.from(sim.track.nk),
+    g: Array.from(sim.track.ng),
+    b: Array.from(sim.track.nb),
+    id: Array.from(sim.track.nid),
+  }),
+  items: () => sim.track.items.map((it) => ({ id: it.id, lat: it.lat, type: it.type })),
+
+  /**
+   * Replays a run at fixed step, outside the render loop.
+   *
+   * Its purpose changed with the switch. It used to prove that two
+   * implementations agreed; there is only one now, so what it proves is that
+   * the **shipped bundle** still plays the same as the source — that nothing
+   * in the transpile, the minifier or the module graph moved a number. The
+   * frozen references stay the contract either way.
+   */
+  trace(opts) {
+    const steps = opts.steps === undefined ? 1200 : opts.steps;
+    const dt = opts.dt === undefined ? loop.fixedStep : opts.dt;
+    const every = opts.every === undefined ? 60 : opts.every;
+    const script = opts.script ?? [];
+    const diff = opts.diff ?? 'easy';
+
+    loop.stop();
+    sim.setDifficulty(diff);
+    sim.reset(opts.seed);
+
+    const st = sim.state;
+    const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
+    const snap = (i: number) => ({
+      i,
+      dist: r6(st.dist), travel: r6(st.travel), cursor: r6(st.cursor),
+      speed: r6(st.speed), lat: r6(st.lat), latVel: r6(st.latVel),
+      yaw: r6(st.yaw), hop: r6(st.hop), vyRel: r6(st.vyRel),
+      energy: r6(st.energy), hull: r6(st.hull),
+      mult: r6(st.mult), score: r6(st.score), coins: st.coins,
+      air: st.air, drift: st.drift, wrecked: st.wrecked,
+    });
+
+    let si = 0;
+    let cur: { from: number; steer?: number; brake?: boolean; boost?: boolean } = { from: 0 };
+    const frames = [snap(-1)];
+    let last = -1;
+    const held = { steer: 0, brake: false, boost: false };
+    for (let i = 0; i < steps; i++) {
+      while (si < script.length && script[si]!.from <= i) cur = script[si++]!;
+      held.steer = cur.steer ?? 0;
+      held.brake = !!cur.brake;
+      held.boost = !!cur.boost;
+      sim.step(held, dt, false);
+      last = i;
+      if (st.wrecked) { frames.push(snap(i)); break; }
+      if ((i + 1) % every === 0 || i === steps - 1) frames.push(snap(i));
+    }
+    return { seed: sim.seed, diff, steps, ran: last + 1, dt, wrecked: st.wrecked, frames };
+  },
+
   freeze(seed, steps) {
     loop.stop();
     sim.reset(seed);
     ship.clearSmoke();
     pickups.reset();
-    camera.reset();
+    camera.reset(sim.tuning);
     sky.reset();
     elapsed = 0;
     lean = 0;

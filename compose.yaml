@@ -7,9 +7,9 @@
 name: g-surge
 
 services:
-  # Serveur statique de développement, sur http://localhost:5173
-  # Les sources sont montées, pas copiées : une édition sur l'hôte est servie au
-  # rechargement suivant, il n'y a rien à reconstruire.
+  # Serveur de développement Vite, sur http://localhost:5173
+  # Les sources sont montées, pas copiées : une édition sur l'hôte est reprise
+  # à chaud, il n'y a rien à reconstruire.
   dev:
     build: .
     image: g-surge-dev
@@ -27,8 +27,9 @@ services:
       start_period: 5s
 
   # Commandes ponctuelles dans la même image, sans démarrer de serveur :
-  #   docker compose run --rm tools npm run check
+  #   docker compose run --rm tools npm run verify
   #   docker compose run --rm tools npm run build
+  # Playwright n'y est pas : l'image ne porte pas de navigateur.
   # Le profil l'exclut de « docker compose up ».
   tools:
     build: .
@@ -37,4 +38,4 @@ services:
     user: "${GSURGE_USER:-0:0}"
     volumes:
       - .:/app
-    command: ["npm", "run", "check"]
+    command: ["npm", "run", "verify"]
