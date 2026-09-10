@@ -152,6 +152,17 @@ Prettier is still absent and is the only piece of item 13 left.
 properly costs more than a mechanical conversion, and saves a split that would
 otherwise have to be redone.
 
+## After the roadmap
+
+The steps above completed, one autonomous pass closed what remained closeable:
+Prettier wired into verify and CI, the frame governor tested and then
+simplified — no frame rate target, no throttle, the display's native rate and
+adaptive quality — eight designer-first sliders plus live console tuning
+restored, and debt 14 recorded as deferred by decision. What is genuinely
+open now sits in `TECH-DEBT.md`: the DOM id coupling (6, low), the strings
+(14, deferred), and `Math.cos` across engines (17), which waits for the
+multiplayer specification.
+
 ## Open decisions
 
 - **CodePen.** `scripts/build-codepen.mjs` sliced the legacy files into three

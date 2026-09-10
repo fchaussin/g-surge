@@ -29,7 +29,7 @@ classic scripts, and those are gone.
 | 11 | Tuning coverage | Low | 40 of 69 on sliders, the rest live on the console |
 | 12 | Dead code | — | **gone with the legacy** |
 | 13 | No lint, no formatter, no CI | — | **done** |
-| 14 | All strings hardcoded in English | Low | open |
+| 14 | All strings hardcoded in English | Low | deferred by decision |
 | 19 | Documents state figures nothing checks | — | **closed for GAMEPLAY.md** |
 | 15 | Reverb built on the main thread | — | **done**, built on the first gesture |
 | 16 | Missing PWA icons | — | **done** |
@@ -217,6 +217,13 @@ Every label is inline, split between `index.html` and three tables
 in `src/client/` — `tips.ts`, `sliders.ts` and the difficulty blurbs in
 `settings.ts`. Localising means touching all four. `src/sim/` deliberately
 holds none of them.
+
+**Deferred by decision, not by neglect.** Extracting a string table with no
+second language in sight is the same speculative generality this project
+refuses elsewhere — a layer of indirection every reader pays for, serving a
+need nobody has expressed. The day localisation is wanted, the work is
+mechanical and this paragraph says where all four homes are. Until then the
+item stays here so the decision is visible, not silently forgotten.
 
 ## 16. PWA icons — done
 
