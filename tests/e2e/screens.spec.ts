@@ -79,12 +79,18 @@ test.describe('machine à états et navigation', () => {
     await page.locator('#btnStart').click();
 
     // Le vaisseau accélère seul : distance et vitesse doivent monter sans entrée.
+    //
+    // Délai généreux et assumé : ce test a lâché une fois sur une exécution
+    // complète de la suite, jamais isolément ni sur vingt-cinq répétitions.
+    // Trois profils qui rendent en SwiftShader pendant quatre minutes finissent
+    // par ralentir la machine, et le jeu ralentit avec elle — c'est le
+    // comportement voulu du plafond de rattrapage, pas une régression.
     await expect
-      .poll(() => page.locator('#spd').innerText().then(Number), { timeout: 10_000 })
+      .poll(() => page.locator('#spd').innerText().then(Number), { timeout: 30_000 })
       .toBeGreaterThan(0);
     await expect
       .poll(() => page.locator('#dist').innerText().then((t) => Number(t.replace(/\D/g, ''))), {
-        timeout: 10_000,
+        timeout: 30_000,
       })
       .toBeGreaterThan(0);
 

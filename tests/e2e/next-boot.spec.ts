@@ -109,3 +109,58 @@ test.describe('new client, skeleton', () => {
     expect(await page.evaluate(() => window.__gsNext.seed())).not.toBe('from-the-url');
   });
 });
+
+/**
+ * Full-frame visual references for the new client — canvas included.
+ *
+ * The legacy suite could never do this: a frame depended on when it happened
+ * to be taken, because the simulation ran on the real frame delta. With a
+ * fixed step and a seed, `freeze` replays a known number of steps and draws
+ * exactly one frame, which is reproducible.
+ *
+ * A small tolerance remains on purpose. The exhaust flicker is per-frame noise
+ * on `Math.random`, deliberately left outside the simulation; seeding it would
+ * couple presentation to the core for no gain. It moves a few hundred pixels
+ * around the two plumes and nothing else.
+ */
+test.describe('new client, rendering', () => {
+  for (const [name, steps] of [['start', 60], ['underway', 2400], ['far', 9000]] as const) {
+    test(`renders the track ${name}`, async ({ page }, testInfo) => {
+      // Desktop only. The 3D scene does not change meaningfully with the
+      // viewport, and three sets of references would be 1.9 MB of PNG in the
+      // repository for nothing. The retina project exists for canvas geometry,
+      // not for looks.
+      test.skip(testInfo.project.name !== 'desktop', 'one set of scene references is enough');
+      await page.goto('/');
+      await ready(page);
+      await page.evaluate(([seed, n]) => window.__gsNext.freeze(seed as string, n as number),
+                          ['reference', steps]);
+      await expect(page).toHaveScreenshot(`scene-${name}.png`, {
+        maxDiffPixelRatio: 0.02,
+      });
+    });
+  }
+
+  test('actually draws a scene rather than an empty frame', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __calls: number }).__calls = 0;
+      for (const proto of [WebGLRenderingContext.prototype, WebGL2RenderingContext.prototype]) {
+        const de = proto.drawElements;
+        proto.drawElements = function (this: WebGLRenderingContext, ...a: Parameters<typeof de>) {
+          (window as unknown as { __calls: number }).__calls++;
+          return de.apply(this, a);
+        };
+      }
+    });
+    await page.goto('/');
+    await ready(page);
+    await page.evaluate(() => {
+      (window as unknown as { __calls: number }).__calls = 0;
+      window.__gsNext.freeze('reference', 600);
+    });
+    // The legacy draws about 76 calls a frame. Anything near zero means the
+    // scene is empty and the screenshots would be comparing two black frames.
+    expect(await page.evaluate(() => (window as unknown as { __calls: number }).__calls))
+      .toBeGreaterThan(30);
+  });
+});

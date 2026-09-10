@@ -75,6 +75,9 @@ interface GsNextDebug {
   fixedStep(): number;
   state(): { travel: number; dist: number; lat: number; speed: number; hop: number; yaw: number };
   renderScale(): number;
+  setSkyDetail(high: boolean): void;
+  setSkyVisible(visible: boolean): void;
+  freeze(seed: string, steps: number): void;
 }
 
 declare global {
