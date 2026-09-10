@@ -25,7 +25,7 @@ export interface GameHarness {
  */
 async function readMode(page: Page): Promise<string> {
   return page.evaluate(() => {
-    const layers = ['menu', 'pause', 'over', 'help', 'fpsinfo', 'settings'];
+    const layers = ['menu', 'pause', 'over', 'help', 'settings'];
     for (const id of layers) {
       if (document.getElementById(id)?.classList.contains('on')) return id;
     }

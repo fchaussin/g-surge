@@ -26,8 +26,6 @@ export interface Preferences {
   sky: boolean;
   skyDetail: boolean;
   showFps: boolean;
-  /** Wanted frames per second. Snapped to what the display can do on load. */
-  frameTarget: number;
   /** Fraction of the native resolution, 0.4 to 1. */
   renderScale: number;
 }
@@ -41,7 +39,6 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   sky: true,
   skyDetail: true,
   showFps: false,
-  frameTarget: 60,
   renderScale: 1,
 };
 
@@ -66,9 +63,8 @@ function sanitise(raw: unknown): Preferences {
     sky: bool(r.sky, d.sky),
     skyDetail: bool(r.skyDetail, d.skyDetail),
     showFps: bool(r.showFps, d.showFps),
-    // 20 to 480: wider than the rates the detector knows, because the value is
-    // snapped to what the display can actually do once it is measured.
-    frameTarget: Math.round(number(r.frameTarget, d.frameTarget, 20, 480)),
+    // Un frameTarget stocké par une version antérieure est simplement ignoré :
+    // sanitise reconstruit l'objet champ par champ, les clés inconnues tombent.
     renderScale: number(r.renderScale, d.renderScale, 0.4, 1),
   };
 }

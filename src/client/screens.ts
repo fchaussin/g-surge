@@ -10,13 +10,12 @@
  * group of segmented buttons counting as a single stop — left and right then
  * change the value instead of moving on.
  */
-export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help' | 'fpsinfo';
+export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
 
 /** Navigable elements per screen, in order. Settings builds its own. */
 const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu'],
   help: ['btnCloseHelp'],
-  fpsinfo: ['lnkFf', 'lnkCh', 'lnkSa', 'btnCloseFps'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
   over: ['btnAgain', 'btnOverMenu'],
 };
@@ -29,7 +28,7 @@ const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   help: 'btnCloseHelp',
 };
 
-const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'fpsinfo', 'settings'];
+const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings'];
 
 export interface ScreensOptions {
   /** Called on every transition, so the rest of the client can react. */
@@ -223,9 +222,6 @@ export class Screens {
         break;
       case 'help':
         this.setMode('menu');
-        break;
-      case 'fpsinfo':
-        this.setMode('settings');
         break;
       default:
         break;

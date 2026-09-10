@@ -103,6 +103,12 @@ The simulation runs at a fixed 720 Hz — the smallest integer divisible by 60,
 simulation state and nothing needs interpolating. A step costs 0.45 µs
 measured, 0.03 % of a core at that rate, which is why the choice was free.
 
+Rendering runs at the display's native rate, full stop. There is no frame rate
+target and no throttle — a picker existed and was removed as machinery serving
+a need nobody had. When the machine cannot hold the native rate, automatic
+quality steps the rendering cost down instead: background detail first, render
+scale second, never below 0.7, and the background is never switched off.
+
 ### Physics
 
 Two-stage lateral model in track space. The stick commands a yaw angle relative
@@ -137,7 +143,7 @@ which is what makes the step runnable outside a page.
 | `input.ts` | Devices in, `{ steer, brake, boost }` out |
 | `audio.ts`, `haptics.ts` | Feedback, driven by events |
 | `scores.ts`, `score-screen.ts`, `tips.ts` | Leaderboard and prompts |
-| `performance.ts` | Refresh detection, frame target, automatic quality |
+| `performance.ts` | Refresh detection and automatic quality |
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
 
 **The two clocks never mix.** `simulate` only ever receives the fixed step;

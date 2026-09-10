@@ -539,33 +539,6 @@
   </div>
 </div>
 
-<div class="layer" id="fpsinfo">
-  <div class="scrim"></div>
-  <div class="modal infomodal">
-    <div class="pausehead">UNLOCK FRAME RATE</div>
-    <p class="tag">Browsers pace animation on the display refresh, and often stay at 60 Hz whatever the screen can do. These switches live in the browser or the system, nothing on this page can raise the ceiling.</p>
-
-    <h3>FIREFOX</h3>
-    <p>Open <code>about:config</code>, search <code>layout.frame_rate</code> and set it to <code>0</code> for uncapped.</p>
-    <a class="btn ghost" id="lnkFf" target="_blank" rel="noopener"
-       href="https://www.reddit.com/r/KrunkerIO/comments/esz4gt/unlock_browser_fps_this_one_is_for_you/?tl=fr">READ THE THREAD</a>
-
-    <h3>CHROME AND CHROMIUM</h3>
-    <p>Quit the browser, then start it with <code>--disable-gpu-vsync --disable-frame-rate-limit --max-gum-fps=9999</code>. Expect tearing, this bypasses vertical sync.</p>
-    <a class="btn ghost" id="lnkCh" target="_blank" rel="noopener"
-       href="https://gist.github.com/brunosimon/c15e7451a802fa8e34c0678620022f7d">READ THE GIST</a>
-
-    <h3>SAFARI</h3>
-    <p>No supported switch so far. The discussion below tracks the state of things.</p>
-    <a class="btn ghost" id="lnkSa" target="_blank" rel="noopener"
-       href="https://github.com/blurbusters/testufo-public/issues/5">READ THE ISSUE</a>
-
-    <h3>MACOS PROMOTION</h3>
-    <p>On a 120 Hz Mac, the display is adaptive by default and browsers settle at 60. In System Settings, Displays, set the refresh rate to a fixed 120 hertz, then re-detect here.</p>
-
-    <button class="btn" id="btnCloseFps">BACK TO SETTINGS</button>
-  </div>
-</div>
 
 <div class="layer" id="help">
   <div class="sheet">
@@ -645,15 +618,6 @@
           <span>Detailed background<small>Off halves the shader cost and keeps the look</small></span>
           <button class="toggle on" id="tglSkyHi" aria-pressed="true"></button>
         </div>
-        <div class="switch">
-          <span>Frame rate target<small id="hzHint">detecting display refresh…</small></span>
-          <div class="seg navgroup" role="radiogroup" aria-label="Frame rate target" id="segFps" tabindex="0">
-            <button data-hz="60" role="radio" aria-checked="false">60</button>
-            <button data-hz="120" role="radio" aria-checked="false">120</button>
-            <button data-hz="240" role="radio" aria-checked="false">240</button>
-          </div>
-        </div>
-        <div class="lnkrow"><button class="lnk" id="btnFpsInfo">how to unlock frame rate</button></div>
         <div class="switch">
           <span>Show frame rate<small>Displayed top left, in menus too</small></span>
           <button class="toggle" id="tglFps" aria-pressed="false"></button>

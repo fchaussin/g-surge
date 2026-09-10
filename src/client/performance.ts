@@ -1,15 +1,19 @@
 /**
- * Refresh detection, frame rate target, and automatic quality.
+ * Refresh detection and automatic quality. Nothing else.
  *
- * Three traps live here, all paid for the hard way:
+ * The game renders at whatever rate the display gives `requestAnimationFrame`
+ * — there is no frame rate target and no throttle, by decision. An earlier
+ * version carried both, plus a picker in the settings; the machinery existed
+ * to spend less battery on purpose, nobody had asked for that, and its
+ * integer-ratio subtleties had already produced the project's canonical
+ * timing bug once. What the player wants is the device's best, and the way to
+ * deliver that is to adapt the rendering cost, not the schedule.
  *
- * - **Throttling only skips on an integer ratio of at least two.** A 144 Hz
- *   display asked for 120 would otherwise drop every other frame and land at
- *   72, which is worse than not throttling at all.
- * - **The target list is built from the detected refresh rate**, in integer
- *   divisions of it, because those are the only rates the throttle can
- *   actually produce. A fixed 60 / 120 / 240 list meant a 144 Hz display set
- *   to "120" was in fact running at 144, under a label that lied.
+ * Detection stays because adaptive quality needs a yardstick: "is the game
+ * holding what this display can do". Two traps live on, both paid for:
+ *
+ * - **Detection takes a median, not a mean.** A single long frame during
+ *   startup would drag a mean far enough to snap to the wrong rate.
  * - **Automatic quality never switches the background off**, and needs several
  *   consecutive bad measurements. A single dip used to kill the game's visual
  *   signature outright.
@@ -38,9 +42,6 @@ export interface PerformanceOptions {
 export class PerformanceGovernor {
   /** Zero until detection completes. */
   refreshHz = 0;
-  targetHz = 60;
-  /** Minimum seconds between rendered frames. Zero means no throttling. */
-  frameMin = 0;
   /** Last measured frames per second. */
   fps = 60;
 
@@ -52,38 +53,12 @@ export class PerformanceGovernor {
   private bad = 0;
   private good = 0;
 
-  private onRefreshChange: (() => void) | null = null;
-
   constructor(private readonly options: PerformanceOptions) {}
-
-  /** Called when detection completes or is restarted, to rebuild the UI. */
-  set onRefresh(handler: () => void) {
-    this.onRefreshChange = handler;
-  }
-
-  /** Rates the throttle can actually hit on this display. */
-  targetOptions(): number[] {
-    if (!this.refreshHz) return [60, 120, 240];
-    const out: number[] = [];
-    for (let n = 1; n <= 3; n++) {
-      const hz = Math.round(this.refreshHz / n);
-      // Below 30 the game is unpleasant rather than economical.
-      if (hz >= 30 && !out.includes(hz)) out.push(hz);
-    }
-    return out;
-  }
-
-  setTarget(hz: number): void {
-    this.targetHz = hz;
-    this.applyThrottle();
-  }
 
   /** Forces a fresh measurement, for when the display or window has moved. */
   redetect(): void {
     this.refreshHz = 0;
     this.samples.length = 0;
-    this.frameMin = 0;
-    this.onRefreshChange?.();
   }
 
   /** Feeds the detector. Call once per frame with the real delta. */
@@ -100,10 +75,6 @@ export class PerformanceGovernor {
       (best, v) => (Math.abs(v - raw) < Math.abs(best - raw) ? v : best),
       60,
     );
-
-    // Detection does not choose for the player: it replaces the list of
-    // reachable targets and keeps the nearest to what was selected.
-    this.onRefreshChange?.();
   }
 
   /** One-second window. Measures, then adapts quality if it has to. */
@@ -118,7 +89,7 @@ export class PerformanceGovernor {
 
     // Running well above the detected rate means the detection was wrong,
     // usually because the window moved to another display.
-    if (this.refreshHz && this.frameMin === 0 && this.fps > this.refreshHz * 1.2) {
+    if (this.refreshHz && this.fps > this.refreshHz * 1.2) {
       this.redetect();
     }
 
@@ -135,7 +106,9 @@ export class PerformanceGovernor {
       return;
     }
 
-    const reachable = Math.min(this.targetHz, this.refreshHz || this.targetHz);
+    // The yardstick is the display itself: the game is doing its job when it
+    // holds what the device can show.
+    const reachable = this.refreshHz || 60;
     if (this.fps < reachable * 0.78) {
       this.bad++;
       this.good = 0;
@@ -181,15 +154,5 @@ export class PerformanceGovernor {
       this.options.setSkyDetail(true);
       this.hold = 5;
     }
-  }
-
-  private applyThrottle(): void {
-    if (!this.refreshHz) {
-      this.frameMin = 0;
-      return;
-    }
-    const n = Math.max(1, Math.round(this.refreshHz / this.targetHz));
-    // Half a frame of slack, so jitter does not skip a frame that was on time.
-    this.frameMin = n <= 1 ? 0 : (n - 0.5) / this.refreshHz;
   }
 }

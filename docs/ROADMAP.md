@@ -15,7 +15,7 @@ which is what Cloudflare Pages serves. `legacy/` is deleted.
 | Rename to G-SURGE | UI, manifest, Docker, leaderboard migrated |
 | Deterministic simulation | Seeded PRNG, `?seed=`, frozen references |
 | Extracted core | `src/sim/`, proven against those references |
-| Fixed step | 720 Hz, no interpolation, targets derived from the device |
+| Fixed step | 720 Hz, no interpolation, rendering at the display's native rate |
 | Ported client | Rendering, UI, audio, input, leaderboard — all of it |
 | Switch | Legacy deleted, deployment on the compiled build |
 

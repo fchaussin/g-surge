@@ -126,10 +126,13 @@ rebuilt in front of it every frame. Consequences:
   bugs, all found by tightening a screenshot tolerance to zero.
 - **Auto quality never turns the background off** and needs several consecutive
   bad measurements. A single dip used to kill the visual signature.
-- **Frame rate throttling only skips on an integer ratio of at least two.**
-  A 144 Hz display targeting 120 dropped to 72 before that rule existed. The
-  target list is now built from the detected refresh rate for that same reason:
-  only integer divisions of it are honestly reachable.
+- **There is no frame rate target and no throttle, by decision.** The game
+  renders at whatever the display gives `requestAnimationFrame`, and automatic
+  quality adapts the rendering cost to hold that. A target picker and an
+  integer-ratio throttle existed and were removed: the machinery served a need
+  nobody had, and its subtleties had already produced the 144-asked-for-120-
+  landed-at-72 bug once. Do not reintroduce a scheduler; adapt cost, not
+  cadence.
 - **The simulation runs at a fixed 720 Hz, the rendering does not.** In
   `frame()`, `dt` stays the real frame delta and drives the display smoothing
   — camera, smoke, thrust; the simulation only ever advances by whole `SIM_DT`

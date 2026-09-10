@@ -51,10 +51,6 @@ export interface SettingsOptions {
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
   setShowFps: (on: boolean) => void;
-  setFrameTarget: (hz: number) => void;
-  frameTargets: () => number[];
-  refreshHz: () => number;
-  redetect: () => void;
   clearScores: () => void;
   /** The navigation list has to be rebuilt when the panel's contents change. */
   rebuildNav: () => void;
@@ -78,7 +74,6 @@ export class Settings {
     this.bindTabs();
     this.bindDifficulty();
     this.bindToggles();
-    this.bindFrameRate();
     this.bindClear();
     this.paintDifficulty();
   }
@@ -94,42 +89,6 @@ export class Settings {
     const value = this.options.tuning()[key];
     row.input.value = String(value);
     row.out.textContent = String(value);
-  }
-
-  /** Rebuilds the frame rate choices from what the display can do. */
-  rebuildFrameTargets(): void {
-    const seg = byId('segFps');
-    if (!seg) return;
-    const targets = this.options.frameTargets();
-    seg.innerHTML = '';
-    for (const hz of targets) {
-      const b = document.createElement('button');
-      b.dataset.hz = String(hz);
-      b.textContent = String(hz);
-      b.setAttribute('role', 'radio');
-      b.setAttribute('aria-checked', 'false');
-      seg.appendChild(b);
-    }
-    this.options.rebuildNav();
-    this.updateHzHint();
-  }
-
-  paintFrameTarget(hz: number): void {
-    for (const b of document.querySelectorAll<HTMLElement>('#segFps button')) {
-      const on = Number(b.dataset.hz) === hz;
-      b.classList.toggle('on', on);
-      b.setAttribute('aria-checked', String(on));
-    }
-    this.updateHzHint();
-  }
-
-  updateHzHint(): void {
-    const hint = byId('hzHint');
-    if (!hint) return;
-    const hz = this.options.refreshHz();
-    hint.textContent = hz
-      ? `display runs at ${hz} Hz. Tap to re-detect.`
-      : 'detecting display refresh…';
   }
 
   paintSound(on: boolean): void {
@@ -269,25 +228,6 @@ export class Settings {
       if (row) row.style.display = 'none';
     } else {
       simple('tglHaptics', initial.haptics, (on, byUser) => this.options.setHaptics(on, byUser));
-    }
-  }
-
-  private bindFrameRate(): void {
-    byId('segFps')?.addEventListener('click', (e) => {
-      const button = (e.target as HTMLElement).closest<HTMLElement>('button');
-      const hz = Number(button?.dataset.hz);
-      if (!hz) return;
-      this.options.setFrameTarget(hz);
-      this.paintFrameTarget(hz);
-    });
-
-    const hint = byId('hzHint');
-    if (hint) {
-      hint.style.cursor = 'pointer';
-      hint.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.options.redetect();
-      });
     }
   }
 

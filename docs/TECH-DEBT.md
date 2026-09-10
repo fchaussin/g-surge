@@ -55,11 +55,12 @@ Formerly listed as missing, and closed since:
 
 - `buildPath` and `sample` are pinned directly by the `track-geometry`
   reference, replayed in Node against the source.
-- The frame rate governor has fifteen tests — the target list, the
-  integer-ratio throttle including the historical 144-asked-for-120-got-72
-  case, the median-based detection, and the quality stepping with its floor
-  and ordering. Validated by mutation: `ceil` for `round`, a mean for the
-  median, and cutting the background all fail by name.
+- The frame governor has eleven tests over the median-based detection and
+  the quality stepping with its floor and ordering, validated by mutation — a
+  mean for the median and cutting the background both fail by name. The frame
+  rate target and its throttle were then removed outright: the game renders at
+  the display's native rate and quality adapts to hold it, which retires the
+  144-asked-for-120-got-72 class of bug rather than guarding it.
 - Full-frame pixel references of the 3D rendering exist, at zero tolerance,
   via `__gsNext.freeze`.
 
@@ -88,8 +89,9 @@ interpolation. See `src/sim/clock.ts` for the full reasoning, and
 ## 5. Settings — done
 
 Difficulty, reversed layout, sound, haptics, tips, background and its detail,
-frame rate target, render scale and the frame counter are kept under
-`gsurge.prefs.v1`. Writes are coalesced and flushed on `pagehide`, since a
+render scale and the frame counter are kept under `gsurge.prefs.v1`. A
+`frameTarget` stored by an earlier version is silently dropped: the sanitiser
+rebuilds the object field by field, so retired keys cannot linger. Writes are coalesced and flushed on `pagehide`, since a
 closing tab never runs a pending timer and mobile browsers may skip `unload`
 entirely.
 

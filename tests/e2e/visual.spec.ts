@@ -36,23 +36,8 @@ test.describe('rendu des écrans', () => {
       // leur encombrement réel dans l'image.
       const fps = document.getElementById('fpsVal');
       if (fps) fps.textContent = '60';
-      const hint = document.getElementById('hzHint');
-      if (hint) hint.textContent = 'display refresh 60 Hz';
-
-      // La liste des cibles de cadence est désormais construite à partir de la
-      // cadence détectée, laquelle dépend de la machine et du moment où la
-      // détection aboutit. On la fige pour que la capture reste comparable.
-      const seg = document.getElementById('segFps');
-      if (seg) {
-        seg.innerHTML = '';
-        for (const hz of [60, 30]) {
-          const b = document.createElement('button');
-          b.dataset.hz = String(hz);
-          b.textContent = String(hz);
-          if (hz === 60) b.classList.add('on');
-          seg.appendChild(b);
-        }
-      }
+      // La cible de cadence et son groupe de boutons ont été retirés : le jeu
+      // rend au rythme de l'écran, il n'y a plus rien à figer ici.
     });
   });
 

@@ -196,30 +196,9 @@ const settings = new Settings({
     showFps = on;
     prefs.set('showFps', on);
   },
-  setFrameTarget: (hz) => {
-    perf.setTarget(hz);
-    loop.frameMin = perf.frameMin;
-    prefs.set('frameTarget', hz);
-  },
-  frameTargets: () => perf.targetOptions(),
-  refreshHz: () => perf.refreshHz,
-  redetect: () => perf.redetect(),
   clearScores: () => scores.clear(),
   rebuildNav: () => screens.buildNav(),
 });
-
-perf.onRefresh = () => {
-  settings.rebuildFrameTargets();
-  // The chosen target may not exist on this display; take the nearest.
-  const targets = perf.targetOptions();
-  const nearest = targets.reduce(
-    (best, v) => (Math.abs(v - perf.targetHz) < Math.abs(best - perf.targetHz) ? v : best),
-    targets[0]!,
-  );
-  perf.setTarget(nearest);
-  loop.frameMin = perf.frameMin;
-  settings.paintFrameTarget(nearest);
-};
 
 let elapsed = 0;
 let bank = 0;
@@ -423,8 +402,6 @@ on('btnCloseHelp', () => screens.setMode('menu'));
 on('btnSettingsMenu', () => screens.openSettings());
 on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
-on('btnFpsInfo', () => screens.setMode('fpsinfo'));
-on('btnCloseFps', () => screens.setMode('settings'));
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());
 
@@ -439,17 +416,13 @@ if (!fullscreen.available) {
 
 // The start state is set by calling setMode, not by a class in the HTML: the
 // class alone would show the right screen with an empty navigation list.
-// Restored before anything reads them. The frame target is what the player
-// last chose; detection snaps it to what this display can do, once it knows.
+// Restored before anything reads it. There is no frame target to restore:
+// the game renders at whatever the display gives, and quality adapts to it.
 sim.tuning.renderScale = prefs.values.renderScale;
 viewport.setRenderScale(prefs.values.renderScale);
-perf.setTarget(prefs.values.frameTarget);
-loop.frameMin = perf.frameMin;
 
 screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
-settings.rebuildFrameTargets();
-settings.paintFrameTarget(perf.targetHz);
 settings.syncAll();
 
 // A tab closed or hidden never runs a pending timer, and mobile browsers may
