@@ -7,7 +7,7 @@
  * rien changé : elles n'ont pas été régénérées depuis, et ne doivent pas l'être
  * pour faire passer ce test.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -16,8 +16,29 @@ import type { Difficulty } from '../src/sim/index.js';
 import { digest } from './helpers/digest.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'e2e', 'fixtures');
-const load = (name: string): unknown =>
-  JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), 'utf8'));
+const UPDATE = !!process.env.UPDATE_FIXTURES;
+
+/**
+ * Compares against a frozen reference, or writes it when asked.
+ *
+ * The generator lives here rather than in a browser test because `src/sim/`
+ * is the source of truth: the reference should say what the core does, and the
+ * browser suite then checks that the shipped bundle agrees. It used to be the
+ * other way round, back when the legacy was the reference — and deleting that
+ * spec at the switch quietly removed the only way to regenerate anything.
+ *
+ * `npm run fixtures:update`. Not a routine command: a reference that moves is
+ * a change of behaviour and needs a commit that says which and why.
+ */
+function matchFixture(name: string, value: unknown): void {
+  const path = join(FIXTURES, `${name}.json`);
+  const serialised = `${JSON.stringify(value, null, 2)}\n`;
+  if (UPDATE || !existsSync(path)) {
+    writeFileSync(path, serialised);
+    return;
+  }
+  expect(JSON.parse(serialised)).toEqual(JSON.parse(readFileSync(path, 'utf8')));
+}
 
 /**
  * Round-trips a value through JSON before comparing it to a fixture.
@@ -104,26 +125,24 @@ const REFERENCE_SCRIPT = [
 
 describe('parité du noyau avec le jeu', () => {
   it('régénère la piste de référence, nœud par nœud', () => {
-    const expected = load('track-reference');
     const sim = new Sim({ seed: 'reference', difficulty: 'easy' });
     sim.reset('reference');
-    expect(asJson(readTrack(sim))).toEqual(expected);
+    matchFixture('track-reference', asJson(readTrack(sim)));
   });
 
   it('régénère les soixante pistes de référence', () => {
-    const expected = load('track-checksums') as Record<string, string>;
+    const seeds = Array.from({ length: 60 }, (_, i) => `ref-${i}`);
     const got: Record<string, string> = {};
-    for (const seed of Object.keys(expected)) {
+    for (const seed of seeds) {
       const sim = new Sim({ seed, difficulty: 'easy' });
       sim.reset(seed);
       got[seed] = digest(readTrack(sim));
     }
-    expect(got).toEqual(expected);
+    matchFixture('track-checksums', got);
   });
 
   for (const diff of ['easy', 'medium', 'hard'] as const) {
     it(`rejoue la trace de physique en ${diff}`, () => {
-      const expected = load(`physics-${diff}`);
       const got = trace({
         seed: 'reference',
         diff,
@@ -131,7 +150,7 @@ describe('parité du noyau avec le jeu', () => {
         every: 120,
         script: REFERENCE_SCRIPT,
       });
-      expect(asJson(got)).toEqual(expected);
+      matchFixture(`physics-${diff}`, asJson(got));
     });
   }
 });
@@ -141,7 +160,6 @@ describe('la géométrie du ruban portée dans le noyau', () => {
   const AT = [-19, -6, 0, 12, 22, 46, 120, 600, 1400];
 
   it('reproduit le ruban intégré et ses échantillons', () => {
-    const expected = load('track-geometry') as Array<Record<string, unknown>>;
     const sim = new Sim({ seed: 'geometry', difficulty: 'easy' });
     sim.reset('geometry');
 
@@ -170,7 +188,7 @@ describe('la géométrie du ruban portée dans le noyau', () => {
       };
     });
 
-    expect(asJson(got)).toEqual(expected);
+    matchFixture('track-geometry', asJson(got));
   });
 
   it('réutilise le point fourni au lieu d\'allouer', () => {

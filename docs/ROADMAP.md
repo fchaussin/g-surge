@@ -113,7 +113,7 @@ reverb built outside the crash.
 SRI on three.js drops off the list: the package is bundled, there is no
 third-party script left to seal.
 
-### Step 7 — deterministic track — ½ d
+### Step 7 — deterministic track — done
 
 `genSpeed = state.speed` makes the geometry depend on the player's speed.
 Replacing it with the nominal speed profile, which is already deterministic,

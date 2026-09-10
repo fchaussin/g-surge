@@ -15,7 +15,7 @@
     "test:e2e": "docker compose --profile tools run --rm e2e",
     "test:e2e:update": "docker compose --profile tools run --rm e2e npx playwright test --update-snapshots",
     "verify:all": "npm run verify && npm run test:e2e",
-    "fixtures:update": "docker compose --profile tools run --rm -e UPDATE_FIXTURES=1 e2e npx playwright test --project=desktop",
+    "fixtures:update": "UPDATE_FIXTURES=1 vitest run tests/sim-parity.test.ts",
     "preview": "vite preview",
     "icons": "node scripts/make-icons.mjs",
     "test:e2e:host": "playwright test"

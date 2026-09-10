@@ -6,12 +6,13 @@
  * arrive chaque fois que le vaisseau parcourt `SEG`. `BACK` segments sont
  * conservés derrière le vaisseau.
  *
- * Attention, ce n'est pas encore une fonction de la seule graine : `genSpeed`
- * porte la vitesse réelle du joueur et borne courbure et pente. Deux joueurs
- * sur la même graine à des vitesses différentes obtiennent des pistes
- * différentes. Ce portage reproduit ce couplage à l'identique, sciemment : le
- * corriger est un changement de comportement, il aura son propre pas et sa
- * régénération de références. Voir docs/ROADMAP.md.
+ * La géométrie est une fonction de la seule graine, de la difficulté et de
+ * l'identifiant de segment. Rien n'y dépend de la partie en cours, ce qui rend
+ * une piste rejouable, partageable, et vérifiable par un serveur.
+ *
+ * Ce ne fut pas toujours le cas : le générateur lisait la vitesse réelle du
+ * joueur pour borner courbure et pente, si bien que deux pilotages différents
+ * sur une même graine produisaient deux tracés. Voir `nominalSpeed`.
  */
 import { Rng } from './rng.js';
 import type { Tuning } from './tuning.js';
@@ -91,9 +92,6 @@ export class Track {
 
   items: Item[] = [];
 
-  /** Vitesse vue par le générateur. Écrite par la simulation avant `push()`. */
-  genSpeed: number;
-
   /* Ruban intégré, rempli par `buildPath`. Réécrit sur place à chaque image.
      Exposé en lecture : les rubans du rendu parcourent ces tampons directement
      plutôt que d'appeler `sample` cent trente fois par image. */
@@ -115,7 +113,6 @@ export class Track {
     private tuning: Tuning,
     seed: string,
   ) {
-    this.genSpeed = tuning.speedStart;
     this.trackRng = Rng.fromSeed(seed, 'track');
     this.itemRng = Rng.fromSeed(seed, 'items');
     this.seed(seed);
@@ -141,7 +138,6 @@ export class Track {
     g.rollPhase = 0;
     g.id = 0;
 
-    this.genSpeed = this.tuning.speedStart;
     this.items = [];
     this.coinRun.left = 0;
 
@@ -267,12 +263,32 @@ export class Track {
     return a + (this.ng[i + 1]! - a) * t;
   }
 
+  /**
+   * Vitesse de référence pour dimensionner un segment.
+   *
+   * C'est le profil d'accélération du jeu évalué à la distance du segment, et
+   * non la vitesse réelle du joueur. La différence est tout l'objet de cette
+   * fonction : la seconde dépend de ce que fait le pilote, la première ne
+   * dépend que de l'endroit où l'on est sur la piste.
+   *
+   * Conséquence de conception assumée : le boost ne fait plus s'élargir les
+   * virages devant soi. Franchir un virage à 1,3 fois la vitesse pour laquelle
+   * il a été tracé multiplie la charge latérale par 1,69 — le boost coûte
+   * désormais quelque chose dans les courbes, au lieu d'être gratuit.
+   */
+  private nominalSpeed(id: number): number {
+    const T = this.tuning;
+    const ramp = Math.min(1, (id * SEG) / T.speedRamp);
+    return T.speedStart + (T.speedMax - T.speedStart) * ramp;
+  }
+
   private nextNode(): { k: number; g: number; b: number; id: number } {
     const T = this.tuning;
     const gen = this.gen;
     const rng = this.trackRng;
 
-    const v2 = Math.max(3600, this.genSpeed * this.genSpeed);
+    const speed = this.nominalSpeed(gen.id);
+    const v2 = Math.max(3600, speed * speed);
     // courbure maximale telle que la charge latérale reste constante quelle que
     // soit la vitesse : le rayon de virage croît avec le carré de la vitesse
     const kMax = clamp(T.curveLoad / (v2 * T.centri), T.curveMin, T.curveMax);
@@ -292,7 +308,7 @@ export class Track {
     gen.k += (clamp(gen.kTarget, -kMax, kMax) - gen.k) * 0.11;
 
     // pente : bosses douces, plus des tremplins suivis d'une bascule franche
-    const gMax = T.climbRate / Math.max(60, this.genSpeed);
+    const gMax = T.climbRate / Math.max(60, speed);
     if (gen.gLeft <= 0) {
       if (gen.crest) {
         gen.gTarget = -gMax * rng.range(0.75, 1);

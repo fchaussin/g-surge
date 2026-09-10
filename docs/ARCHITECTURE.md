@@ -82,9 +82,19 @@ writes into `out` rather than allocating. Everything — camera, pickups, ribbon
 
 `nextNode()` picks curvature bounded by a target lateral load, so corner radius
 grows with speed and difficulty stays constant. Everything it draws comes from
-the seeded PRNG, so a seed reproduces a track exactly. **It is not yet a
-function of the seed alone**: `genSpeed` carries the player's actual speed and
-bounds curvature and gradient. Removing that coupling is step 7 of the roadmap.
+the seeded PRNG.
+
+**The geometry is a function of the seed, the difficulty and the segment id,
+and of nothing else.** The speed it sizes a corner for is the game's own
+acceleration profile evaluated at that segment's distance, not the player's
+actual speed — which is what makes a track reproducible, shareable, and
+checkable by a server.
+
+That has a design consequence, and it is intended: boost no longer widens the
+corners ahead of you. Taking a corner at 1.3 times the speed it was drawn for
+multiplies the lateral load by 1.69, so boost costs something in the bends
+instead of being free. Below about 5 km the curvature is clamped by
+`curveMax` anyway, so the change only bites once the track has opened up.
 
 ### Timing
 

@@ -92,9 +92,6 @@ export function step(
     target *= 1 - dmg * T.damageSpeed;
   }
   state.speed += (target - state.speed) * Math.min(1, dt * gain);
-  // le générateur voit la vitesse courante, et c'est le couplage qui empêche
-  // encore une piste partagée entre joueurs. Voir track.ts.
-  track.genSpeed = state.speed;
 
   // le multiplicateur s'érode proportionnellement à lui même, moitié moins vite
   // tant que le palier maximum de vitesse est tenu

@@ -89,7 +89,13 @@ the driver decides when to break traction. During a drift `gripDrift` replaces
 ## Track generation
 
 Curvature is derived from a target lateral load, `curveLoad`, so corner radius
-grows with the square of speed and difficulty stays flat across the run. Banking
+grows with the square of speed and difficulty stays flat across the run. The
+speed it uses is the nominal acceleration profile at that point of the track,
+not the player's — a corner is a property of the track, so **boost does not
+widen it**. Measured over four minutes of holding the line with boost on
+whenever the reserve allows: on easy the hull ends at 44 instead of 100, on
+hard the run ends at 32 km instead of 43. Without boost the same test is
+slightly kinder than before. Banking
 is the physical balance angle for that load, scaled by `bankScale`, capped at
 72°. `bankAssist` decides how much of that banking actually helps the driver;
 this is the knob that makes corners feel automatic or demanding, independently
