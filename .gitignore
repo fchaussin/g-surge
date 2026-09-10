@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-codepen/
+public/
 
 # Playwright
 test-results/

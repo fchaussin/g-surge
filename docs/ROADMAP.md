@@ -21,7 +21,7 @@ inside `src/sim/`. Untouched: 1, 5, 6, 10, 11, 12, 14, 15, 16.
 
 ## Legacy and new code
 
-`public/engine.js`, `public/game.js` and `public/index.html` are the **legacy**
+`legacy/engine.js`, `legacy/game.js` and `legacy/index.html` are the **legacy**
 version. It is frozen — nothing new is written there. It is not a second
 implementation to keep in sync with `src/sim/`, it is the old version, and it
 will be deleted at the switch.
@@ -55,21 +55,28 @@ One codebase, TypeScript, compiled to `dist/`.
 ```
 index.html            Vite entry point
 src/
-  sim/                the core, already written — no DOM, no three.js
+  sim/                the core — no DOM, no three.js
   client/             rendering, UI, audio, input, loop
 static/               copied verbatim: _headers, manifest, icons, sw
-dist/                 produced by `npm run build`, not committed
+legacy/               the frozen old version, deleted at step 4
+public/               build output, gitignored — what Cloudflare Pages serves
+dist-codepen/         the CodePen panels, gitignored, dies with the legacy
 ```
 
-The static directory is `static/`, not `public/`: keeping the Vite convention
+`public/` is the build output rather than `dist/` so that the Pages project
+keeps its existing output directory and only its build command changes. The
+name was freed when the legacy moved to `legacy/`, and `publicDir` is
+explicitly `static/`, so Vite never confuses the two.
+
+The static directory is `static/`, not `legacy/`: keeping the Vite convention
 would have meant the same folder holding the legacy sources and the new assets
-at the same time during the migration. `public/` disappears at step 4 instead
+at the same time during the migration. `legacy/` disappears at step 4 instead
 of changing meaning.
 
 Cloudflare Pages moves from no build command to `npm run build` with `dist` as
 output.
 
-Direct consequence: the "`public/` is the artefact, no build step" ground rule
+Direct consequence: the "`legacy/` is the artefact, no build step" ground rule
 in `CLAUDE.md` goes away. That is a deliberate change, not a side effect.
 
 ## The invariant that makes this safe
@@ -165,7 +172,7 @@ Acceptance: the new client is playable, every screen responds.
 
 - The full e2e suite passes against the new build, on all three profiles.
 - The simulation references pass **without being regenerated**.
-- Delete `public/engine.js`, `public/game.js`, `public/index.html`.
+- Delete `legacy/engine.js`, `legacy/game.js`, `legacy/index.html`.
 - Cloudflare Pages: build command `npm run build`, output `dist`.
 
 The legacy dies here and not before: while it is there, it remains the
@@ -176,7 +183,7 @@ executable reference if a divergence shows up.
 - Vite emits hashed filenames, so the `ASSETS` list in `sw.js` has to be
   generated at build time and `VERSION` derived from it. This is the least
   predictable part of the migration.
-- Create `public/icons/`, missing since forever: the manifest and the service
+- Create `legacy/icons/`, missing since forever: the manifest and the service
   worker currently point at four 404s and the PWA has no icon.
 
 Acceptance: offline works on a compiled build, an update is picked up without

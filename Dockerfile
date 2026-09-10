@@ -15,7 +15,7 @@ FROM node:24-slim
 # le conteneur monte hors ligne et sert toujours la même version.
 RUN npm install --global serve@14.2.5
 
-# Config du serveur de dev : dans l'image et non dans public/, qui est
+# Config du serveur de dev : dans l'image et non dans legacy/, qui est
 # l'artefact déployé tel quel. Elle ne fait qu'une chose, forcer un
 # Cache-Control: no-cache. Sans elle serve n'envoie aucun Cache-Control et le
 # navigateur applique son cache heuristique : engine.js édité, page inchangée.
@@ -32,7 +32,7 @@ EXPOSE 5173
 
 # Pas de --single : le jeu est une page unique mais les 404 doivent rester des
 # 404, sinon une faute de frappe sur un chemin d'actif renvoie index.html.
-CMD ["serve", "public", \
+CMD ["serve", "legacy", \
      "--config", "/etc/g-surge/serve.json", \
      "--listen", "tcp://0.0.0.0:5173", \
      "--no-clipboard", \

@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = readFileSync(join(root, 'public/index.html'), 'utf8');
+const html = readFileSync(join(root, 'legacy/index.html'), 'utf8');
 
 const css = /<style>([\s\S]*?)<\/style>/.exec(html);
 if (!css) throw new Error('bloc <style> introuvable dans index.html');
@@ -16,10 +16,13 @@ if (!css) throw new Error('bloc <style> introuvable dans index.html');
 let body = html.slice(html.indexOf('<body>') + 6, html.lastIndexOf('</body>'));
 body = body.replace(/<script[\s\S]*?<\/script>/g, '').trim();
 
-const engine = readFileSync(join(root, 'public/engine.js'), 'utf8');
-const game   = readFileSync(join(root, 'public/game.js'), 'utf8');
+const engine = readFileSync(join(root, 'legacy/engine.js'), 'utf8');
+const game   = readFileSync(join(root, 'legacy/game.js'), 'utf8');
 
-const out = join(root, 'dist/codepen');
+// Hors de dist/ : `vite build` vide ce répertoire, et emporterait la sortie
+// d'ici. Les deux cibles n'ont pas la même durée de vie, la sortie CodePen
+// disparaît avec le legacy.
+const out = join(root, 'dist-codepen');
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'pen.html'), body + '\n');
 writeFileSync(join(out, 'pen.css'), css[1].trim() + '\n');
@@ -30,7 +33,7 @@ writeFileSync(join(out, 'pen.js'),
   engine + '\n\n/* ---------- game.js ---------- */\n\n' + game + '\n');
 
 const kb = n => (n / 1024).toFixed(1) + ' Ko';
-console.log('dist/codepen/pen.html', kb(body.length));
-console.log('dist/codepen/pen.css ', kb(css[1].length));
-console.log('dist/codepen/pen.js  ', kb(engine.length + game.length));
+console.log('dist-codepen/pen.html', kb(body.length));
+console.log('dist-codepen/pen.css ', kb(css[1].length));
+console.log('dist-codepen/pen.js  ', kb(engine.length + game.length));
 console.log('\nLe service worker et le manifeste sont ignorés, ils n\'ont pas de sens dans un pen.');

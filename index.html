@@ -11,9 +11,19 @@
      intrinsic 300x150 otherwise, and at devicePixelRatio 2 you see the top
      left quarter of the frame. See CLAUDE.md, first trap. */
   canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+  /* Above the canvas: the renderer appends it to the body after this, and
+     two positioned siblings stack in document order. */
+  .preview { position: fixed; z-index: 1; left: 50%; bottom: 14px; transform: translateX(-50%);
+    margin: 0; padding: 7px 14px; border-radius: 999px; font: 500 12px/1
+    system-ui, sans-serif; letter-spacing: .04em; color: #7fd8ee;
+    background: rgba(8, 20, 28, .55); border: 1px solid rgba(37, 226, 255, .3);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 </style>
 </head>
 <body>
+<!-- Temporary. Deployed while the client is being ported and is not yet
+     playable; roadmap step 3 adds input, HUD and sound, and removes this. -->
+<p class="preview">Preview build &mdash; track renders, controls land next</p>
 <script type="module" src="/src/client/main.ts"></script>
 </body>
 </html>

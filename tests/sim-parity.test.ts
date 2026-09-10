@@ -2,7 +2,7 @@
  * Le noyau TypeScript doit reproduire le jeu au chiffre près.
  *
  * Les références de tests/e2e/fixtures/ ont été capturées dans le navigateur,
- * sur public/engine.js et public/game.js, avant tout portage. Ce fichier les
+ * sur legacy/engine.js et legacy/game.js, avant tout portage. Ce fichier les
  * rejoue dans Node contre src/sim/. C'est la seule preuve que l'extraction n'a
  * rien changé : elles n'ont pas été régénérées depuis, et ne doivent pas l'être
  * pour faire passer ce test.

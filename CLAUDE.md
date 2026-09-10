@@ -1,7 +1,7 @@
 # G-SURGE — instructions for Claude Code
 
 Endless antigrav runner. Three.js r128, two classic scripts, no bundler.
-Everything in `public/` is deployed as is to Cloudflare Pages.
+Everything in `legacy/` is deployed as is to Cloudflare Pages.
 
 Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 `docs/TECH-DEBT.md` is the honest state of the codebase.
@@ -10,7 +10,7 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 
 ## Ground rules
 
-- **`public/` is the artefact.** No build step today. Do not introduce a bundler
+- **`legacy/` is the artefact.** No build step today. Do not introduce a bundler
   as a side effect of another task; that is Phase 1 of the roadmap and it needs
   its own branch.
 - **Load order matters.** `engine.js` runs before `game.js`. They are classic
@@ -19,7 +19,7 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 - **three.js is pinned to r128.** The code depends on its behaviour. Upgrading
   past r151 changes colour management and lighting defaults and is a re-tuning
   pass, not a version bump.
-- **`public/` is frozen legacy.** Do not write anything new there, and do not
+- **`legacy/` is frozen legacy.** Do not write anything new there, and do not
   fix anything there either: that work is thrown away at the switch described in
   `docs/ROADMAP.md`. It stays because it is the executable reference until the
   new client reaches parity.

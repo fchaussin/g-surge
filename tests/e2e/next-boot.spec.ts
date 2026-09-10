@@ -136,7 +136,14 @@ test.describe('new client, rendering', () => {
       await page.evaluate(([seed, n]) => window.__gsNext.freeze(seed as string, n as number),
                           ['reference', steps]);
       await expect(page).toHaveScreenshot(`scene-${name}.png`, {
-        maxDiffPixelRatio: 0.02,
+        // Measured, not guessed: with the plumes as the only moving part, two
+        // captures of the same frozen frame differ by at most 2 280 pixels.
+        // The first version of this test allowed 2 % — 18 000 pixels — which
+        // was loose enough to hide a banner added across the whole width.
+        maxDiffPixels: 0,
+        // Temporary preview notice, not part of the scene. It goes away with
+        // roadmap step 3.
+        mask: [page.locator('.preview')],
       });
     });
   }

@@ -2,7 +2,7 @@
 
 Endless antigrav runner on three.js r128.
 
-A migration is under way, see `docs/ROADMAP.md`. `public/` is the frozen legacy
+A migration is under way, see `docs/ROADMAP.md`. `legacy/` is the frozen legacy
 version and is what ships today; `src/` is the TypeScript codebase replacing it.
 
 ## Layout
@@ -13,7 +13,7 @@ src/
   sim/             deterministic core, strict TypeScript, no DOM and no three.js
   client/          the new client: viewport, frame loop, entry point
 static/            copied verbatim into dist/ — empty until the switch
-public/            the frozen legacy version, still what gets deployed
+legacy/            the frozen legacy version, still what gets deployed
   index.html       markup, all the CSS, the splash, the service worker hook
   engine.js        scene, track generation, meshes, ship, effects
   game.js          physics, score, screens, input, audio, main loop
@@ -29,7 +29,7 @@ scripts/
   serve-static.mjs   dependency-free static server, used by the e2e suite
 ```
 
-`public/` still runs on its own and is what Cloudflare Pages serves. `src/sim/`
+`legacy/` still runs on its own and is what Cloudflare Pages serves. `src/sim/`
 is proven equivalent to it but is not wired in yet.
 
 ## Local
@@ -89,13 +89,21 @@ Playwright is not available in the image. Run `npm run test:e2e` on the host.
 
 ## Cloudflare Pages
 
-Connect the repository and set:
-
-- Build command: *(leave empty)*
+- Build command: `npm run build`
 - Build output directory: `public`
 
-Nothing is compiled. `public/_headers` is picked up by Pages and sets the cache
-policy: `index.html` and `sw.js` are never cached, icons are immutable.
+**The build command has to be set**, where it used to be empty. The output
+directory does not change: `npm run build` writes the compiled client into
+`public/`, which is now build output and is gitignored. The legacy sources
+moved to `legacy/`.
+
+What is deployed today is the new client, which renders the track but is not
+yet playable — no input, no HUD, no sound. Roadmap step 3 adds them. To go back
+to the legacy in the meantime, clear the build command and set the output
+directory to `legacy`.
+
+`legacy/_headers` sets the cache policy and moves to `static/` at step 5, along
+with the manifest, the icons and the service worker.
 
 ## CodePen
 

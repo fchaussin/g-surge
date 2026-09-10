@@ -4,7 +4,7 @@ Measured on the current tree, not estimated. Every number below came from
 scanning the sources. Severity is about risk of breaking something or of
 slowing future work, not about how ugly it looks.
 
-Read `ROADMAP.md` first: `public/` is now frozen legacy, so several items below
+Read `ROADMAP.md` first: `legacy/` is now frozen legacy, so several items below
 are not going to be fixed where they stand — they disappear with the file.
 
 ## Summary
@@ -230,7 +230,7 @@ the worst possible moment. Generate it during the run or offload it.
 
 ## 16. Missing PWA icons
 
-`public/icons/` does not exist and never has. `manifest.webmanifest` points at
+`legacy/icons/` does not exist and never has. `manifest.webmanifest` points at
 three icons and `sw.js` lists four in its cache manifest, so all of them 404.
 The service worker survives — each asset is cached inside its own try/catch —
 but the installed app has no icon. Roadmap step 5.
@@ -264,7 +264,7 @@ which is what the seeded PRNG and the fixed step guarantee.
 
 - **The ship at the origin** is unusual but correct, it removes a whole class of
   precision bugs, and it is what makes several ships on one track cheap later.
-- **Synthesised audio** keeps `public/` at 130 KB with no asset pipeline.
+- **Synthesised audio** keeps `legacy/` at 130 KB with no asset pipeline.
 - **`MeshBasicMaterial` everywhere** is what makes the neon look work and keeps
   the fragment cost low.
 - **No bundler** was a defensible choice for two files and zero dependencies. It

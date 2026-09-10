@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "check": "node --check public/engine.js && node --check public/game.js",
+    "check": "node --check legacy/engine.js && node --check legacy/game.js",
     "check:globals": "node scripts/check-globals.mjs",
     "typecheck": "tsc -p src/sim && tsc -p src/client && tsc -p tests",
     "lint": "eslint .",
@@ -18,7 +18,7 @@
     "test:e2e:update": "playwright test --update-snapshots",
     "verify:all": "npm run verify && npm run test:e2e",
     "fixtures:update": "UPDATE_FIXTURES=1 playwright test determinism --project=desktop",
-    "dev:legacy": "npx --yes serve public -l 5173",
+    "dev:legacy": "npx --yes serve legacy -l 5173",
     "preview": "vite preview",
     "build:codepen": "node scripts/build-codepen.mjs",
     "test:e2e:next": "E2E_TARGET=next playwright test"

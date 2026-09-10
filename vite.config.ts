@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 /**
- * The legacy game in `public/` is served by its own static server and is not
+ * The legacy game in `legacy/` is served by its own static server and is not
  * part of this build, so `publicDir` points at `static/` instead. Vite's
  * default would have copied `engine.js`, `game.js` and their `index.html` into
  * `dist/`, which is exactly what the migration is removing.
@@ -9,7 +9,13 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   publicDir: 'static',
   build: {
-    outDir: 'dist',
+    // `public/` and not `dist/`, so that the Cloudflare Pages project keeps
+    // its existing output directory and only its build command changes. The
+    // name is free since the legacy moved to `legacy/`; `publicDir` above is
+    // explicitly `static/`, so Vite never confuses the two.
+    //
+    // It is build output: gitignored, and emptied on every build.
+    outDir: 'public',
     emptyOutDir: true,
     // three.js r128 predates widespread top-level await and optional chaining
     // in its own build; this target keeps the output close to what the legacy

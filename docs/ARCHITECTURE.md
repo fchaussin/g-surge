@@ -2,7 +2,7 @@
 
 Two codebases coexist during the migration described in `ROADMAP.md`.
 
-`public/` is the **legacy** version: three classic scripts, no bundler, deployed
+`legacy/` is the **legacy** version: three classic scripts, no bundler, deployed
 as is. It is frozen — nothing new is written there — and it stays until the new
 client reaches parity, because until then it is the executable reference.
 
@@ -11,10 +11,10 @@ holds the simulation core and is proven equivalent to the legacy one.
 
 | File | Lines | Role |
 |---|---|---|
-| `public/engine.js` | 771 | Scene, track generation, meshes, ship, effects |
-| `public/game.js` | 1340 | Physics, score, screens, input, audio, main loop |
-| `public/index.html` | 674 | Markup, all CSS (373 lines), splash, service worker hook |
-| `public/sw.js` | 74 | Offline cache |
+| `legacy/engine.js` | 771 | Scene, track generation, meshes, ship, effects |
+| `legacy/game.js` | 1340 | Physics, score, screens, input, audio, main loop |
+| `legacy/index.html` | 674 | Markup, all CSS (373 lines), splash, service worker hook |
+| `legacy/sw.js` | 74 | Offline cache |
 | `src/sim/` | 1061 | The simulation core, TypeScript, no DOM and no three.js |
 
 ## The one idea that explains everything
@@ -127,7 +127,7 @@ Airborne state is triggered physically: when the track falls away faster than
 ## The extracted core, `src/sim/`
 
 A strict TypeScript port of the simulation, no DOM and no three.js, runnable in
-Node as well as in a browser. It is **not wired into the game yet**; `public/`
+Node as well as in a browser. It is **not wired into the game yet**; `legacy/`
 still runs it.
 
 | File | Role |

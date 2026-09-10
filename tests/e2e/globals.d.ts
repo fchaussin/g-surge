@@ -1,5 +1,5 @@
 /**
- * Surface de mise au point exposée par public/engine.js et public/game.js.
+ * Surface de mise au point exposée par legacy/engine.js et legacy/game.js.
  * Elle n'existe que pour les tests et le futur rejeu de partie ; elle n'est pas
  * une API du jeu. Voir la section « 1b. Aléatoire déterministe » d'engine.js.
  */

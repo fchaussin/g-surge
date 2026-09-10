@@ -158,6 +158,7 @@ window.__gsNext = {
     loop.stop();
     sim.reset(seed);
     ship.clearSmoke();
+    pickups.reset();
     camera.reset();
     sky.reset();
     elapsed = 0;
@@ -166,5 +167,10 @@ window.__gsNext = {
     const dt = loop.fixedStep;
     for (let i = 0; i < steps; i++) bank = sim.step(input, dt, true);
     renderFrame(dt);
+    // The plumes ease over many frames, so one frame after a reset lands
+    // wherever the previous run left them. Snap them, then draw again.
+    const thrust = sim.state.superT > 0 ? 2 : sim.state.boosting ? 1 : 0;
+    ship.snapThrust(thrust);
+    viewport.render(scene);
   },
 };

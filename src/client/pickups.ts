@@ -65,6 +65,15 @@ export class Pickups {
   }
 
   /**
+   * Drops the accumulated spin, so a frame after a reset is reproducible.
+   * Without it, pickups sit at whatever angle the frames before the reset left
+   * them, which is exactly as many frames as the page happened to take to load.
+   */
+  reset(): void {
+    this.spin = 0;
+  }
+
+  /**
    * @param tier current coin tier, 0 to 2. Drives colour and size.
    * @param frameDt real frame delta: the spin is decoration.
    */

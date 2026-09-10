@@ -1,4 +1,4 @@
-/* Les deux scripts de public/ partagent une portée globale : un nom déclaré des
+/* Les deux scripts de legacy/ partagent une portée globale : un nom déclaré des
    deux côtés est une erreur de syntaxe qui n'apparaît qu'au chargement de la
    page. Ce contrôle la fait apparaître en ligne de commande.
    Usage : node scripts/check-globals.mjs */
@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const files = ['public/engine.js', 'public/game.js'];
+const files = ['legacy/engine.js', 'legacy/game.js'];
 const merged = files.map((f) => readFileSync(f, 'utf8')).join('\n');
 const tmp = join(tmpdir(), `g-surge-globals-${process.pid}.js`);
 

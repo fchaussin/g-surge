@@ -29,7 +29,7 @@ test.describe('déterminisme de la simulation', () => {
   /**
    * Le test qui porte tout le reste.
    *
-   * `makeRng` dans public/engine.js et `Rng` dans src/sim/rng.ts sont deux
+   * `makeRng` dans legacy/engine.js et `Rng` dans src/sim/rng.ts sont deux
    * écritures du même sfc32. Elles doivent produire une séquence identique,
    * sinon l'extraction du noyau en TypeScript changerait la piste sans que rien
    * ne le signale. Ce test est ce qui autorise l'étape 3.

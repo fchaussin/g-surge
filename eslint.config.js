@@ -3,13 +3,15 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // public/ reste en scripts classiques jusqu'à l'étape 6 : deux fichiers qui
+    // legacy/ reste en scripts classiques jusqu'à sa suppression : deux fichiers
     // partagent une portée globale, ce qu'aucune configuration de module ne sait
     // décrire honnêtement. Le garde-fou y reste « node --check » sur la concaténation.
     ignores: [
       'dist/',
+      'dist-codepen/',
+      'public/',
       'node_modules/',
-      'public/**',
+      'legacy/**',
       'scripts/**',
       // Copie de three.js r128 rejouée aux tests à la place du CDN : ce n'est
       // pas notre source, et minifiée elle produit 1800 faux positifs.

@@ -124,6 +124,29 @@ export class Ship {
     this.flameCore.color.lerp(this.tmpB.setHex(level === 2 ? 0xffe6fb : 0xffffff), kc);
   }
 
+  /**
+   * Puts the plumes straight at their steady state, with no flicker.
+   *
+   * Only the deterministic frame capture uses this. The plumes ease towards
+   * their target over many frames, so a frame taken after an arbitrary number
+   * of them is not reproducible — which showed up as a 7 000 pixel difference
+   * between two captures of the same frozen simulation state.
+   */
+  snapThrust(level: 0 | 1 | 2): void {
+    const lv = THRUST_LEVELS[level];
+    for (let i = 0; i < this.flames.length; i++) {
+      const m = this.flames[i]!;
+      const isCore = i % 2 === 1;
+      m.scale.z = lv.len * (isCore ? 0.62 : 1);
+      m.scale.x = lv.rad * (isCore ? 0.5 : 1);
+      m.scale.y = m.scale.x;
+    }
+    this.flameOuter.opacity = lv.opacity * 0.55;
+    this.flameCore.opacity = lv.opacity;
+    this.flameOuter.color.setHex(lv.colour);
+    this.flameCore.color.setHex(level === 2 ? 0xffe6fb : 0xffffff);
+  }
+
   updateSmoke(frameDt: number, speed: number, level: 0 | 1 | 2): void {
     if (speed < 1) {
       for (const sp of this.smoke) sp.visible = false;

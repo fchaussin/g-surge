@@ -6,7 +6,7 @@
  * dérivé d'ici, jamais recopié — une ligne de ce document a déjà vécu des mois
  * avec un chiffre faux faute de cette règle.
  *
- * Un test Playwright compare ces valeurs à celles de public/engine.js, pour que
+ * Un test Playwright compare ces valeurs à celles de legacy/engine.js, pour que
  * la transcription ne puisse pas dériver tant que les deux coexistent.
  */
 

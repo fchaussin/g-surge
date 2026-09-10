@@ -1,7 +1,7 @@
 /**
  * Un pas de simulation.
  *
- * Portage ligne à ligne du `step()` de public/game.js, avec deux seules
+ * Portage ligne à ligne du `step()` de legacy/game.js, avec deux seules
  * différences, l'une et l'autre voulues :
  *
  * - les appels de présentation (`SFX`, `buzz`, `flashHalo`, `pop`) sont

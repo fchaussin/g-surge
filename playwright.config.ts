@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * The suite is the migration tool, so it has to be able to aim at either
- * artefact: the frozen legacy in `public/`, or the compiled build in `dist/`.
+ * artefact: the frozen legacy in `legacy/`, or the compiled build in `dist/`.
  *
  *   npm run test:e2e        the legacy, the full suite
  *   npm run test:e2e:next   the new build, the specs written for it
@@ -13,7 +13,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const TARGET = process.env.E2E_TARGET === 'next' ? 'next' : 'legacy';
 const PORT = TARGET === 'next' ? 5176 : 5174;
-const SERVE = TARGET === 'next' ? 'dist' : 'public';
+const SERVE = TARGET === 'next' ? 'public' : 'legacy';
 
 export default defineConfig({
   testDir: 'tests/e2e',
