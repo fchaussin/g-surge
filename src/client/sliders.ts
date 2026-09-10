@@ -206,20 +206,12 @@ export const SLIDERS: readonly SliderSpec[] = [
     hint: 'Upper limit of the multiplier.',
   },
   {
-    key: 'coinTier2',
-    label: 'Coin ×2 speed',
-    min: 60,
-    max: 320,
-    step: 2,
-    hint: 'Speed in m/s above which coins are worth double. 139 is 500 km/h.',
-  },
-  {
-    key: 'coinTier3',
-    label: 'Coin ×3 speed',
+    key: 'fastLane',
+    label: 'Fast lane speed',
     min: 60,
     max: 340,
     step: 2,
-    hint: 'Speed in m/s above which coins are worth triple. 278 is 1000 km/h.',
+    hint: 'Speed in m/s above which the multiplier decays half as fast. 278 is 1000 km/h.',
   },
   {
     key: 'fixChance',

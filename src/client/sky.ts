@@ -28,8 +28,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { Rng } from '../sim/index.js';
-import type { ThrustTier } from './thrust.js';
+import { Rng, type ThrustTier } from '../sim/index.js';
 
 const SKY_VS = `
 varying vec3 vDir;

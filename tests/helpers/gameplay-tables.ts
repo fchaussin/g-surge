@@ -69,26 +69,45 @@ const yawMax = (t: Tuning, speed: number) =>
 
 export function speedTiers(t: Tuning): string {
   const rows = [
-    ['1', `under ${kmh(t.coinTier2)} km/h`, 'bronze', COIN_GAIN[0]],
-    ['2', `${kmh(t.coinTier2)} to ${kmh(t.coinTier3)}`, 'gold', COIN_GAIN[1]],
-    ['3', `above ${kmh(t.coinTier3)}`, 'white', COIN_GAIN[2]],
+    ['0', 'cruising', 'bronze', COIN_GAIN[0]],
+    ['1', 'under boost', 'gold', COIN_GAIN[1]],
+    ['2', 'under a super boost', 'white', COIN_GAIN[2]],
+    ['3', 'in a G-SURGE', 'warm white', COIN_GAIN[3]],
   ] as const;
+  const speeds = [
+    kmh(t.speedMax),
+    kmh(t.speedMax * t.boostFactor),
+    kmh(t.speedMax * t.boostFactor * t.supFactor),
+  ];
   return [
-    '| Tier | Speed | Coin colour | Multiplier gain |',
+    '| Tier | Reached by | Coin colour | Multiplier gain |',
     '|---|---|---|---|',
     ...rows.map(([n, s, c, g]) => `| ${n} | ${s} | ${c} | +${g} |`),
     '',
     wrap(
-      `Top speed without boost is ${kmh(t.speedMax)} km/h, and boost takes it to ` +
-        `${kmh(t.speedMax * t.boostFactor)}, so tier 3 requires boosting. Boost is fed ` +
-        'by drifting. That is the intended loop: **drift to charge, boost to score**.',
+      `The tier is the thrust rung, not a speed threshold. Top speeds are ` +
+        `${speeds[0]} km/h cruising, ${speeds[1]} under boost and ${speeds[2]} under a ` +
+        'super boost, which the surge matches without exceeding.',
     ),
     '',
     wrap(
-      `A super boost, picked up on the track, reaches ${kmh(t.speedMax * t.boostFactor * t.supFactor)} ` +
-        `km/h for ${t.supTime} s and costs no reserve. It opens no scoring tier — boost ` +
-        'already clears the last one — so what it buys is time at the top and a reserve ' +
-        'refilled on the way in.',
+      'It used to be a speed threshold, and that was measured to be a poor stand-in ' +
+        'for what it meant. Damage cuts the target speed, so a battered hull lost the ' +
+        'tier its speed would have opened — paying twice for the same mistake. The rung ' +
+        'says the same thing without the approximation, and it is what the tiers always ' +
+        'meant: the top one has always required boosting.',
+    ),
+    '',
+    wrap(
+      'The top gain jumps rather than rises. Holding the surge means drifting, which ' +
+        'costs collection, so that rung is paying for coins that are not there — the ' +
+        'ladder is calibrated on multiplier earned per second, not per coin.',
+    ),
+    '',
+    wrap(
+      `Above ${kmh(t.fastLane)} km/h the multiplier also decays half as fast, which is ` +
+        'what makes holding the top of the ladder worth more than reaching it. Boost is ' +
+        'fed by drifting. That is the intended loop: **drift to charge, boost to score**.',
     ),
   ].join('\n');
 }

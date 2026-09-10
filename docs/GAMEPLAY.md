@@ -36,19 +36,30 @@ wrong for exactly that reason.
 ## Speed tiers
 
 <!-- generated:speed-tiers -->
-| Tier | Speed | Coin colour | Multiplier gain |
+| Tier | Reached by | Coin colour | Multiplier gain |
 |---|---|---|---|
-| 1 | under 500 km/h | bronze | +0.1 |
-| 2 | 500 to 1000 | gold | +0.3 |
-| 3 | above 1000 | white | +0.6 |
+| 0 | cruising | bronze | +0.13 |
+| 1 | under boost | gold | +0.3 |
+| 2 | under a super boost | white | +0.55 |
+| 3 | in a G-SURGE | warm white | +1.35 |
 
-Top speed without boost is 929 km/h, and boost takes it to 1207, so tier 3
-requires boosting. Boost is fed by drifting. That is the intended loop: **drift
-to charge, boost to score**.
+The tier is the thrust rung, not a speed threshold. Top speeds are 929 km/h
+cruising, 1207 under boost and 1473 under a super boost, which the surge
+matches without exceeding.
 
-A super boost, picked up on the track, reaches 1473 km/h for 2.6 s and costs no
-reserve. It opens no scoring tier — boost already clears the last one — so what
-it buys is time at the top and a reserve refilled on the way in.
+It used to be a speed threshold, and that was measured to be a poor stand-in
+for what it meant. Damage cuts the target speed, so a battered hull lost the
+tier its speed would have opened — paying twice for the same mistake. The rung
+says the same thing without the approximation, and it is what the tiers always
+meant: the top one has always required boosting.
+
+The top gain jumps rather than rises. Holding the surge means drifting, which
+costs collection, so that rung is paying for coins that are not there — the
+ladder is calibrated on multiplier earned per second, not per coin.
+
+Above 1000 km/h the multiplier also decays half as fast, which is what makes
+holding the top of the ladder worth more than reaching it. Boost is fed by
+drifting. That is the intended loop: **drift to charge, boost to score**.
 <!-- /generated:speed-tiers -->
 
 An earlier revision closed this section with a table of "measured outcomes at

@@ -15,8 +15,14 @@
  *   so it takes the real frame delta like every other easing here.
  */
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
-import { trackPoint, type SimState, type Track, type Tuning } from '../sim/index.js';
-import { thrustTier, type ThrustTier } from './thrust.js';
+import {
+  thrustTier,
+  trackPoint,
+  type SimState,
+  type ThrustTier,
+  type Track,
+  type Tuning,
+} from '../sim/index.js';
 
 /** Fraction of the ship's lateral offset applied behind and ahead. */
 const OFFSET_BEHIND = 0.55;

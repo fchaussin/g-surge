@@ -11,7 +11,7 @@ import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Sc
 import {
   atan,
   BACK,
-  coinTier,
+  thrustTier,
   cos,
   DEFAULTS,
   DIFF,
@@ -41,7 +41,6 @@ import { Ship } from './ship.js';
 import { SurgeOverlay } from './overlay.js';
 import { Sky } from './sky.js';
 import { SurgeMeter } from './surge.js';
-import { thrustTier } from './thrust.js';
 import { Tips } from './tips.js';
 import { TrackMesh } from './track-mesh.js';
 import { Viewport } from './viewport.js';
@@ -429,10 +428,10 @@ function renderFrame(frameDt: number): void {
   sim.track.buildPath(state.cursor);
   trackMesh.update(sim.track, sim.tuning.stripeEvery);
 
-  const tier = coinTier(state.speed, sim.tuning);
-  pickups.update(sim.track, state.cursor, tier, frameDt);
-
   const thrust = thrustTier(state);
+  // Le palier de pièce est le barreau de poussée : une seule notion, celle que
+  // le noyau publie, au lieu d'un seuil de vitesse qui l'approximait mal.
+  pickups.update(sim.track, state.cursor, thrust, frameDt);
   ship.setPose(state.lat, state.hop, bank);
   // Lean and yaw are shown, not simulated: they lag the state so the hull
   // reads as having mass instead of snapping between attitudes.

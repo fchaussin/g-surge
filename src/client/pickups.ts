@@ -18,10 +18,19 @@ import {
   OctahedronGeometry,
   TorusGeometry,
 } from 'three';
-import { BACK, COUNT, ITEM_COIN, ITEM_SUP, SEG, trackPoint, type Track } from '../sim/index.js';
+import {
+  BACK,
+  COUNT,
+  ITEM_COIN,
+  ITEM_SUP,
+  SEG,
+  trackPoint,
+  type ThrustTier,
+  type Track,
+} from '../sim/index.js';
 
-/** Bronze, gold, white. Indexed by speed tier, same order as `COIN_GAIN`. */
-export const COIN_COLOURS = [0xc47a2e, 0xffc24a, 0xdff4ff] as const;
+/** Bronze, gold, white, warm white. Indexed by thrust tier, like `COIN_GAIN`. */
+export const COIN_COLOURS = [0xc47a2e, 0xffc24a, 0xdff4ff, 0xfff6d0] as const;
 
 /** Coins are common enough to need a deep pool; the other two are not. */
 const COIN_POOL = 40;
@@ -77,10 +86,10 @@ export class Pickups {
   }
 
   /**
-   * @param tier current coin tier, 0 to 2. Drives colour and size.
+   * @param tier current thrust tier, 0 to 3. Drives colour and size.
    * @param frameDt real frame delta: the spin is decoration.
    */
-  update(track: Track, cursor: number, tier: 0 | 1 | 2, frameDt: number): void {
+  update(track: Track, cursor: number, tier: ThrustTier, frameDt: number): void {
     this.spin += frameDt * (2.6 + tier * 1.6);
     this.coinMaterial.color.setHex(COIN_COLOURS[tier]);
     const coinScale = 1 + tier * 0.16;

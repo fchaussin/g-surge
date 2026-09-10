@@ -56,6 +56,26 @@ export interface SimState {
   score: number;
 }
 
+/** 0 croisière, 1 boost, 2 super boost, 3 G-SURGE. */
+export type ThrustTier = 0 | 1 | 2 | 3;
+
+/**
+ * Le barreau de l'échelle de poussée.
+ *
+ * Il vivait dans `src/client/` tant qu'il ne servait qu'à doser des effets.
+ * Depuis que le palier des pièces en dépend, il décide du score : il appartient
+ * donc au noyau, et le client le lit d'ici plutôt que de le recalculer.
+ *
+ * L'ordre des tests départage des drapeaux levés ensemble — `step()` force
+ * `boosting` pendant un super boost comme pendant un G-SURGE, et les deux
+ * derniers roulent à la même vitesse.
+ */
+export function thrustTier(state: SimState): ThrustTier {
+  if (state.surgeT > 0) return 3;
+  if (state.superT > 0) return 2;
+  return state.boosting ? 1 : 0;
+}
+
 export function createState(tuning: Tuning): SimState {
   const state = {} as SimState;
   resetState(state, tuning);

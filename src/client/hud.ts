@@ -9,10 +9,10 @@
  * A style write per frame at 144 Hz on eight elements is enough layout work to
  * show up next to the renderer.
  */
-import { coinTier, type SimState, type Tuning } from '../sim/index.js';
+import { thrustTier, type SimState, type Tuning } from '../sim/index.js';
 
 /** Multiplier colour by speed tier, matching the coin it came from. */
-const TIER_CSS = ['#e0913f', '#ffc24a', '#dff4ff'] as const;
+const TIER_CSS = ['#e0913f', '#ffc24a', '#dff4ff', '#fff6d0'] as const;
 
 /** How long the multiplier flashes after a change, in seconds. */
 const PULSE_UP = 0.16;
@@ -111,7 +111,7 @@ export class Hud {
     if (!this.mult) return;
     this.mult.textContent = `×${state.mult.toFixed(1)}`;
 
-    const tier = coinTier(state.speed, tuning);
+    const tier = thrustTier(state);
     if (tier !== this.lastTier) {
       this.lastTier = tier;
       this.mult.style.color = TIER_CSS[tier];

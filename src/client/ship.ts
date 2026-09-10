@@ -35,7 +35,7 @@ import {
   Sprite,
   SpriteMaterial,
 } from 'three';
-import type { ThrustTier } from './thrust.js';
+import type { ThrustTier } from '../sim/index.js';
 
 /** Thrust tiers: cruising, boosting, super boost, surge. */
 const THRUST_LEVELS = [

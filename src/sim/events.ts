@@ -20,11 +20,11 @@ export type SimEvent =
   | { readonly type: 'wallImpact'; readonly force: number }
   /** Frottement prolongé le long d'un mur, émis à chaque pas de contact. */
   | { readonly type: 'scrape' }
-  /** Pièce ramassée. `tier` vaut 0, 1 ou 2 selon le palier de vitesse. */
+  /** Pièce ramassée. `tier` est le barreau de poussée, 0 à 3. */
   | {
       readonly type: 'pickup';
       readonly kind: 'coin';
-      readonly tier: 0 | 1 | 2;
+      readonly tier: 0 | 1 | 2 | 3;
       readonly gain: number;
     }
   /** Réparation ramassée. */

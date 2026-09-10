@@ -13,7 +13,7 @@
  * et ne doivent pas bouger d'un chiffre.
  */
 import type { SimEvent } from './events.js';
-import type { SimState } from './state.js';
+import { thrustTier, type SimState } from './state.js';
 import { BACK, clamp, HALF, ITEM_COIN, ITEM_FIX, SEG, SHIP, Track } from './track.js';
 import { sin } from './trig.js';
 import type { Tuning } from './tuning.js';
@@ -25,15 +25,21 @@ export interface Input {
   boost: boolean;
 }
 
-/** Palier de la pièce selon la vitesse : sous 500 km/h, sous 1000, au-delà. */
-export function coinTier(speed: number, tuning: Tuning): 0 | 1 | 2 {
-  if (speed >= tuning.coinTier3) return 2;
-  if (speed >= tuning.coinTier2) return 1;
-  return 0;
-}
-
-/** Gain de multiplicateur par palier. */
-export const COIN_GAIN: readonly [number, number, number] = [0.1, 0.3, 0.6];
+/**
+ * Gain de multiplicateur par barreau de poussée.
+ *
+ * Le palier suivait la vitesse : sous 500 km/h, sous 1000, au-delà. Mesuré,
+ * c'était une mauvaise approximation de ce qu'il voulait dire. Les dégâts
+ * rabattent la vitesse cible — `target *= 1 - dmg * damageSpeed` — et la coque
+ * moyenne vaut 86 / 61 / 31 selon la difficulté, si bien que le plafond réel du
+ * super boost tombait de 1 473 à ~950 km/h en difficile. Une coque abîmée
+ * coûtait donc deux fois : la vitesse, puis le palier que cette vitesse ouvre.
+ *
+ * Le barreau dit la même chose sans l'approximation, et `GAMEPLAY.md` l'écrivait
+ * déjà : « le palier 3 exige de booster ». C'est la clarification d'une
+ * intention, pas une intention neuve.
+ */
+export const COIN_GAIN: readonly [number, number, number, number] = [0.13, 0.3, 0.55, 1.35];
 
 /**
  * Avance la simulation de `dt`, en émettant ses événements dans `out`.
@@ -112,7 +118,7 @@ export function step(
 
   // le multiplicateur s'érode proportionnellement à lui même, moitié moins vite
   // tant que le palier maximum de vitesse est tenu
-  const fastLane = state.speed >= T.coinTier3;
+  const fastLane = state.speed >= T.fastLane;
   state.mult -= (state.mult - 1) * T.multDecay * (fastLane ? T.multDecayFast : 1) * dt;
   if (state.mult < 1) state.mult = 1;
 
@@ -268,7 +274,7 @@ export function step(
     if (Math.abs(state.lat - it.lat) > T.pickRadius || state.hop > 4) continue;
     it.taken = true;
     if (it.type === ITEM_COIN) {
-      const tier = coinTier(state.speed, T);
+      const tier = thrustTier(state);
       const gainValue = COIN_GAIN[tier];
       state.coins++;
       state.mult = Math.min(T.multMax, state.mult + gainValue);

@@ -63,8 +63,7 @@ export interface Tuning {
   supFactor: number;
   pickRadius: number;
   haloTime: number;
-  coinTier2: number;
-  coinTier3: number;
+  fastLane: number;
   multDecay: number;
   multDecayFast: number;
   multWallCut: number;
@@ -148,8 +147,10 @@ export const DEFAULTS: Readonly<Tuning> = {
   supFactor: 1.22,
   pickRadius: 3.6,
   haloTime: 0.45,
-  coinTier2: 138.9,
-  coinTier3: 277.8,
+  /** Vitesse au-dessus de laquelle le multiplicateur s'érode deux fois moins
+   *  vite. S'appelait `coinTier3` du temps où elle ouvrait aussi un palier de
+   *  pièce ; elle ne fait plus que ça. 278 m/s valent 1 000 km/h. */
+  fastLane: 277.8,
   multDecay: 0.1,
   multDecayFast: 0.5,
   multWallCut: 0.5,

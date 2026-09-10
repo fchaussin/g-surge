@@ -11,8 +11,7 @@
  * `AudioContext` otherwise, and an autoplay failure in the console on every
  * load is noise of a different kind.
  */
-import type { SimEvent } from '../sim/index.js';
-import type { ThrustTier } from './thrust.js';
+import type { SimEvent, ThrustTier } from '../sim/index.js';
 
 /** Reverb impulse length, seconds. Built once, on first use. */
 const REVERB_SECONDS = 3;
