@@ -19,16 +19,29 @@ Six commits sur `refactor/tooling`, non fusionnée, arbre propre.
 Dettes soldées : 4 (pas de temps). Largement entamées : 3 (tests), 13
 (outillage), 8 et 9 côté `src/sim/`. Intactes : 1, 5, 6, 10, 11, 12, 14, 15.
 
-## Les deux risques qui commandent la suite
+## Le legacy et le nouveau code
 
-**R1 — deux implémentations de la simulation.** `src/sim/` reproduit la piste,
-le réglage et la physique, mais `index.html` ne charge que `engine.js` et
-`game.js` : rien n'est branché. Toute modification de la simulation doit donc
-être écrite deux fois. Les tests de parité surveillent l'écart, ils ne le
-suppriment pas. C'est le passif le plus coûteux du moment et il grossit à
-chaque étape.
+`public/engine.js`, `public/game.js` et `public/index.html` sont **la version
+legacy**. Elle est gelée : on n'y écrit plus rien. Ce n'est pas une seconde
+implémentation à tenir synchronisée avec `src/sim/`, c'est l'ancienne version
+qui sera supprimée à la bascule.
 
-**R2 — pas de cible écrite.** Corrigé par ce document.
+Trois conséquences, et elles commandent tout le reste :
+
+- **Aucun correctif ne descend dans le legacy.** Les manques fonctionnels —
+  persistance des réglages, accessibilité, code mort, réverbération — attendent
+  le nouveau client. Le jeu déployé ne reçoit donc plus rien jusqu'à la
+  bascule ; c'est le prix, il est assumé.
+- **Pas d'état intermédiaire jetable.** On ne renomme pas deux gros fichiers en
+  `.ts` pour les découper ensuite : le nouveau code naît directement à la
+  structure cible, sous-système par sous-système.
+- **On porte, on ne réécrit pas.** `CLAUDE.md` recense des pièges payés cher
+  dans les shaders, la géométrie des rubans, la caméra et la traînée. Le code
+  qui les évite est juste ; il change de fichier et de langage, pas de contenu.
+
+Les références figées de `tests/e2e/fixtures/` sont le **contrat de
+comportement**, et elles survivent au legacy. Le jour où le nouveau client les
+satisfait, les trois fichiers disparaissent sans que rien ne soit perdu.
 
 ## La cible
 
@@ -52,12 +65,17 @@ Conséquence directe : la règle « `public/` is the artefact, no build step » 
 
 ## L'invariant qui rend la migration sûre
 
-À chaque étape, `npm run verify` et `npx playwright test` doivent rester verts,
-et **les références de `tests/e2e/fixtures/` ne doivent pas être régénérées**,
-sauf à l'étape 6, qui déclare un changement de comportement. C'est ce qui
-distingue une migration d'une réécriture.
+**Les références de `tests/e2e/fixtures/` ne sont pas régénérées**, sauf à
+l'étape 7 qui déclare son changement de comportement. Le nouveau client doit
+les satisfaire, pas les redéfinir : c'est ce qui distingue un portage d'une
+réécriture.
 
-Les références visuelles, elles, bougeront quand l'interface bougera : chaque
+Pendant les étapes 2 et 3, le nouveau client n'est que partiellement testable —
+c'est le creux inhérent à un portage en parallèle. Ce qui le couvre pendant ce
+temps : les tests de parité du noyau, déjà verts, et le legacy qui reste la
+référence exécutable tant qu'il est là.
+
+Les références visuelles bougeront quand l'interface bougera : chaque
 régénération doit être un commit qui ne fait que ça.
 
 ## Étapes
@@ -85,58 +103,63 @@ Les corrections relevées en début de session et jamais appliquées :
 
 Acceptation : plus aucun chiffre de `docs/` invérifiable dans le code.
 
-### Étape 1 — Vite, et sortir les sources de `public/` — 1 j
+### Étape 1 — squelette du nouveau client — 1 j
 
 - Vite, three.js depuis npm épinglé à `0.128.0`, version identique.
-- `index.html` à la racine, `engine.js` et `game.js` deviennent
-  `src/client/engine.ts` et `src/client/game.ts`, en modules ES.
-- Conversion **mécanique** : imports et exports, extension `.ts`, rien d'autre.
-  Le `tsconfig` client reste permissif pour que ce soit une passe et pas trois.
-- `public/` ne garde que `_headers`, le manifeste, `sw.js` et les icônes.
+- `index.html` à la racine, `src/client/main.ts`, `tsconfig` client permissif.
+- Le filet e2e doit pouvoir viser soit le legacy, soit le nouveau build : c'est
+  lui l'outil de migration, pas une vérification de fin de course.
 
-Risque principal : 235 liaisons globales partagées entre deux fichiers, dont
-certaines lues avant d'être définies. Une conversion en deux modules d'abord,
-un découpage fin plus tard, limite la casse. Le contrôle `check:globals`
-disparaît au profit du compilateur.
+Acceptation : `npm run build` produit un `dist/` servi par le serveur statique,
+la page monte une scène et rend une image, les 53 tests contre le legacy
+passent toujours.
 
-Acceptation : `npm run build` produit un `dist/` que le serveur statique sert,
-les 53 tests e2e passent **contre `dist/`**, aucune référence régénérée.
+### Étape 2 — porter le rendu — 1 à 2 j
 
-### Étape 2 — brancher `src/sim/` — 1 j
+Depuis `engine.js`, vers `src/client/` : `scene`, `sky`, `track-mesh`, `ship`,
+`pickups`. Chaque piège de `CLAUDE.md` traversé est vérifié en arrivant —
+précision du shader de ciel, période des chevrons, taille CSS du canvas,
+bornage de l'échelle des sprites.
 
-C'est l'étape qui supprime R1.
+`buildPath`, `sample` et `gradeAt` rejoignent le noyau : ce sont des fonctions
+pures des tampons de piste, elles n'ont rien à faire dans la couche de rendu.
 
-- Le client importe `Sim` et supprime ses copies de `step`, de la génération de
-  piste et du réglage.
-- Les événements de `events.ts` sont consommés par l'audio, l'haptique et le
-  HUD, à la place des appels qui étaient dans `step()`.
-- `__gs` est reconstruit au-dessus de `Sim`.
+Acceptation : la piste, le vaisseau et le ciel s'affichent depuis `src/sim/`,
+sans un seul appel au legacy.
 
-Acceptation : les références de simulation passent **sans être régénérées**,
-les tests de parité restent verts, et `public/engine.js` comme `public/game.js`
-ont disparu du dépôt.
+### Étape 3 — porter le client de jeu — 1 à 2 j
 
-### Étape 3 — service worker et déploiement — ½ j
+Depuis `game.js` : boucle et horloge, HUD, écrans et navigation clavier,
+réglages, audio, haptique, entrées. Le tout consommant les événements de
+`src/sim/events.ts` à la place des appels qui étaient dans `step()`.
+
+Le CSS de `index.html` est repris tel quel : les références visuelles le figent
+au pixel, c'est la partie la moins risquée du portage.
+
+Acceptation : le nouveau client se joue, tous les écrans répondent.
+
+### Étape 4 — parité, puis bascule — 1 j
+
+- La suite e2e complète passe contre le nouveau build, sur les trois profils.
+- Les références de simulation passent **sans être régénérées**.
+- Suppression de `public/engine.js`, `public/game.js`, `public/index.html`.
+- Cloudflare Pages : commande `npm run build`, sortie `dist`.
+
+C'est ici que le legacy meurt, et pas avant : tant qu'il est là, il reste la
+référence exécutable si une divergence apparaît.
+
+### Étape 5 — service worker et actifs — ½ j
 
 - Vite produit des noms de fichiers avec empreinte : la liste `ASSETS` de
   `sw.js` doit être engendrée à la compilation, et `VERSION` en découler. C'est
   la partie la moins prévisible de la migration.
 - Créer `public/icons/`, absent depuis toujours : le manifeste et le service
   worker pointent aujourd'hui sur quatre 404 et la PWA n'a pas d'icône.
-- Cloudflare Pages : commande `npm run build`, sortie `dist`.
 
 Acceptation : le mode hors ligne fonctionne sur un build compilé, une mise à
 jour est prise sans vider le cache à la main, l'icône apparaît à l'installation.
 
-### Étape 4 — découper le client — 1 à 2 j
-
-`scene`, `sky`, `track-mesh`, `ship`, `pickups`, `hud`, `screens`, `settings`,
-`audio`, `input`. Attaque les dettes 1, 6 et 9 côté client.
-
-Acceptation : aucun module ne dépasse 300 lignes, aucune dépendance circulaire,
-références inchangées.
-
-### Étape 5 — la Phase 0 qui reste — ½ j
+### Étape 6 — les manques fonctionnels — ½ j
 
 Persistance des réglages sous `gsurge.prefs.v1`, `prefers-reduced-motion`,
 `aria-pressed` et `role="radiogroup"`, code mort (`fmtM`, `TUNING.coinValue`),
@@ -145,7 +168,7 @@ réverbération construite hors de l'impact.
 Le SRI sur three.js sort de la liste : le paquet étant compilé dans le bundle,
 il n'y a plus de script tiers à sceller.
 
-### Étape 6 — piste déterministe — ½ j
+### Étape 7 — piste déterministe — ½ j
 
 `genSpeed = state.speed` fait dépendre la géométrie de la vitesse du joueur.
 Le remplacer par le profil de vitesse nominal, déjà déterministe, rend la piste
@@ -156,23 +179,25 @@ sont régénérées, dans un commit qui ne fait que ça, après validation à l'
 
 Débloque : rejeu de partie, piste du jour partagée, arbitrage serveur.
 
-### Étape 7 — documents engendrés — ½ j
+### Étape 8 — documents engendrés — ½ j
 
 Les tableaux de `GAMEPLAY.md` calculés depuis `src/sim/tuning.ts` par
 `npm run docs:tuning`, et vérifiés en test. Le 62/80/98 % n'aurait pas pu
 exister.
 
-### Étape 8 — intégration continue — ½ j
+### Étape 9 — intégration continue — ½ j
 
 Une action GitHub qui exécute `verify` et Playwright. Prettier si voulu.
 
-**Total : environ six journées.**
+**Total : sept à neuf journées.** Plus que les six annoncées avant : porter
+proprement coûte davantage qu'une conversion mécanique, et c'est ce qui évite
+un découpage à refaire ensuite.
 
 ## Décisions ouvertes
 
-- **CodePen.** `scripts/build-codepen.mjs` produit trois panneaux à coller. Un
-  build IIFE en cible secondaire peut le maintenir, sinon il disparaît. À
-  trancher avant l'étape 1, cela change la configuration Vite.
+- **CodePen.** `scripts/build-codepen.mjs` découpe les fichiers legacy en trois
+  panneaux. Il meurt donc avec eux à l'étape 4, sauf à le réécrire en cible
+  IIFE secondaire. À trancher avant l'étape 4, pas avant l'étape 1.
 - **Langue des documents.** Français ou anglais, mais un seul.
 - **`dist/` versionné ou non.** Recommandation : non, Cloudflare Pages compile.
 - **Fusion de `refactor/tooling`.** Six commits qui tiennent debout. Les
