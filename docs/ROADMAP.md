@@ -282,8 +282,30 @@ perception alone moves no reference at all. With the caveat that the traces
 would not catch an error there either, which is the gap recorded in TECH-DEBT
 §3.
 
-Four choices are left open rather than guessed, and they are named at the end of
-§16.
+**The design settled after review, and it settled cheaply.** The speed stack is
+capped at two degressive rungs — 1.3 then 1.22, which is 1 473 km/h, exactly
+where the super boost already sits. So `G_SURGE` gains no speed at all: it gains
+duration, five seconds instead of 2.6, and an entire sensory world. That keeps
+the engine ratio at 1.586 under its 1.7 ceiling, which means no clamp to raise,
+no intermediate tier to retune, and **no frozen reference to regenerate**. The
+whole thing is class A and B.
+
+The third rung is therefore not a third stack but a state riding on the second:
+the boost is bought, the super boost is found, the surge is earned, and all
+three run at the same top speed.
+
+Two things came out of the review that the specification could not have
+invented. The audio cannot go up, so it goes down — engine and wind laid flat,
+a single low-passed breath left, swollen eardrums; it is the only way to
+differentiate a rung when the ratio is already at the ceiling, and `audio.ts`
+already has the filter and the gain per layer. And the peripheral blur, which
+the repository had already answered before it was asked: `CLAUDE.md`'s trap list
+says to blur in screen space with `backdrop-filter`, so it is a masked DOM layer
+over the canvas rather than a post-process pass the renderer has no pipeline
+for.
+
+Three choices are left open rather than guessed, and they are named at the end
+of §16.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
