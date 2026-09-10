@@ -38,7 +38,9 @@ import { Scores } from './scores.js';
 import { Screens } from './screens.js';
 import { Settings } from './settings.js';
 import { Ship } from './ship.js';
+import { SurgeOverlay } from './overlay.js';
 import { Sky } from './sky.js';
+import { SurgeMeter } from './surge.js';
 import { thrustTier } from './thrust.js';
 import { Tips } from './tips.js';
 import { TrackMesh } from './track-mesh.js';
@@ -88,6 +90,15 @@ const DRIFT_HALO_MIN = 0.08;
 const DRIFT_HALO_MAX = 0.3;
 
 /**
+ * Secousse tenue au plein du G-SURGE, en plus du coup porté à l'entrée.
+ *
+ * Volontairement sous ce qu'un choc de mur produit : la §10 veut une secousse
+ * « forte mais contrôlée », et une image aussi agitée qu'un crash pendant cinq
+ * secondes est illisible plutôt qu'intense.
+ */
+const SURGE_SHAKE = 0.45;
+
+/**
  * Reserve level below which a refill becomes worth announcing again.
  *
  * This was a simulation event first, and it was wrong there. "The reserve is at
@@ -130,6 +141,8 @@ const sky = new Sky();
 const trackMesh = new TrackMesh(viewport.renderer);
 const pickups = new Pickups();
 const ship = new Ship();
+const surgeMeter = new SurgeMeter();
+const surgeOverlay = new SurgeOverlay();
 // Parentée au vaisseau, comme la fumée : dans le monde, une particule lâchée
 // ici croiserait la caméra 19 m derrière.
 const spray = new DriftSpray();
@@ -374,6 +387,8 @@ function startRun(): void {
   spray.reset();
   pickups.reset();
   camera.reset(sim.tuning);
+  surgeMeter.reset();
+  surgeOverlay.reset();
   hud.reset();
   halo = 0;
   fxShake = 0;
@@ -453,7 +468,17 @@ function renderFrame(frameDt: number): void {
   ship.setHalo(haloColour, halo, haloPower);
 
   if (fxShake > 0) fxShake = Math.max(0, fxShake - frameDt / FX_SHAKE_TIME);
-  camera.update(state, sim.track, sim.tuning, frameDt, state.shake + fxShake);
+  // L'intensité de l'état monte tant que le pilotage tient, et tout ce qui doit
+  // croître pendant les cinq secondes la lit : la secousse et le calque.
+  surgeMeter.update(frameDt, state, sim.tuning);
+  surgeOverlay.update(surgeMeter.value);
+  camera.update(
+    state,
+    sim.track,
+    sim.tuning,
+    frameDt,
+    state.shake + fxShake + surgeMeter.value * SURGE_SHAKE,
+  );
 
   const position = viewport.camera.position;
   sky.update(
@@ -780,6 +805,8 @@ window.__gsNext = {
     spray.reset();
     pickups.reset();
     camera.reset(sim.tuning);
+    surgeMeter.reset();
+    surgeOverlay.reset();
     sky.reset();
     elapsed = 0;
     lean = 0;

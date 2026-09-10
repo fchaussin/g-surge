@@ -453,6 +453,8 @@ bougent pas**, seule la case 3 est neuve.
 | Table | Fichier | Case 3 |
 |---|---|---|
 | Halo de drift | main.ts | cyan `--neon`, tenu, scintillement irrégulier, luminosité portée par la chaîne |
+| Calque plein écran | overlay.ts | voile blanc et flou périphérique, masqués radialement, portés par l'intensité |
+| Secousse | main.ts | un coup à l'entrée, puis une tenue qui monte avec l'intensité |
 | Jauge de boost | hud.ts | devient le compte à rebours de l'état, bornée à 100 |
 | `FOV_KICK`, `FOV_EASE`, `LAG_SCALE` | camera.ts | champ très large, convergence brutale, caméra qui décroche franchement |
 | `WARP_BY_TIER`, `uStreak` | sky.ts | filé maximal — voir le coût plus bas |
@@ -471,10 +473,23 @@ Une réserve d'accessibilité : le son porte des informations — boost prêt, c
 de mur. Pendant cinq secondes de blanc, le HUD reste le seul canal, ce qui est
 acceptable parce qu'il les porte déjà toutes.
 
-**Le flou périphérique.** C'est le rétrécissement du champ utile, et le dépôt
-porte déjà sa solution dans la liste des pièges de `CLAUDE.md` : *flouter en
-espace écran avec `backdrop-filter`*, jamais avec `filter: blur` sur un élément
-transformé en 3D, qui rastérise en basse résolution.
+**L'intensité se mérite pendant l'état, pas seulement avant.** C'est l'ajout
+qui a manqué à la première version jouable : la secousse frappait à l'entrée,
+s'éteignait en 0,42 s, et les quatre secondes suivantes ne demandaient rien.
+`SurgeMeter` monte en 2,2 s tant que le vaisseau tient sa vitesse et ne touche
+rien, et retombe en 0,5 s dès que ça lâche. Tout ce qui doit croître le lit :
+la secousse tenue, le voile, le flou. L'état devient une fenêtre d'expression
+plutôt qu'une récompense qui se joue toute seule.
+
+L'état ne s'écourte pas pour autant : un mur ne coupe que son *rendu*. La
+mécanique reste dans le noyau, le jugement sur ce qui se voit reste au client.
+
+**Le flou périphérique et le voile blanc.** C'est le rétrécissement du champ
+utile, et le dépôt porte déjà sa solution dans la liste des pièges de
+`CLAUDE.md` : *flouter en espace écran avec `backdrop-filter`*, jamais avec
+`filter: blur` sur un élément transformé en 3D, qui rastérise en basse
+résolution. Le voile occupe le même calque et le même masque radial, donc les
+deux montent ensemble et ne coûtent qu'un élément.
 
 Donc un calque DOM au-dessus du canvas et sous le HUD, avec
 `backdrop-filter: blur()` et un `mask-image: radial-gradient()` qui laisse le
@@ -489,6 +504,10 @@ trace.
 - Le même calque peut porter l'effet tunnel de secours — des traînées radiales
   en CSS ou en SVG, sans toucher au shader. Le repli et le flou sont le même
   élément.
+- Il n'écrit dans le DOM qu'au changement, l'intensité étant quantifiée sur 32
+  crans : une écriture de style par frame est ce que `hud.ts` interdit. Et
+  `prefers-reduced-motion` l'amortit à un tiers, parce qu'un voile qui enfle et
+  une image qui tremble sont précisément ce que ce réglage évite.
 - Détail de conception qui vaut d'être noté : le champ de vision **s'élargit**
   de 18° aux paliers hauts pendant que la périphérie se floute. Le champ réel
   grandit, le champ utile rétrécit. C'est la vision tunnel sous accélération, et
@@ -562,10 +581,10 @@ ses propres tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 
 ### Découpage
 
 1. **Le palier sensoriel**, porte = chaîne de drift, vitesse inchangée.
-   *Fait* : la mécanique, le quatrième palier dans les quatre tables, le blanc
-   audio, les deux événements et leurs retours. *Reste* : le calque de flou, la
-   secousse tenue pendant l'état plutôt qu'à ses deux bouts, et le décalage du
-   HUD.
+   *Fait* : la mécanique et sa porte, le quatrième palier dans les quatre
+   tables, le blanc audio, les deux événements, le halo de drift, la jauge
+   détournée en compte à rebours, l'intensité qui se mérite, le calque de flou
+   et son voile, la secousse tenue. *Reste* : le décalage du HUD.
 2. **Puis, et seulement si la sensation le réclame**, la question de la vitesse
    se rouvre — avec le relèvement du plafond audio et le re-réglage des paliers
    intermédiaires, qui régénéreraient les références.

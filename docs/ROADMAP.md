@@ -357,9 +357,21 @@ The surge needed no gauge of its own. During the state the boost gauge measures
 nothing — the reserve is pinned, nothing drains — so it becomes the countdown.
 §10 asks for a simplified HUD there, not an augmented one.
 
-What is left is the rest of the visual half: the masked `backdrop-filter` layer,
-a shake held through the state rather than struck at its two ends, and the HUD
-offset in CSS.
+Playing it again found the last thing missing, and it was not more intensity but
+*earned* intensity. The shake struck at the entrance and died in 0.42 s, leaving
+four seconds that asked nothing. `SurgeMeter` climbs over 2.2 s while the ship
+holds its speed and touches nothing, and falls in 0.5 s when it does not.
+Everything that should grow reads it: the held shake, the white veil, the
+peripheral blur. The state stops being a reward that plays itself and becomes a
+window to drive well in — while the mechanic stays in the core, since a wall
+costs only the rendering, never the duration.
+
+The blur and the veil share one masked DOM layer, for the reason the trap list
+gave before either was written. It writes to the DOM only on change, the level
+quantised to 32 steps, because a style write per frame is what `hud.ts` forbids;
+and `prefers-reduced-motion` damps it to a third.
+
+What is left of the visual half is the HUD offset in CSS.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

@@ -303,6 +303,18 @@
   /* Le G-SURGE emprunte la jauge de boost : elle ne mesure plus la réserve,
      elle décompte l'état. Blanc chaud, la couleur de sa propre plume. */
   .bst.surge i{background:#fff6d0;box-shadow:0 0 20px rgba(255,246,208,.9)}
+
+  /* Calque du G-SURGE : voile blanc et flou périphérique, au-dessus du canvas
+     et sous le HUD. Le masque radial laisse le centre net — c'est ce qui en
+     fait une vision tunnel et non un flou global. Piloté par overlay.ts, qui
+     n'écrit que lorsque la valeur change. */
+  .surge{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
+    --veil:0;background:radial-gradient(ellipse at 50% 52%,
+      rgba(255,255,255,0) 34%, rgba(255,255,255,var(--veil)) 100%);
+    -webkit-mask-image:radial-gradient(ellipse at 50% 52%,
+      rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%);
+    mask-image:radial-gradient(ellipse at 50% 52%,
+      rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%)}
   .bst.charge i{animation:bstpulse .5s ease-in-out infinite}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:4px;top:50%;font-size:8px;letter-spacing:.22em;
@@ -498,6 +510,8 @@
   <div class="toast" id="toast"></div>
   <div class="kb">Arrows to steer, space to boost<br>Down to brake, Esc to pause</div>
 </div>
+
+<div class="surge" id="surge"></div>
 
 <div class="layer on" id="menu">
   <div class="scrim"></div>

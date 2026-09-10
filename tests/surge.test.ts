@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BACK, HALF, ITEM_SUP, Sim } from '../src/sim/index.js';
+import { SurgeMeter } from '../src/client/surge.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -212,5 +213,75 @@ describe('a second super boost', () => {
     expect(sim.state.superT).toBeCloseTo(sim.tuning.supTime, 2);
     expect(sim.state.surgeT).toBe(0);
     expect(sim.events.map((e) => e.type)).not.toContain('surgeStart');
+  });
+});
+
+describe('the surge meter', () => {
+  const top = (sim: Sim) => sim.tuning.speedMax * sim.tuning.boostFactor * sim.tuning.supFactor;
+
+  /** Avance le compteur d'une seconde dans l'état donné. */
+  function run(meter: SurgeMeter, sim: Sim, seconds: number): void {
+    for (let i = 0; i < seconds * 60; i++) meter.update(1 / 60, sim.state, sim.tuning);
+  }
+
+  it('climbs while the state runs clean, and saturates', () => {
+    const sim = new Sim({ seed: 'meter' });
+    sim.reset('meter');
+    sim.state.surgeT = 99;
+    sim.state.speed = top(sim);
+    const meter = new SurgeMeter();
+
+    run(meter, sim, 1);
+    expect(meter.value).toBeGreaterThan(0.3);
+    expect(meter.value).toBeLessThan(0.6);
+
+    run(meter, sim, 5);
+    expect(meter.value).toBe(1);
+  });
+
+  it('drops fast against a wall, which is the whole point of it', () => {
+    const sim = new Sim({ seed: 'meter' });
+    sim.reset('meter');
+    sim.state.surgeT = 99;
+    sim.state.speed = top(sim);
+    const meter = new SurgeMeter();
+    run(meter, sim, 5);
+    expect(meter.value).toBe(1);
+
+    sim.state.contact = true;
+    run(meter, sim, 0.25);
+    expect(meter.value).toBeLessThan(0.6);
+    run(meter, sim, 1);
+    expect(meter.value).toBe(0);
+  });
+
+  it('stops climbing when the speed falls away, braking included', () => {
+    const sim = new Sim({ seed: 'meter' });
+    sim.reset('meter');
+    sim.state.surgeT = 99;
+    sim.state.speed = top(sim) * 0.8;
+    const meter = new SurgeMeter();
+
+    run(meter, sim, 3);
+    expect(meter.value).toBe(0);
+  });
+
+  it('is empty outside the state, and after a reset', () => {
+    const sim = new Sim({ seed: 'meter' });
+    sim.reset('meter');
+    sim.state.surgeT = 99;
+    sim.state.speed = top(sim);
+    const meter = new SurgeMeter();
+    run(meter, sim, 5);
+
+    sim.state.surgeT = 0;
+    run(meter, sim, 2);
+    expect(meter.value).toBe(0);
+
+    sim.state.surgeT = 99;
+    run(meter, sim, 1);
+    expect(meter.value).toBeGreaterThan(0);
+    meter.reset();
+    expect(meter.value).toBe(0);
   });
 });
