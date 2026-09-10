@@ -60,9 +60,18 @@ interface GsDebug {
   };
 }
 
+interface GsNextDebug {
+  seed(): string;
+  revision: string;
+  fixedStep(): number;
+  state(): { travel: number; dist: number; lat: number; speed: number; hop: number; yaw: number };
+  renderScale(): number;
+}
+
 declare global {
   interface Window {
     __gs: GsDebug;
+    __gsNext: GsNextDebug;
   }
 }
 

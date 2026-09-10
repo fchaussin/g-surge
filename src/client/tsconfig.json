@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Deliberately looser than src/sim. The client talks to the DOM, to
+    // three.js r128 and to Web Audio, whose r128-era typings are dated; making
+    // this strict would cost days of casts for bugs the e2e suite already
+    // catches. The core is where types earn their keep.
+    "strict": false,
+    "noImplicitAny": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["**/*.ts"]
+}

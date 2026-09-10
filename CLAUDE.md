@@ -26,7 +26,12 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 - **`src/` is where the project goes.** `src/sim/` already reproduces tuning,
   track generation and `step()` exactly; `tests/sim-parity.test.ts` replays the
   frozen references against it in Node and they match to the digit. It is not
-  wired into the game yet — that is roadmap step 2.
+  wired into the legacy game and never will be — the new client in
+  `src/client/` replaces it instead.
+- **Two artefacts, two commands, two test targets.** `npm run dev` is the new
+  client on 5175, `npm run dev:legacy` the old one on 5173. The e2e suite aims
+  at one or the other through `E2E_TARGET`; `next-*.spec.ts` are the specs for
+  the new build, everything else is the legacy's. Keep them disjoint.
 - **Documents and UI in English, code comments in French.** That is the existing
   convention of this repository, and mixing the two inside one file is worse
   than either.
@@ -76,7 +81,8 @@ Everything also runs in the image: `docker compose run --rm tools npm run verify
 End to end, on top, with a real browser:
 
 ```
-npm run test:e2e            # Playwright, 53 tests, 3 profiles, ~3 min
+npm run test:e2e            # against the legacy: 53 tests, 3 profiles, ~3 min
+npm run test:e2e:next       # against the compiled build: builds first, then runs
 npm run test:e2e:update     # regenerate the visual references
 npm run fixtures:update     # regenerate the simulation references
 npm run verify:all          # verify + test:e2e

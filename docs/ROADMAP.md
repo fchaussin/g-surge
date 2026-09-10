@@ -57,13 +57,17 @@ index.html            Vite entry point
 src/
   sim/                the core, already written — no DOM, no three.js
   client/             rendering, UI, audio, input, loop
-public/               copied verbatim: _headers, manifest, icons, sw
+static/               copied verbatim: _headers, manifest, icons, sw
 dist/                 produced by `npm run build`, not committed
 ```
 
-`public/` changes meaning: no more sources, only static assets, which is the
-Vite convention. Cloudflare Pages moves from no build command to
-`npm run build` with `dist` as output.
+The static directory is `static/`, not `public/`: keeping the Vite convention
+would have meant the same folder holding the legacy sources and the new assets
+at the same time during the migration. `public/` disappears at step 4 instead
+of changing meaning.
+
+Cloudflare Pages moves from no build command to `npm run build` with `dist` as
+output.
 
 Direct consequence: the "`public/` is the artefact, no build step" ground rule
 in `CLAUDE.md` goes away. That is a deliberate change, not a side effect.
@@ -105,16 +109,15 @@ Corrections found at the start of the session and never applied:
 
 Acceptance: no figure in `docs/` that cannot be checked against the code.
 
-### Step 1 — skeleton of the new client — 1 d
+### Step 1 — skeleton of the new client — done
 
-- Vite, three.js from npm pinned to `0.128.0`, exactly the same version.
-- `index.html` at the root, `src/client/main.ts`, permissive client `tsconfig`.
-- The e2e net must be able to target either the legacy or the new build: it is
-  the migration tool, not an end-of-run check.
+Vite, three.js from npm at `0.128.0`, `index.html` at the root,
+`src/client/{main,viewport,loop}.ts`, permissive client `tsconfig`. The e2e
+suite aims at either artefact through `E2E_TARGET`.
 
-Acceptance: `npm run build` produces a `dist/` the static server serves, the
-page mounts a scene and renders a frame, the 53 tests against the legacy still
-pass.
+53 tests against the legacy, 15 against the compiled build, all green. The
+skeleton drives `Sim` through the fixed-step loop and renders a placeholder, so
+that a frame proves the whole chain rather than just that three.js starts.
 
 ### Step 2 — port the rendering — 1 to 2 d
 

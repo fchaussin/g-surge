@@ -5,11 +5,11 @@
   "description": "Endless antigrav runner built on three.js r128.",
   "type": "module",
   "scripts": {
-    "dev": "npx --yes serve public -l 5173",
-    "build": "node scripts/build-codepen.mjs",
+    "dev": "vite",
+    "build": "vite build",
     "check": "node --check public/engine.js && node --check public/game.js",
     "check:globals": "node scripts/check-globals.mjs",
-    "typecheck": "tsc -p src/sim && tsc -p tests",
+    "typecheck": "tsc -p src/sim && tsc -p src/client && tsc -p tests",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,16 +17,24 @@
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots",
     "verify:all": "npm run verify && npm run test:e2e",
-    "fixtures:update": "UPDATE_FIXTURES=1 playwright test determinism --project=desktop"
+    "fixtures:update": "UPDATE_FIXTURES=1 playwright test determinism --project=desktop",
+    "dev:legacy": "npx --yes serve public -l 5173",
+    "preview": "vite preview",
+    "build:codepen": "node scripts/build-codepen.mjs",
+    "test:e2e:next": "E2E_TARGET=next playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.0",
+    "@types/three": "^0.128.0",
     "eslint": "^9.39.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
     "vite": "^6.4.3",
     "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "three": "^0.128.0"
   }
 }

@@ -8,15 +8,18 @@ version and is what ships today; `src/` is the TypeScript codebase replacing it.
 ## Layout
 
 ```
-public/            everything that gets deployed, as is
+index.html         Vite entry point for the new client
+src/
+  sim/             deterministic core, strict TypeScript, no DOM and no three.js
+  client/          the new client: viewport, frame loop, entry point
+static/            copied verbatim into dist/ — empty until the switch
+public/            the frozen legacy version, still what gets deployed
   index.html       markup, all the CSS, the splash, the service worker hook
   engine.js        scene, track generation, meshes, ship, effects
   game.js          physics, score, screens, input, audio, main loop
   sw.js            offline cache
   manifest.webmanifest
   icons/           MISSING: referenced by the manifest and sw.js, absent from the repo
-src/
-  sim/             deterministic core, strict TypeScript, no DOM and no three.js
 tests/
   *.test.ts        Vitest: PRNG, clock, parity against the frozen references
   e2e/             Playwright: boot, screens, visual and simulation references
@@ -31,10 +34,13 @@ is proven equivalent to it but is not wired in yet.
 
 ## Local
 
-    npm install      # dev tooling only, the game itself has no dependency
-    npm run dev      # serves public/ on http://localhost:5173
-    npm run verify   # syntax, name collisions, types, lint, unit tests
-    npm run test:e2e # Playwright: boot, screens, visual and simulation references
+    npm install
+    npm run dev          # the new client, Vite, http://localhost:5175
+    npm run dev:legacy   # the legacy game, http://localhost:5173
+    npm run build        # compiles the new client into dist/
+    npm run verify       # syntax, name collisions, types, lint, unit tests
+    npm run test:e2e     # Playwright against the legacy
+    npm run test:e2e:next # Playwright against the compiled build
 
 `npm run verify` is the command to run after any change. The five steps are also
 callable on their own: `check`, `check:globals`, `typecheck`, `lint`, `test`.

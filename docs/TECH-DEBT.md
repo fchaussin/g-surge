@@ -153,10 +153,20 @@ its own project, after the switch.
 
 The CDN script tag has no `integrity` attribute, so a compromised cdnjs would
 execute arbitrary code. The fix is not to add SRI but to take the package from
-npm at `0.128.0` and bundle it, which roadmap step 1 does. Bundling is also
-where the payload win is: 603 KB of monolithic CDN script becomes whatever
-tree-shaking keeps of the twenty-odd symbols the game imports — and that win is
-independent of the version.
+npm at `0.128.0` and bundle it, which roadmap step 1 does.
+
+**Bundling barely shrinks the payload, and that was measured too.** An earlier
+revision of this section claimed tree-shaking would cut the 603 KB CDN script
+down to the twenty-odd symbols the game imports. It does not: r128's
+`three.module.js` is monolithic and its internals cross-reference each other,
+so the renderer drags in the materials, the geometries and the rest. Built with
+Vite, `import * as THREE` and named imports produce byte-identical output. The
+real figures are 589 KB raw and 150 KB gzipped for the CDN file, against 515 KB
+raw and 131 KB gzipped for the whole bundle, game included. Nineteen kilobytes
+over the wire.
+
+Bundle for the right reasons — no third-party script to seal, one dependency
+graph, a build that can be typechecked — not for the payload.
 
 ## 8. Types
 

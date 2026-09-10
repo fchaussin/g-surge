@@ -1,0 +1,111 @@
+/**
+ * Acceptance for the new client's skeleton.
+ *
+ * Deliberately narrow: at this point the build only has to start, hold a live
+ * WebGL context, size its canvas correctly and prove that the simulation core
+ * is actually being driven. Screens, HUD and rendering arrive at roadmap steps
+ * 2 and 3, and their tests come with them.
+ *
+ * These run against `dist/`, so `npm run test:e2e:next` builds first.
+ */
+import { expect, test } from '@playwright/test';
+
+function watchErrors(page: import('@playwright/test').Page): string[] {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console.error: ${m.text()}`);
+  });
+  return errors;
+}
+
+const ready = (page: import('@playwright/test').Page) =>
+  page.waitForFunction(() => typeof window.__gsNext !== 'undefined', undefined, { timeout: 15_000 });
+
+test.describe('new client, skeleton', () => {
+  test('boots without errors, on a live context, pinned to r128', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto('/');
+    await ready(page);
+
+    const gl = await page.evaluate(() => {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) return null;
+      const ctx = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      if (!ctx) return null;
+      const g = ctx as WebGLRenderingContext;
+      return { lost: g.isContextLost(), w: g.drawingBufferWidth, h: g.drawingBufferHeight };
+    });
+
+    expect(gl).not.toBeNull();
+    expect(gl!.lost).toBe(false);
+    expect(gl!.w).toBeGreaterThan(0);
+    // The code depends on r128 behaviour; the bundle must not drift off it.
+    expect(await page.evaluate(() => window.__gsNext.revision)).toBe('128');
+    expect(errors).toEqual([]);
+  });
+
+  test('the canvas fills the window at any devicePixelRatio', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+
+    const m = await page.evaluate(() => {
+      const c = document.querySelector('canvas')!;
+      const r = c.getBoundingClientRect();
+      return {
+        cssW: r.width, cssH: r.height,
+        bufW: c.width, bufH: c.height,
+        innerW: window.innerWidth, innerH: window.innerHeight,
+        dpr: window.devicePixelRatio,
+      };
+    });
+
+    expect(Math.abs(m.cssW - m.innerW)).toBeLessThanOrEqual(1);
+    expect(Math.abs(m.cssH - m.innerH)).toBeLessThanOrEqual(1);
+    const ratio = Math.min(m.dpr, 2);
+    expect(Math.abs(m.bufW - m.innerW * ratio)).toBeLessThanOrEqual(ratio);
+    expect(m.bufW).not.toBe(300);
+  });
+
+  /** The same trap as the legacy: three.js sets inline styles that hide it. */
+  test('the canvas CSS rule stands without three.js inline styles', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+
+    const size = await page.evaluate(() => {
+      const c = document.querySelector('canvas')!;
+      c.style.removeProperty('width');
+      c.style.removeProperty('height');
+      const r = c.getBoundingClientRect();
+      return { w: r.width, h: r.height, innerW: window.innerWidth, innerH: window.innerHeight };
+    });
+
+    expect(Math.abs(size.w - size.innerW)).toBeLessThanOrEqual(1);
+    expect(Math.abs(size.h - size.innerH)).toBeLessThanOrEqual(1);
+  });
+
+  test('the simulation core is actually being driven, at the fixed step', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+
+    expect(await page.evaluate(() => window.__gsNext.fixedStep())).toBeCloseTo(1 / 720, 12);
+
+    const first = await page.evaluate(() => window.__gsNext.state().travel);
+    await page.waitForTimeout(1000);
+    const second = await page.evaluate(() => window.__gsNext.state().travel);
+
+    // Attract mode holds around 46 m/s, so a second of wall time is tens of
+    // metres. Anything much below that means steps are being dropped.
+    expect(second - first).toBeGreaterThan(20);
+  });
+
+  test('the seed can be pinned from the URL', async ({ page }) => {
+    await page.goto('/?seed=from-the-url');
+    await ready(page);
+    expect(await page.evaluate(() => window.__gsNext.seed())).toBe('from-the-url');
+
+    await page.goto('/');
+    await ready(page);
+    expect(await page.evaluate(() => window.__gsNext.seed())).not.toBe('from-the-url');
+  });
+});

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060a">
+<title>G-SURGE</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden; }
+  /* Explicit size, not just position:fixed. A replaced element keeps its
+     intrinsic 300x150 otherwise, and at devicePixelRatio 2 you see the top
+     left quarter of the frame. See CLAUDE.md, first trap. */
+  canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<script type="module" src="/src/client/main.ts"></script>
+</body>
+</html>
