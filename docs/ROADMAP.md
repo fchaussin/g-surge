@@ -129,7 +129,7 @@ is not in the trace and a wrong instant would replay identically; it was
 validated by mutation, and firing every step, firing throughout, and never
 firing each bring down a named test.
 
-### Step 3 — the drift gets its two ends — half a day
+### Step 3 — the drift gets its two ends — done
 
 The drift has continuous feedback and no events. Its bascule already exists in
 `step.ts`, with hysteresis: entry at `|dv| * gripHold > gripLimit`, exit under
@@ -142,6 +142,17 @@ never carries.
 
 Emit no event without its consumer in the same commit. An event nobody drains is
 dead code, and this repository refuses speculative generality elsewhere.
+
+`driftEnd` carries `held`, the duration, which was not in the plan and came out
+of measuring first. The toggle rate is low — ten entries a minute at worst — but
+a drift can last a single step, measured at 1 ms, and its entry and release
+would then land on top of each other as a click. The event carries the quantity
+its consumers need to dose or to stay silent, which is the shape `wallImpact`
+and `pickup` already had.
+
+Acceptance: references untouched, held. `state.driftHeld` is a new field and
+costs nothing, because the trace records a whitelist that does not include it —
+the class B claim a second time, on state rather than on an event.
 
 ### Step 4 — the drift becomes readable — 2 to 3 days
 

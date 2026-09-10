@@ -29,6 +29,8 @@ export interface SimState {
   yaw: number;
   slip: number;
   drift: boolean;
+  /** Durée du drift en cours, en secondes. Lue par personne dans la physique. */
+  driftHeld: number;
 
   /* Saut */
   air: boolean;
@@ -71,6 +73,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.yaw = 0;
   state.slip = 0;
   state.drift = false;
+  state.driftHeld = 0;
 
   state.air = false;
   state.hop = 0;

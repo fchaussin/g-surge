@@ -35,6 +35,16 @@ const DRIVE_BY_TIER = [0, 1, 2] as const;
  */
 const WIND_BY_TIER = [0, 0, 1] as const;
 
+/**
+ * Shortest drift, in seconds, that earns a realignment whoosh.
+ *
+ * Not a guess: a drift lasting a single step exists and was measured at 1 ms
+ * while weaving. Its entry and its release would land on top of each other and
+ * read as a click rather than as two moments. The entry transient is short
+ * enough to stand alone, so only the release is gated.
+ */
+const DRIFT_RELEASE_MIN = 0.12;
+
 interface Band {
   filter: BiquadFilterNode;
   gain: GainNode;
@@ -128,6 +138,12 @@ export class Audio {
           break;
         case 'supEnd':
           this.superRelease();
+          break;
+        case 'driftStart':
+          this.driftEntry();
+          break;
+        case 'driftEnd':
+          if (e.held > DRIFT_RELEASE_MIN) this.driftRelease(e.held);
           break;
         case 'wreck':
           this.crash();
@@ -395,6 +411,41 @@ export class Audio {
 
     this.blip(180, 0.55, 'sawtooth', 0.2, 1500);
     this.blip(360, 0.5, 'square', 0.07, 2400, 0.04);
+  }
+
+  /**
+   * Entering a drift: an aerodynamic rupture, not an impact.
+   *
+   * The drift already had a continuous voice — a noise band at 2600 Hz that
+   * fades in — and no moments at all. This is the first of the two ends.
+   */
+  private driftEntry(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.noiseHit(ctx.currentTime, 0.13, 'bandpass', 900, 2600, 1.8, 0.13, false);
+  }
+
+  /**
+   * Leaving one: the grip comes back, and the whoosh falls rather than rises.
+   *
+   * Scaled by how long the drift was held, which is what the event carries. A
+   * long slide earns a longer, louder realignment; that is also the seed of the
+   * chain the palette describes, without the mechanic behind it.
+   */
+  private driftRelease(held: number): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    const k = Math.min(1, held / 0.9);
+    this.noiseHit(
+      ctx.currentTime,
+      0.08 + k * 0.09,
+      'bandpass',
+      2800,
+      700,
+      1.5,
+      0.22 + k * 0.12,
+      true,
+    );
   }
 
   /**

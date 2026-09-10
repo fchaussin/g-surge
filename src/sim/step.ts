@@ -166,10 +166,22 @@ export function step(
   // vitesse latérale que le nez réclame, et écart réellement encaissé par les appuis
   const vWant = sin(state.yaw) * state.speed;
   const dv = vWant - state.latVel;
+  const wasDrifting = state.drift;
   if (!state.air) {
     if (!state.drift && Math.abs(dv) * T.gripHold > T.gripLimit) state.drift = true;
     if (state.drift && Math.abs(dv) < T.driftExit) state.drift = false;
   } else state.drift = false;
+  // on se contente d'observer la bascule, qui ne change pas : `drift` est dans
+  // la trace figée, `driftHeld` et les événements n'y sont pas
+  if (state.drift !== wasDrifting) {
+    if (state.drift) {
+      state.driftHeld = 0;
+      out.push({ type: 'driftStart' });
+    } else {
+      out.push({ type: 'driftEnd', held: state.driftHeld });
+    }
+  }
+  if (state.drift) state.driftHeld += dt;
 
   let grip = state.drift ? T.gripDrift : T.gripHold;
   if (state.air) grip *= T.airSteer;

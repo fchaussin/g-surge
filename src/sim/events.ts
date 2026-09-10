@@ -39,5 +39,16 @@ export type SimEvent =
    * jamais répété, puisque le compteur ne redescend qu'une fois.
    */
   | { readonly type: 'supEnd' }
+  /** Entrée en drift : les appuis viennent de lâcher. */
+  | { readonly type: 'driftStart' }
+  /**
+   * Sortie de drift, réalignement compris.
+   *
+   * `held` porte la durée du drift en secondes, parce que le consommateur en a
+   * besoin pour doser — et surtout pour se taire : un drift d'un seul pas
+   * existe, mesuré à 1 ms, et son entrée et sa sortie se superposeraient en un
+   * clic. Même forme que `wallImpact.force`, l'événement porte la quantité.
+   */
+  | { readonly type: 'driftEnd'; readonly held: number }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };

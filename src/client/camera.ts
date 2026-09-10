@@ -42,6 +42,17 @@ const FOV_KICK = [0, 7, 18] as const;
 const FOV_EASE = [3, 6, 11] as const;
 const LAG_SCALE = [1, 1, 0.55] as const;
 
+/**
+ * Catch-up multiplier applied to the lag after a drift, and how long it lasts.
+ *
+ * During a slide the ship's lateral offset moves faster than the camera
+ * follows, so the frame trails behind it. Recovering that at the usual lag
+ * would take the best part of a second, and read as sluggishness at exactly
+ * the moment control comes back.
+ */
+const SNAP_GAIN = 2.4;
+const SNAP_TIME = 0.32;
+
 export class ChaseCamera {
   /* Reused every frame. See the no-allocation rule in CLAUDE.md. */
   private readonly behind = trackPoint();
@@ -52,6 +63,8 @@ export class ChaseCamera {
 
   private fov: number;
   private placed = false;
+  /** Eased, so it has to be dropped for a capture. See `reset`. */
+  private snap = 0;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -73,6 +86,12 @@ export class ChaseCamera {
   reset(tuning: Tuning): void {
     this.placed = false;
     this.fov = tuning.fovBase;
+    this.snap = 0;
+  }
+
+  /** Called on `driftEnd`: the camera recentres instead of drifting back. */
+  driftExitSnap(): void {
+    this.snap = 1;
   }
 
   /**
@@ -99,7 +118,9 @@ export class ChaseCamera {
       this.position.copy(this.want);
       this.placed = true;
     }
-    this.position.lerp(this.want, Math.min(1, frameDt * tuning.camLag * LAG_SCALE[tier]));
+    if (this.snap > 0) this.snap = Math.max(0, this.snap - frameDt / SNAP_TIME);
+    const lag = tuning.camLag * LAG_SCALE[tier] * (1 + this.snap * (SNAP_GAIN - 1));
+    this.position.lerp(this.want, Math.min(1, frameDt * lag));
     this.camera.position.copy(this.position);
 
     if (shake > 0) {

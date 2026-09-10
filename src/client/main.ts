@@ -56,6 +56,16 @@ const HALO_TIME = 0.45;
  */
 const FX_SHAKE_TIME = 0.42;
 
+/**
+ * Shortest drift, in seconds, that makes the camera recentre.
+ *
+ * Independent of the audio's own threshold on purpose — they are two effects
+ * and either may be retuned alone — but it comes from the same measurement: a
+ * drift can last a single step, and snapping a camera that has not moved is
+ * only a stiffness the player feels for no reason.
+ */
+const DRIFT_SNAP_MIN = 0.12;
+
 function seedFromUrl(): string | null {
   try {
     return new URLSearchParams(window.location.search).get('seed');
@@ -275,6 +285,17 @@ function consume(events: readonly SimEvent[]): void {
           fxShake = 1;
           haptics.buzz([30, 30, 70, 40, 120]);
         }
+        break;
+      case 'driftStart':
+        // Espacé : la bascule est rare — dix entrées par minute au plus,
+        // mesuré — mais relancer le moteur sur un drift d'un pas ne se sent
+        // pas, il s'annule.
+        haptics.buzz(12, 220);
+        break;
+      case 'driftEnd':
+        // Même seuil que la décharge sonore, et pour la même raison : sur un
+        // drift d'un seul pas la caméra n'a rien à rattraper.
+        if (e.held > DRIFT_SNAP_MIN) camera.driftExitSnap();
         break;
       case 'supEnd':
         // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
