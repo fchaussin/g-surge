@@ -31,8 +31,10 @@ const REFERENCE_SCRIPT = [
   { from: 1500, steer: 0.06, brake: false, boost: true },
 ];
 
-const ready = (page: import('@playwright/test').Page) =>
-  page.waitForFunction(() => typeof window.__gsNext !== 'undefined', undefined, { timeout: 15_000 });
+/** `#boot.gone` is the real ready signal; see the note in boot.spec.ts. */
+const ready = async (page: import('@playwright/test').Page): Promise<void> => {
+  await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+};
 
 test.describe('the shipped bundle', () => {
   test.beforeEach(async ({ page }) => {

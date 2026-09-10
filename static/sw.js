@@ -2,32 +2,28 @@
    Coquille applicative : le HTML passe par le réseau d'abord pour que les mises
    à jour arrivent, le reste par le cache d'abord car ces fichiers sont versionnés
    par le nom du cache. */
-const VERSION = 'gs-v5';
-/* Liste volontairement réduite au strict minimum.
+/* Les deux lignes marquées « build: » sont réécrites par vite.config.ts à la
+   compilation. Le bundle porte une empreinte dans son nom, qui change à chaque
+   build : elle ne peut pas être tenue à la main ici.
 
-   Le bundle porte une empreinte dans son nom, qui change à chaque build : elle
-   ne peut pas être écrite ici à la main. L'engendrer à la compilation est
-   l'étape 5 de docs/ROADMAP.md, et c'est la partie la moins prévisible de la
-   migration. En attendant, seule la coquille est préchargée ; le bundle, lui,
-   est mis en cache à la première visite par la stratégie « cache d'abord »
-   plus bas, ce qui suffit à un rechargement hors ligne mais pas à une première
-   ouverture hors ligne. */
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.webmanifest'
-];
+   La version en découle, elle est le condensé de la liste. Elle change donc si
+   et seulement si un actif change, ce qui retire une consigne qu'on pouvait
+   oublier : plus de numéro à incrémenter.
+
+   Les valeurs ci-dessous sont celles du mode développement, où le service
+   worker ne s'enregistre pas — il est conditionné à https. Elles restent du
+   JavaScript valide pour que le fichier soit lisible tel quel. */
+/* build:version */ const VERSION = 'dev';
+/* build:assets */ const ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const cache = await caches.open(VERSION);
-    // trois.js vient d'un autre domaine : requête CORS explicite, sinon la
-    // réponse serait opaque et inutilisable hors ligne
+    // Chaque actif à part : un seul manquant ne doit pas faire échouer
+    // l'installation entière, ce que ferait cache.addAll.
     await Promise.all(ASSETS.map(async url => {
-      try {
-        const req = url.startsWith('http') ? new Request(url, { mode: 'cors' }) : url;
-        await cache.add(req);
-      } catch (err) { /* un actif manquant ne doit pas faire échouer l'installation */ }
+      try { await cache.add(url); }
+      catch (err) { /* actif absent : on continue */ }
     }));
     self.skipWaiting();
   })());

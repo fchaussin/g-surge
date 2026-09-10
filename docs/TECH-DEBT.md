@@ -31,9 +31,9 @@ classic scripts, and those are gone.
 | 13 | No lint, no formatter, no CI | Medium | lint and types done, **no CI** |
 | 14 | All strings hardcoded in English | Low | open |
 | 15 | Reverb built on the main thread | — | **done**, built on the first gesture |
-| 16 | Missing PWA icons | Medium | open |
+| 16 | Missing PWA icons | — | **done** |
 | 17 | `Math.cos` is not bit-identical across engines | Medium | measured, blocks server validation |
-| 18 | The service worker cannot name a hashed bundle | Medium | open |
+| 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
 
 ## 3. Tests
 
@@ -177,10 +177,15 @@ in `src/client/` — `tips.ts`, `sliders.ts` and the difficulty blurbs in
 `settings.ts`. Localising means touching all four. `src/sim/` deliberately
 holds none of them.
 
-## 16. Missing PWA icons
+## 16. PWA icons — done
 
-`static/icons/` does not exist and never has. `manifest.webmanifest` points at
-three icons, so all three 404 and the installed app has no icon.
+`static/icons/` now holds an SVG source and the four PNGs the manifest and the
+Apple meta tag ask for, rasterised from it by `npm run icons`. The SVG doubles
+as the favicon, which browsers that understand it scale to any size.
+
+The mark is the game's own silhouette — a track receding under a gantry —
+rather than a letter, because a wordmark is unreadable at the 48 pixels a
+browser tab actually gives it.
 
 ## 17. Transcendentals are not bit-identical across engines
 
@@ -207,15 +212,19 @@ Consequences, in order of how much they matter:
 Same-engine determinism is unaffected: a given build always agrees with itself,
 which is what the seeded PRNG and the fixed step guarantee.
 
-## 18. The service worker cannot name a hashed bundle
+## 18. Service worker precache — done
 
-Vite emits `index-<hash>.js`, and `static/sw.js` lists its assets by hand, so it
-cannot precache the one file that matters. Its list is reduced to the shell for
-now; the bundle is cached on first visit by the cache-first path, which is
-enough for an offline reload but not for an offline first open.
+A Vite plugin walks the build output and rewrites two marked lines in `sw.js`:
+the asset list, and the cache name. Both replacements assert, so a marker that
+stops matching fails the build rather than silently leaving the previous list.
 
-Generating the list at build time is the next roadmap step, and the least
-predictable part of what remains.
+The cache name is the digest of the list, so it changes if and only if an asset
+changes. That retires the rule that used to sit in `CLAUDE.md` — there is no
+`VERSION` left to remember to bump.
+
+One bug worth remembering from writing it: the dotfile filter ran on paths that
+had already been prefixed with `./`, so every path looked like a dotfile and
+the list came out empty. The build reported success.
 
 ## What is deliberately not debt
 

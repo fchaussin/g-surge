@@ -157,6 +157,21 @@ noise — low rumble, mid body, high hiss — plus a very quiet sine for turbine
 whine. Oscillators were tried first and sounded like a piston engine, hence
 noise. The crash reverb is built on the first gesture, not on the first crash.
 
+## Startup
+
+The splash holds until the game can actually run, not for a fixed time. Two
+things cost a visible stall on the first frame otherwise: three.js compiles a
+material's shader program the first time it draws it, and the road's canvas
+texture is uploaded on first use. `renderer.compile` handles the first, drawing
+one full frame handles the second, and both happen behind the splash.
+
+Measured on a software rasteriser, which understates a real GPU: the first
+frame the player sees costs 23 ms instead of 45. The splash grows by the
+difference, where nobody is waiting on a frame.
+
+The earlier version held for a minimum of 1 200 ms regardless. That existed to
+make a CodePen preview watchable and had no other purpose.
+
 ## Storage
 
 `localStorage`, key `gsurge.scores.v1`, top five runs with score, coin count,

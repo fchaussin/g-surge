@@ -89,7 +89,7 @@ pixel tolerance.
 The one deliberate difference is a single line of text. The legacy leaderboard
 said "a distance enters the board" where the board shows a score.
 
-### Step 5 — service worker and assets — ½ d
+### Step 5 — service worker and assets — done
 
 - Vite emits hashed filenames, so the `ASSETS` list in `sw.js` has to be
   generated at build time and `VERSION` derived from it. This is the least
@@ -101,6 +101,10 @@ Acceptance: offline works on a compiled build, an update is picked up without
 clearing the cache by hand, the icon shows on install.
 
 ### Step 6 — the functional gaps — ½ d
+
+Also worth folding in here, now that the splash does real work: it is the
+natural place to prewarm anything else the first seconds need.
+
 
 Settings persistence under `gsurge.prefs.v1`, `prefers-reduced-motion`,
 `aria-pressed` and `role="radiogroup"`, dead code (`fmtM`, `TUNING.coinValue`),

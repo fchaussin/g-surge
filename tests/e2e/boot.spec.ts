@@ -19,8 +19,20 @@ function watchErrors(page: import('@playwright/test').Page): string[] {
   return errors;
 }
 
-const ready = (page: import('@playwright/test').Page) =>
-  page.waitForFunction(() => typeof window.__gsNext !== 'undefined', undefined, { timeout: 15_000 });
+/**
+ * Waits for the game to be genuinely ready, not merely loaded.
+ *
+ * `window.__gsNext` appears when the module is evaluated, which is well before
+ * the splash finishes compiling shaders and drawing its first frame. Waiting
+ * on it let a test call `freeze` mid-startup, and the warm-up frame that
+ * followed then overwrote the frozen one — visible as a screenshot that
+ * differed by a different amount on every retry.
+ *
+ * `#boot.gone` is set by `__gsReady`, which the client calls last.
+ */
+const ready = async (page: import('@playwright/test').Page): Promise<void> => {
+  await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+};
 
 test.describe('new client, skeleton', () => {
   test('boots without errors, on a live context, pinned to r128', async ({ page }) => {
@@ -135,8 +147,14 @@ test.describe('new client, rendering', () => {
       await ready(page);
       // The UI is hidden rather than masked: these references are about the
       // scene, and the menu covers most of it. The interface gets its own.
+      //
+      // `.boot` is in that list for a reason worth keeping. The splash holds
+      // for 1 200 ms by design, while `ready()` resolves as soon as the module
+      // runs — so without hiding it the capture raced the splash, and one of
+      // these references was in fact a screenshot of the loading screen. It
+      // passed whenever the timing happened to repeat.
       await page.evaluate(([seed, n]) => {
-        const hide = '.layer, .hud, .mutebtn, .fps';
+        const hide = '.layer, .hud, .mutebtn, .fps, .boot';
         for (const el of document.querySelectorAll<HTMLElement>(hide)) el.style.display = 'none';
         window.__gsNext.freeze(seed as string, n as number);
       }, ['reference', steps]);

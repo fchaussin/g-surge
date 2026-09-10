@@ -1,2 +1,0 @@
-Copied verbatim into the build by Vite. Holds _headers, the manifest and the
-service worker; static/icons/ belongs here too and does not exist yet.

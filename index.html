@@ -12,7 +12,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="G-SURGE">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<!-- The SVG first: browsers that understand it scale it to whatever size the
+     tab, the bookmark bar or the task switcher asks for, and it is 2 KB. The
+     PNG stays as the fallback. -->
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <style>
@@ -425,24 +429,26 @@
 
 <script>
 // Ici plutôt que dans un module : cet écran doit vivre avant que le bundle
-// n'arrive. three.js étant désormais compilé avec le jeu, il n'y a plus de
-// script tiers dont guetter le chargement — seul __gsReady reste, appelé par
-// le client quand la première image est prête.
+// n'arrive. Il n'a plus de durée minimale — celle d'avant ne servait qu'à
+// rendre l'aperçu CodePen regardable. Il reste affiché tant que le jeu n'est
+// pas réellement prêt : shaders compilés, textures téléversées, première image
+// rendue. C'est le client qui appelle __gsProgress puis __gsReady.
 (function(){
-  var t0 = Date.now(), MIN = 1200;
   function set(w, txt){
     var b = document.getElementById('bootBar'), l = document.getElementById('bootLabel');
     if (b) b.style.width = w + '%';
     if (l && txt) l.textContent = txt;
   }
-  set(20, 'STARTING UP');
-  window.__gsFail  = function(m){ set(100, m); document.getElementById('bootBar').style.background = '#ff2f9a'; };
+  set(15, 'LOADING');
+  window.__gsProgress = set;
+  window.__gsFail = function(m){ set(100, m); document.getElementById('bootBar').style.background = '#ff2f9a'; };
   window.__gsReady = function(){
     set(100, 'READY');
-    setTimeout(function(){
+    // une image pour que la barre pleine soit vue, puis on s'efface
+    requestAnimationFrame(function(){
       var el = document.getElementById('boot');
       if (el) el.classList.add('gone');
-    }, Math.max(0, MIN - (Date.now() - t0)));
+    });
   };
 })();
 </script>

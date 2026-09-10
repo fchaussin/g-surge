@@ -395,8 +395,42 @@ hud.setBest(scores.bestLabel);
 window.addEventListener('pointerdown', () => { audio.resume(); audio.warmUp(); }, { once: true });
 window.addEventListener('keydown', () => { audio.resume(); audio.warmUp(); }, { once: true });
 
-loop.start();
-requestAnimationFrame(() => window.__gsReady?.());
+/**
+ * Holds the splash until the game can actually run, rather than for a fixed
+ * time.
+ *
+ * Two things cost a visible hitch on the first frame if they are left to
+ * happen during play. Shader programs are compiled lazily by three.js the
+ * first time a material is drawn — the sky shader especially — which is what
+ * the performance governor's "the first seconds are shader compilation" guard
+ * is working around. And the road's canvas texture is uploaded on first use.
+ *
+ * `compile` handles the first, drawing one frame handles the second.
+ */
+async function boot(): Promise<void> {
+  window.__gsProgress?.(45, 'COMPILING SHADERS');
+  // Two frames, so the label is actually painted before the main thread is
+  // blocked by the compile.
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))),
+  );
+
+  sim.track.buildPath(sim.state.cursor);
+  trackMesh.update(sim.track, sim.tuning.stripeEvery);
+  viewport.renderer.compile(scene, viewport.camera);
+
+  window.__gsProgress?.(80, 'WARMING UP');
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+  // One full frame: uploads the road texture and walks every path the loop
+  // will take, so the first frame the player sees is not the expensive one.
+  renderFrame(loop.fixedStep);
+
+  loop.start();
+  window.__gsReady?.();
+}
+
+void boot();
 
 /**
  * Offline shell.
@@ -425,6 +459,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 declare global {
   interface Window {
     __gsReady?: () => void;
+    __gsProgress?: (percent: number, label?: string) => void;
     __gsNext: {
       seed(): string;
       revision: string;

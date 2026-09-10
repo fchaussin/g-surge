@@ -221,11 +221,17 @@ Nothing is deployed yet. A Cloudflare Pages project would want build command
 `npm run build` and output directory `public`.
 
 `static/_headers` is copied into the build and keeps `index.html` and `sw.js`
-uncached. **Bump `VERSION` in `static/sw.js` whenever a cached asset changes**,
-otherwise clients keep the old build.
+uncached.
 
-The service worker registers only over https, so it stays out of the way in
-development. Its precache list cannot name the hashed bundle and is cut back to
-the shell; generating it at build time is roadmap step 5. Content hashing makes
-the cache-first path safe regardless — a changed file has a different URL, so
-it can never be served stale.
+**The service worker's precache list and cache name are generated at build
+time**, by a plugin in `vite.config.ts` that rewrites two marked lines. The
+cache name is the digest of the list, so there is no version to remember to
+bump — but the markers must survive: the plugin fails the build if they stop
+matching, which is deliberate.
+
+It registers only over https, so it stays out of the way in development.
+Content hashing makes the cache-first path safe by construction: a changed file
+has a different URL and can never be served stale.
+
+Icons are generated from `static/icons/icon.svg` by `npm run icons` and
+committed. Edit the SVG, never the PNGs.
