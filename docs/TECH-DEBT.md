@@ -26,7 +26,7 @@ classic scripts, and those are gone.
 | 8 | No types | — | **gone**, the codebase is TypeScript |
 | 9 | Long functions | — | **gone with the legacy** |
 | 10 | Accessibility is absent | Low | mostly done, colour-only signals remain |
-| 11 | 37 of 69 tuning keys unreachable from the UI | Low | open |
+| 11 | Tuning coverage | Low | 40 of 69 on sliders, the rest live on the console |
 | 12 | Dead code | — | **gone with the legacy** |
 | 13 | No lint, no formatter, no CI | — | **done** |
 | 14 | All strings hardcoded in English | Low | open |
@@ -175,13 +175,20 @@ alone, and the keyboard navigation is custom and hijacks Tab.
 
 ## 11. Tuning coverage
 
-69 keys in `DEFAULTS`, 32 exposed as sliders. The 37 hidden ones include things
-a designer will want first: camera distance and height, field of view, coin
-pickup radius, jump gravity, damage from scraping, boost minimum. They are
-reachable through `window.__gsNext.defaults()` but nothing says so.
+69 keys in `DEFAULTS`, 40 exposed as sliders. The eight the previous revision
+named as what a designer wants first — camera distance and height, field of
+view and its speed gain, pickup radius, jump gravity, scrape damage, boost
+minimum — are on the Advanced tab now.
 
-`coinValue` was among them and is now gone: nothing had read it since coins
-started feeding the multiplier instead of paying a fixed bonus.
+The remaining 29 are reachable **live** through `window.__gsNext.tuning()`,
+which mutates the running game. That capability had quietly died at the
+switch: the legacy exposed `window.TUNING` and the port only handed out a copy
+of the defaults, so the console tweaking this document promised did nothing.
+Restored, and this time the docs say where it lives.
+
+What keeps this item open at Low: the 29 are mostly fine-grained generation
+constants and internal thresholds, and a panel that carries all 69 would bury
+the ones that matter. The line is judgement, not tooling.
 
 ## 13. Tooling
 

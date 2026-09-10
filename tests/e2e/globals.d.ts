@@ -15,6 +15,7 @@ interface GsNextDebug {
   freeze(seed: string, steps: number): void;
   clock(): { hz: number; dt: number };
   defaults(): Record<string, number>;
+  tuning(): { [key: string]: number };
   nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
   items(): Array<{ id: number; lat: number; type: number }>;
   trace(opts: {

@@ -203,6 +203,7 @@ replay features to come, and it is not a game API.
 | | |
 |---|---|
 | `seed()`, `mode()`, `state()`, `clock()`, `defaults()` | current run |
+| `tuning()` | the **live** tuning object — mutations apply on the next step |
 | `nodes()`, `items()` | the ring buffers and live pickups |
 | `trace(opts)` | replays a run at fixed step, outside the render loop |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |

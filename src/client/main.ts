@@ -542,6 +542,7 @@ declare global {
       freeze(seed: string, steps: number): void;
       clock(): { hz: number; dt: number };
       defaults(): Record<string, number>;
+      tuning(): typeof sim.tuning;
       nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
       items(): Array<{ id: number; lat: number; type: number }>;
       trace(opts: {
@@ -573,6 +574,16 @@ window.__gsNext = {
    */
   clock: () => ({ hz: 1 / loop.fixedStep, dt: loop.fixedStep }),
   defaults: () => ({ ...DEFAULTS }),
+
+  /**
+   * The live tuning object, deliberately not a copy.
+   *
+   * The legacy exposed `window.TUNING` and the docs promised console tweaking
+   * for the keys the panel does not carry; the port only handed out a copy of
+   * the defaults, which quietly killed that. Mutations here take effect on the
+   * next step — and are exactly as unsaved as they always were.
+   */
+  tuning: () => sim.tuning,
   nodes: () => ({
     k: Array.from(sim.track.nk),
     g: Array.from(sim.track.ng),

@@ -277,4 +277,73 @@ export const SLIDERS: readonly SliderSpec[] = [
     step: 0.02,
     hint: 'Speed lost while scraping a wall.',
   },
+
+  /* Ajoutés en réponse à la dette 11 : les clés qu'un concepteur cherche en
+     premier, d'après la liste que la dette donnait elle-même. Le reste — les
+     constantes de génération fines, les paliers internes — reste accessible en
+     vif par `__gsNext.tuning()` sans encombrer le panneau. */
+  {
+    key: 'camDist',
+    label: 'Camera distance',
+    min: 8,
+    max: 40,
+    step: 0.5,
+    hint: 'Metres behind the ship. Close feels faster, far reads better.',
+  },
+  {
+    key: 'camHeight',
+    label: 'Camera height',
+    min: 2,
+    max: 12,
+    step: 0.25,
+    hint: 'Metres above the track at the camera anchor.',
+  },
+  {
+    key: 'fovBase',
+    label: 'Field of view',
+    min: 50,
+    max: 110,
+    step: 1,
+    hint: 'Base angle in degrees. Speed and boost widen it further.',
+  },
+  {
+    key: 'fovSpeed',
+    label: 'FOV speed gain',
+    min: 0,
+    max: 40,
+    step: 1,
+    hint: 'Extra degrees at top speed. The cheap way to sell velocity.',
+  },
+  {
+    key: 'pickRadius',
+    label: 'Pickup radius',
+    min: 1,
+    max: 8,
+    step: 0.1,
+    hint: 'Lateral metres within which a coin or repair is collected.',
+  },
+  {
+    key: 'airGravity',
+    label: 'Jump gravity',
+    min: 1,
+    max: 8,
+    step: 0.1,
+    hint: 'Multiple of g pulling the ship down mid-air. Lower means longer jumps.',
+  },
+  {
+    key: 'hullScrape',
+    label: 'Scrape damage',
+    min: 0,
+    max: 40,
+    step: 1,
+    hint: 'Hull points lost per second while grinding a wall.',
+  },
+  {
+    key: 'boostMin',
+    label: 'Boost minimum',
+    min: 0,
+    max: 50,
+    step: 1,
+    hint: 'Reserve needed before boost will engage at all.',
+  },
 ];
