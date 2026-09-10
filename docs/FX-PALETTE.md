@@ -89,7 +89,7 @@ qu'un document a porté un chiffre faux pendant des mois.
 | `SUPERBOOST` | `state.superT`, `supTime`, `supFactor` | existe |
 | `SUPERBOOST_CHARGE` | — | **n'existe pas** : pas de stock |
 | `SUPERBOOST_START` | — | **n'existe pas** : le ramassage déclenche |
-| `SUPERBOOST_END` | `superT` retombe à zéro, sans événement | instant présent, non émis |
+| `SUPERBOOST_END` | événement `supEnd` | existe depuis l'étape 2 |
 | `RECOVERY` | — | **n'existe pas** |
 | `G_SURGE` | — | **n'existe pas** |
 | `RTPC` | les paramètres de `audio.update()`, `sky.update()` | voir §12 |
@@ -119,16 +119,17 @@ son ; le palier 1 reste confondu avec le 0, et le 4 n'existe pas.
 
 `events.ts` porte une union discriminée, drainée une fois par pas. Ce qui existe :
 `land`, `badLanding`, `wallImpact`, `scrape`, `pickup` (`coin` / `fix` / `sup`),
-`wreck`.
+`supEnd`, `wreck`.
 
-Ce que la palette réclame et qu'il faudrait y ajouter — tous classe **B**, donc
-sans effet sur les références :
+Ce que la palette réclame en plus — tous classe **B**, donc sans effet sur les
+références. `supEnd` en est la démonstration : ajouté à l'étape 2, il n'a
+déplacé ni une fixture de physique ni un pixel de capture.
 
 | Événement | Où l'émettre | Note |
 |---|---|---|
 | `driftStart` | `step.ts`, à la bascule de `state.drift` à vrai | l'instant existe déjà |
 | `driftEnd` | même bascule, à faux | idem |
-| `supEnd` | `step.ts`, quand `superT` atteint zéro | idem |
+| `supEnd` | `step.ts`, quand `superT` atteint zéro | **fait**, étape 2 |
 | `supStart` | — | **n'existe pas** tant que le ramassage déclenche l'effet ; c'est le même instant que `pickup kind:'sup'` |
 | `boostFull` | `step.ts`, au franchissement de 100 | le HUD calcule déjà le seuil de son côté |
 
@@ -186,7 +187,7 @@ Un retour haptique est un complément, jamais le seul porteur d'une information.
 | `SUP_BUILDUP` | préparer l'activation | pas d'activation | **absent — mécanique, classe C** |
 | `SUP_IMPACT` | rupture sensorielle | le ramassage **est** l'activation | **existe** — classe A, aucun événement neuf |
 | `SUP_SUSTAIN` | maintenir une accélération supérieure | `state.superT` | **existe** — plume, champ, caméra, ciel, moteur, vent |
-| `SUP_END` | donner du poids à la fin | `supEnd` — à créer | absent |
+| `SUP_END` | donner du poids à la fin | `supEnd` | **existe** — décompression et halo blanc |
 | `SUP_RECOVERY` | retour progressif | pas de phase de recovery | absent, mécanique |
 
 ## 8. VFX Superboost
@@ -216,7 +217,7 @@ par frame.
 | `SFX_SUP_REACTOR` | Réacteur en superboost | palier | audio.ts | A | **existe** — drive 2 sur le corps, le souffle et la turbine | P0 |
 | `SFX_SUP_WIND` | Vent très haute vitesse | palier | audio.ts | A | **existe** — le vent ne montait pour aucun palier, il est au superboost seul | P0 |
 | `SFX_SUP_IMPACT` | Signature d'activation | le ramassage **est** l'activation | audio.ts | A | **existe** — fondu dans le son de collecte | P0 |
-| `SFX_SUP_RELEASE` | Décharge de fin | `supEnd` — à créer | audio.ts | B | absent | P0 |
+| `SFX_SUP_RELEASE` | Décharge de fin | `supEnd` | audio.ts | B | **existe** — plus discrète que l'activation, elle referme | P0 |
 | `SFX_SUP_BUILDUP` | Pré-charge | pas d'activation | audio.ts | C | absent, mécanique | P0 |
 | `SFX_SUP_READY` | Feedback de disponibilité | pas de stock | audio.ts | C | absent, mécanique | P1 |
 

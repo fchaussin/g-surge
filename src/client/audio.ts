@@ -126,6 +126,9 @@ export class Audio {
           else if (e.kind === 'fix') this.fix();
           else this.superBoost();
           break;
+        case 'supEnd':
+          this.superRelease();
+          break;
         case 'wreck':
           this.crash();
           break;
@@ -392,6 +395,21 @@ export class Audio {
 
     this.blip(180, 0.55, 'sawtooth', 0.2, 1500);
     this.blip(360, 0.5, 'square', 0.07, 2400, 0.04);
+  }
+
+  /**
+   * The end of a super boost: a decompression, not a fall.
+   *
+   * Quieter than the activation on purpose. It closes the beat rather than
+   * competing with it, and what it announces is a hand-off — the pickup filled
+   * the reserve and the super boost never drained it, so the run carries
+   * straight on into a boost.
+   */
+  private superRelease(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.noiseHit(ctx.currentTime, 0.14, 'bandpass', 2400, 620, 1.2, 0.3, true);
+    this.blip(760, 0.28, 'triangle', 0.075, 280);
   }
 
   private crash(): void {

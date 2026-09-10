@@ -276,6 +276,14 @@ function consume(events: readonly SimEvent[]): void {
           haptics.buzz([30, 30, 70, 40, 120]);
         }
         break;
+      case 'supEnd':
+        // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
+        // le ramassage a rempli la réserve et le superboost ne l'a pas
+        // consommée, donc la partie repart sur un boost entier. Un frottement
+        // de mur peut en avoir mordu, ce qui est pourquoi rien n'est écrit.
+        flashHalo(0xffffff, 0.9);
+        haptics.buzz([18, 30, 12]);
+        break;
       case 'wreck':
         endRun();
         break;

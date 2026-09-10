@@ -29,7 +29,15 @@ export type SimEvent =
     }
   /** Réparation ramassée. */
   | { readonly type: 'pickup'; readonly kind: 'fix' }
-  /** Super boost ramassé. */
+  /** Super boost ramassé. Le ramassage est l'activation : il n'y a pas de stock. */
   | { readonly type: 'pickup'; readonly kind: 'sup' }
+  /**
+   * Fin du super boost, au pas où `superT` atteint zéro.
+   *
+   * C'est le seul instant de la branche que le client ne peut pas retrouver
+   * seul : le ramassage lui est donné, la durée lui est cachée. Émis une fois,
+   * jamais répété, puisque le compteur ne redescend qu'une fois.
+   */
+  | { readonly type: 'supEnd' }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };

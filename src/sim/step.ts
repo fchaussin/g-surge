@@ -65,7 +65,13 @@ export function step(
     boost = input.boost;
   }
 
-  if (state.superT > 0) state.superT = Math.max(0, state.superT - dt);
+  if (state.superT > 0) {
+    state.superT = Math.max(0, state.superT - dt);
+    // même arithmétique qu'avant, on ne fait que nommer l'instant où elle
+    // touche le fond : `superT` n'est pas dans la trace, l'événement non plus,
+    // donc les références figées ne bougent pas d'un chiffre
+    if (state.superT === 0) out.push({ type: 'supEnd' });
+  }
   const superOn = state.superT > 0 && !attract;
   if (attract) state.boosting = false;
   else if (superOn) state.boosting = true;
