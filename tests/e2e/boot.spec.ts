@@ -46,12 +46,16 @@ test.describe('new client, skeleton', () => {
    * The commit half is deliberately loose: the end-to-end image has no git, so
    * it falls back to DEV there, and pinning it would only pin the container.
    */
-  test('shows the build it is, on the splash', async ({ page }) => {
+  test('shows the build it is, on the splash and in the menu', async ({ page }) => {
     await page.goto('/');
-    const stamp = (await page.locator('#boot .ver').textContent())?.trim() ?? '';
-    expect(stamp).toMatch(/^V\d+\.\d+\.\d+ \u00b7 \S+$/);
+    const splash = (await page.locator('#boot .ver').textContent())?.trim() ?? '';
+    const menu = (await page.locator('#menu .ver').textContent())?.trim() ?? '';
+
+    expect(splash).toMatch(/^V\d+\.\d+\.\d+ \u00b7 \S+$/);
     // Le texte du marqueur non remplacé, qu'on ne doit jamais servir tel quel.
-    expect(stamp).not.toBe('DEV');
+    expect(splash).not.toBe('DEV');
+    // Les deux viennent du même remplacement et ne peuvent pas diverger.
+    expect(menu).toBe(splash);
   });
 
   test('boots without errors, on a live context, pinned to r128', async ({ page }) => {

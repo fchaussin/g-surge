@@ -67,9 +67,14 @@
     /* fond opaque : le fond du modal est translucide et laisserait passer le texte défilant */
     background:#0b1017;margin:-24px -22px 0;padding:24px 22px 10px}
 
-  .brand{font-size:29px;font-weight:200;letter-spacing:.14em;line-height:1;
+  /* Ligne : le titre à gauche, la version du build à droite. Un .brand sans
+     version rend exactement pareil, un seul enfant se posant au départ. */
+  .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    font-size:29px;font-weight:200;letter-spacing:.14em;line-height:1;
     text-shadow:0 0 26px rgba(37,226,255,.4)}
   .brand b{font-weight:600;color:var(--neon)}
+  .brand .ver{font-size:9px;font-weight:400;letter-spacing:.2em;white-space:nowrap;
+    color:var(--dim2);text-shadow:none}
   .tag{margin:9px 0 20px;font-size:12px;line-height:1.5;color:var(--dim)}
 
   .btn{display:block;width:100%;padding:13px;border-radius:11px;border:1px solid var(--neon);
@@ -494,7 +499,10 @@
 <div class="layer on" id="menu">
   <div class="scrim"></div>
   <div class="modal">
-    <div class="brand">G-<b>SURGE</b></div>
+    <div class="brand">
+      <span>G-<b>SURGE</b></span>
+      <span class="ver"><!-- build:stamp -->DEV</span>
+    </div>
     <p class="tag">Endless track, banked corners, corkscrews and jumps. Trash your ship and the run is over.</p>
     <div class="diffrow">
       <span>DIFFICULTY</span>

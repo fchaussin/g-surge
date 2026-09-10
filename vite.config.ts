@@ -90,11 +90,11 @@ function serviceWorkerAssets(): Plugin {
  * neither answers it says DEV rather than inventing something.
  *
  * The replacement asserts, like the service worker's: a marker that stops
- * matching fails the build instead of silently shipping a stale stamp.
+ * matching fails the build instead of silently shipping a stale stamp. Every
+ * occurrence is rewritten, so the splash and the menu cannot drift apart — a
+ * test checks that they agree.
  */
 function buildStamp(): Plugin {
-  const marker = /<!-- build:stamp -->[^<]*/;
-
   const commit = (): string => {
     const fromPages = process.env.CF_PAGES_COMMIT_SHA;
     if (fromPages) return fromPages.slice(0, 7).toUpperCase();
@@ -112,7 +112,9 @@ function buildStamp(): Plugin {
     transformIndexHtml: {
       order: 'pre',
       handler(html) {
-        if (!marker.test(html)) {
+        const marker = /<!-- build:stamp -->[^<]*/g;
+        const found = html.match(marker)?.length ?? 0;
+        if (!found) {
           throw new Error('build stamp: marker "build:stamp" not found in index.html');
         }
         const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };

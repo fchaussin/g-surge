@@ -36,6 +36,15 @@ test.describe('rendu des écrans', () => {
       // leur encombrement réel dans l'image.
       const fps = document.getElementById('fpsVal');
       if (fps) fps.textContent = '60';
+
+      // Et la version du build, qui porte le commit : sans cela la référence
+      // du menu contiendrait un hash, donc elle casserait à chaque commit —
+      // une référence qu'il faut régénérer sans arrêt finit par ne plus rien
+      // protéger. Figée plutôt que masquée, pour la même raison que le
+      // compteur d'images : son encombrement reste dans l'image, et il est
+      // constant puisque le gabarit l'est.
+      const ver = document.querySelector('#menu .ver');
+      if (ver) ver.textContent = 'V0.0.0 · 0000000';
       // La cible de cadence et son groupe de boutons ont été retirés : le jeu
       // rend au rythme de l'écran, il n'y a plus rien à figer ici.
     });
