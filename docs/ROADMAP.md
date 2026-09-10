@@ -74,17 +74,30 @@ in `CLAUDE.md` goes away. That is a deliberate change, not a side effect.
 
 ## The invariant that makes this safe
 
-**The references in `tests/e2e/fixtures/` are not regenerated**, except at
-step 7, which declares its behavioural change. The new client has to satisfy
-them, not redefine them: that is what separates a port from a rewrite.
+The port keeps the spirit, not the pixels. Those are two different bars and
+only one of them is worth defending.
 
-During steps 2 and 3 the new client is only partly testable — that is the trough
+**The simulation references are not regenerated**, except at step 7, which
+declares its behavioural change. They are the objective definition of how the
+ship handles, they are already green, and they cost nothing to keep. They have
+caught three real errors so far.
+
+**Rendering and UI are not held to the legacy pixel for pixel.** The new client
+gets its own visual references, captured once it looks right and reviewed by
+eye. Chasing byte equality on a screenshot would freeze the markup exactly
+where accessibility and reduced-motion work needs it to move, and would buy
+nothing: a layout is judged by looking at it.
+
+The practical line: if a difference would change how the game plays, the
+fixtures must catch it. If it only changes how it is drawn, judgement applies.
+
+During steps 2 and 3 the new client is only partly testable — the trough
 inherent to porting in parallel. What covers the gap: the core parity tests,
 already green, and the legacy, which stays the executable reference while it is
 there.
 
-Visual references will move when the UI moves. Every regeneration must be a
-commit that does nothing else.
+Every regeneration of a visual reference must be a commit that does nothing
+else, so that what moved is visible in review.
 
 ## Steps
 
@@ -137,8 +150,14 @@ From `game.js`: loop and clock, HUD, screens and keyboard navigation, settings,
 audio, haptics, input. All of it consuming the events from `src/sim/events.ts`
 instead of the calls that used to sit inside `step()`.
 
-The CSS in `index.html` carries over as is: the visual references pin it to the
-pixel, which makes it the least risky part of the port.
+The CSS carries over as the starting point rather than as a constraint. It is
+good and it is tuned; where accessibility, reduced-motion or a cleaner
+structure argue for changing it, change it. The visual references are then
+re-captured for the new client, not inherited from the legacy.
+
+That also pulls the accessibility work of step 6 forward into this step, where
+it belongs: adding `aria-pressed` and a reduced-motion path while writing the
+markup costs an hour, and retrofitting them later costs a day.
 
 Acceptance: the new client is playable, every screen responds.
 

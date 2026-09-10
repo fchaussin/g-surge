@@ -1,23 +1,25 @@
 /**
  * Entry point of the new client.
  *
- * Skeleton only: it wires the simulation core to a renderer and a frame loop,
- * and draws a placeholder so that the wiring is visible and testable. The
- * actual scene, track meshes, ship and UI arrive at roadmap steps 2 and 3.
+ * Wires the simulation core to the rendering subsystems and the frame loop.
+ * The UI, the audio and the input devices arrive at roadmap step 3; until then
+ * the game runs in attract mode, which is what the menu already showed.
  *
- * What matters here is the shape, not the picture: the simulation is driven by
- * whole fixed steps, it is fed input as data, and it is never asked to touch
- * the DOM or three.js.
+ * The shape matters more than the picture: the simulation advances in whole
+ * fixed steps, is fed input as data, and never touches the DOM or three.js.
  */
-import * as THREE from 'three';
-import { Sim } from '../sim/index.js';
+import { Color, FogExp2, REVISION, Scene } from 'three';
+import { BACK, Sim } from '../sim/index.js';
 import type { Input } from '../sim/index.js';
+import { ChaseCamera } from './camera.js';
 import { Loop } from './loop.js';
+import { Sky } from './sky.js';
+import { TrackMesh } from './track-mesh.js';
 import { Viewport } from './viewport.js';
 
 const VOID = 0x05060a;
 
-/** Reused every frame: allocating one of these per step is 720 a second. */
+/** Reused every frame: one of these per step would be 720 a second. */
 const input: Input = { steer: 0, brake: false, boost: false };
 
 function seedFromUrl(): string | null {
@@ -37,30 +39,43 @@ function freshSeed(): string {
 
 const sim = new Sim({ seed: seedFromUrl() ?? freshSeed(), difficulty: 'easy' });
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(VOID);
-scene.fog = new THREE.FogExp2(VOID, 0.0017);
+const scene = new Scene();
+scene.background = new Color(VOID);
+scene.fog = new FogExp2(VOID, 0.0017);
 
-const viewport = new Viewport(74);
-viewport.camera.position.set(0, 5, -19);
-viewport.camera.lookAt(0, 2.6, 46);
+const viewport = new Viewport(sim.tuning.fovBase);
+const camera = new ChaseCamera(viewport.camera, sim.tuning);
+const sky = new Sky();
+const trackMesh = new TrackMesh(viewport.renderer);
+scene.add(sky.group, trackMesh.group);
 
-// Placeholder standing in for the ship until step 2 ports the real model. It
-// is driven from the simulation so that a rendered frame proves the whole
-// chain, not just that three.js starts.
-const marker = new THREE.Mesh(
-  new THREE.BoxGeometry(3.8, 0.9, 6),
-  new THREE.MeshBasicMaterial({ color: 0x25e2ff, wireframe: true }),
-);
-scene.add(marker);
+let elapsed = 0;
 
 const loop = new Loop({
   simulate(dt) {
+    // Attract mode until the input layer lands: the autopilot recentres and
+    // the track keeps streaming, which is enough to see everything render.
     sim.step(input, dt, true);
   },
-  render() {
-    marker.position.set(sim.state.lat, 1.35 + sim.state.hop, 0);
-    marker.rotation.y = sim.state.yaw;
+  render(frameDt) {
+    elapsed += frameDt;
+
+    // The path has to be integrated before anything reads it: the ribbons walk
+    // its buffers directly and the camera samples along it.
+    sim.track.buildPath(sim.state.cursor);
+    trackMesh.update(sim.track, sim.tuning.stripeEvery);
+    camera.update(sim.state, sim.track, sim.tuning, frameDt, sim.state.shake);
+
+    const position = viewport.camera.position;
+    sky.update(
+      elapsed,
+      position.x, position.y, position.z,
+      sim.track.nk[BACK]!,
+      sim.state.speed,
+      frameDt,
+      sim.state.boosting,
+    );
+
     viewport.render(scene);
   },
 });
@@ -68,8 +83,8 @@ const loop = new Loop({
 loop.start();
 
 /**
- * Debug surface, mirroring the legacy `window.__gs`. It exists for the tests
- * and for the replay features to come; it is not a game API.
+ * Debug surface, mirroring the legacy `window.__gs`. For the tests and for the
+ * replay features to come; not a game API.
  */
 declare global {
   interface Window {
@@ -79,14 +94,18 @@ declare global {
       fixedStep(): number;
       state(): Readonly<typeof sim.state>;
       renderScale(): number;
+      setSkyDetail(high: boolean): void;
+      setSkyVisible(visible: boolean): void;
     };
   }
 }
 
 window.__gsNext = {
   seed: () => sim.seed,
-  revision: THREE.REVISION,
+  revision: REVISION,
   fixedStep: () => loop.fixedStep,
   state: () => sim.state,
   renderScale: () => viewport.renderScale,
+  setSkyDetail: (high) => sky.setDetail(high),
+  setSkyVisible: (visible) => sky.setVisible(visible),
 };

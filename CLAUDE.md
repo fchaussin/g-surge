@@ -228,6 +228,22 @@ imposed, and the port must preserve them rather than invent new ones.
   covered every case so far.
 - **Premature generality in the network layer.** There is no protocol yet; see
   `docs/ROADMAP.md`.
+- **A game engine.** Evaluated, declined, for reasons specific to this game
+  rather than taste. Its physics is a two-stage lateral model in track space
+  with a ship that never moves, which no rigid-body engine models — they solve
+  in world space, the coordinate system this game exists to avoid. There are no
+  assets to pipeline: no models, no textures, no audio files, which is why the
+  payload is 130 KB. The scene graph, the maths and the renderer already come
+  from three.js. What is left is roughly 1 700 lines of logic no engine
+  provides. Adopting one now would also be a rewrite rather than a port, and
+  would destroy the visual and simulation references that make the migration
+  safe.
+
+  Three things would change that answer: wanting an editor and hand-authored
+  levels; physics becoming generic, with collisions between several bodies; or
+  the network layer, where the opposite is already true — when multiplayer
+  arrives, do not hand-roll state synchronisation, use Colyseus or Cloudflare
+  Durable Objects.
 
 ## Editing style that works here
 
