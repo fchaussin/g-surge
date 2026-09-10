@@ -20,7 +20,16 @@ services:
     volumes:
       - .:/app
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:5173/']
+      # node et non wget : node:24-slim n'embarque pas wget, et le contrôle
+      # échouait donc en silence — conteneur marqué unhealthy alors que le
+      # serveur répondait très bien.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:5173/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
       interval: 10s
       timeout: 3s
       retries: 3
