@@ -11,13 +11,24 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { Sim } from '../src/sim/index.js';
+import { Sim, trackPoint } from '../src/sim/index.js';
 import type { Difficulty } from '../src/sim/index.js';
 import { digest } from './helpers/digest.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'e2e', 'fixtures');
 const load = (name: string): unknown =>
   JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), 'utf8'));
+
+/**
+ * Round-trips a value through JSON before comparing it to a fixture.
+ *
+ * The references are JSON, and JSON has no negative zero: the legacy writes
+ * `-0` for a flat gradient at cursor zero and the file stores `0`. Comparing a
+ * live `-0` against a parsed `0` fails under `Object.is`, which is what
+ * `toEqual` uses. Both sides therefore go through the same lossy step, exactly
+ * as `matchFixture` does on the Playwright side.
+ */
+const asJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
 /** Miroir exact de `__gs.nodes()` et `__gs.items()` côté jeu. */
 function readTrack(sim: Sim) {
@@ -96,7 +107,7 @@ describe('parité du noyau avec le jeu', () => {
     const expected = load('track-reference');
     const sim = new Sim({ seed: 'reference', difficulty: 'easy' });
     sim.reset('reference');
-    expect(readTrack(sim)).toEqual(expected);
+    expect(asJson(readTrack(sim))).toEqual(expected);
   });
 
   it('régénère les soixante pistes de référence', () => {
@@ -120,9 +131,55 @@ describe('parité du noyau avec le jeu', () => {
         every: 120,
         script: REFERENCE_SCRIPT,
       });
-      expect(got).toEqual(expected);
+      expect(asJson(got)).toEqual(expected);
     });
   }
+});
+
+describe('la géométrie du ruban portée dans le noyau', () => {
+  /** Les mêmes distances que `__gs.path` côté jeu. */
+  const AT = [-19, -6, 0, 12, 22, 46, 120, 600, 1400];
+
+  it('reproduit le ruban intégré et ses échantillons', () => {
+    const expected = load('track-geometry') as Array<Record<string, unknown>>;
+    const sim = new Sim({ seed: 'geometry', difficulty: 'easy' });
+    sim.reset('geometry');
+
+    // Même arrondi que la capture. Math.cos rend un dernier bit différent sous
+    // le V8 de Chromium et celui de Node — vérifié, sin non, cos oui — donc une
+    // référence prise dans un navigateur ne peut pas être rejouée ici au bit
+    // près. Voir TECH-DEBT.md section 17.
+    const r = (v: number) => Math.round(v * 1e9) / 1e9;
+    const ra = (a: Float32Array) => Array.from(a, r);
+
+    const point = trackPoint();
+    const got = [0, 0.37, 4.5, 11.9].map((cursor) => {
+      sim.track.buildPath(cursor);
+      return {
+        cursor,
+        px: ra(sim.track.px), py: ra(sim.track.py),
+        pz: ra(sim.track.pz), pyaw: ra(sim.track.pyaw),
+        samples: AT.map((d) => {
+          const o = sim.track.sample(cursor, d, point);
+          return {
+            d, x: r(o.x), y: r(o.y), z: r(o.z), yaw: r(o.yaw), bank: r(o.bank),
+            rx: r(o.rx), ry: r(o.ry), rz: r(o.rz), ux: r(o.ux), uy: r(o.uy), uz: r(o.uz),
+          };
+        }),
+        grades: AT.map((d) => r(sim.track.gradeAt(cursor, d))),
+      };
+    });
+
+    expect(asJson(got)).toEqual(expected);
+  });
+
+  it('réutilise le point fourni au lieu d\'allouer', () => {
+    const sim = new Sim({ seed: 'alloc', difficulty: 'easy' });
+    sim.reset('alloc');
+    sim.track.buildPath(0);
+    const point = trackPoint();
+    expect(sim.track.sample(0, 10, point)).toBe(point);
+  });
 });
 
 describe('le noyau raconte ce qu\'il fait', () => {

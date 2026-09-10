@@ -188,6 +188,24 @@ test.describe('déterminisme de la simulation', () => {
     matchFixture('track-reference', await freshTrack(page, 'reference'));
   });
 
+  /**
+   * La géométrie du ruban, figée avant d'être portée dans le noyau.
+   *
+   * `buildPath` et `sample` sont des fonctions pures des tampons de piste :
+   * elles descendent dans `src/sim/` à l'étape 2 de la feuille de route, et
+   * cette référence est ce qui prouvera que le déplacement n'a rien changé.
+   * Plusieurs curseurs, dont un juste avant la poussée d'un nœud.
+   */
+  test('la géométrie du ruban est figée par une référence', async ({ game, page }) => {
+    await game.boot();
+
+    const geometry = await page.evaluate(() => {
+      window.__gs.trace({ seed: 'geometry', steps: 0 });
+      return [0, 0.37, 4.5, 11.9].map((cursor) => window.__gs.path(cursor));
+    });
+    matchFixture('track-geometry', geometry);
+  });
+
   test('une trace rejouée deux fois est identique', async ({ game, page }) => {
     await game.boot();
 

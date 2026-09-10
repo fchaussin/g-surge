@@ -27,6 +27,30 @@ export const ITEM_FIX = 1;
 export const ITEM_SUP = 2;
 export type ItemType = typeof ITEM_COIN | typeof ITEM_FIX | typeof ITEM_SUP;
 
+/** Repère local du ruban en un point. Réutilisé, jamais alloué par appel. */
+export interface TrackPoint {
+  x: number;
+  y: number;
+  z: number;
+  /** Cap intégré, rad. */
+  yaw: number;
+  /** Dévers, rad. */
+  bank: number;
+  /** Vecteur droite, incliné par le dévers. */
+  rx: number;
+  ry: number;
+  rz: number;
+  /** Normale à la piste. */
+  ux: number;
+  uy: number;
+  uz: number;
+}
+
+/** Crée un point réutilisable. */
+export function trackPoint(): TrackPoint {
+  return { x: 0, y: 0, z: 0, yaw: 0, bank: 0, rx: 0, ry: 0, rz: 0, ux: 0, uy: 0, uz: 0 };
+}
+
 export interface Item {
   id: number;
   lat: number;
@@ -69,6 +93,14 @@ export class Track {
 
   /** Vitesse vue par le générateur. Écrite par la simulation avant `push()`. */
   genSpeed: number;
+
+  /* Ruban intégré, rempli par `buildPath`. Réécrit sur place à chaque image.
+     Exposé en lecture : les rubans du rendu parcourent ces tampons directement
+     plutôt que d'appeler `sample` cent trente fois par image. */
+  readonly px = new Float32Array(COUNT);
+  readonly py = new Float32Array(COUNT);
+  readonly pz = new Float32Array(COUNT);
+  readonly pyaw = new Float32Array(COUNT);
 
   private readonly gen: GenState = {
     k: 0, kTarget: 0, kLeft: 0, g: 0, gTarget: 0, gLeft: 0, gLerp: 0.09,
@@ -143,6 +175,86 @@ export class Track {
     if (this.items.length && this.items[0]!.id < oldest - 2) {
       this.items = this.items.filter((it) => it.id >= oldest - 2);
     }
+  }
+
+  /**
+   * Intègre les positions du ruban depuis le vaisseau vers l'extérieur,
+   * l'arrière d'abord puis l'avant, et remplit `px/py/pz/pyaw`.
+   *
+   * Le vaisseau est à l'index `BACK`, décalé de `cursor` mètres dans son
+   * segment. Chaque pas avance d'un segment en utilisant le cap moyen entre
+   * ses deux extrémités : intégrer avec le cap d'une seule extrémité fait
+   * dériver la piste vers l'extérieur des virages.
+   */
+  buildPath(cursor: number): void {
+    const { px, py, pz, pyaw, nk, ng } = this;
+
+    const cy0 = -nk[BACK]! * cursor;
+    px[BACK] = -Math.sin(cy0) * cursor;
+    pz[BACK] = -Math.cos(cy0) * cursor;
+    py[BACK] = -ng[BACK]! * cursor;
+    pyaw[BACK] = cy0;
+
+    for (let i = BACK - 1; i >= 0; i--) {
+      const ahead = pyaw[i + 1]!;
+      const y2 = ahead - nk[i]! * SEG;
+      const mid = (y2 + ahead) * 0.5;
+      px[i] = px[i + 1]! - Math.sin(mid) * SEG;
+      pz[i] = pz[i + 1]! - Math.cos(mid) * SEG;
+      py[i] = py[i + 1]! - ng[i]! * SEG;
+      pyaw[i] = y2;
+    }
+
+    const first = SEG - cursor;
+    const fy = nk[BACK]! * first;
+    const midF = fy * 0.5;
+    px[BACK + 1] = Math.sin(midF) * first;
+    pz[BACK + 1] = Math.cos(midF) * first;
+    py[BACK + 1] = ng[BACK]! * first;
+    pyaw[BACK + 1] = fy;
+
+    for (let i = BACK + 2; i < COUNT; i++) {
+      const behind = pyaw[i - 1]!;
+      const y2 = behind + nk[i - 1]! * SEG;
+      const mid = (y2 + behind) * 0.5;
+      px[i] = px[i - 1]! + Math.sin(mid) * SEG;
+      pz[i] = pz[i - 1]! + Math.cos(mid) * SEG;
+      py[i] = py[i - 1]! + ng[i - 1]! * SEG;
+      pyaw[i] = y2;
+    }
+  }
+
+  /**
+   * Point du ruban à `d` mètres devant le vaisseau, `d` négatif vers
+   * l'arrière. Écrit dans `out` plutôt que d'allouer : la caméra et les objets
+   * l'appellent plusieurs fois par image.
+   *
+   * Demande un `buildPath` préalable avec le même curseur.
+   */
+  sample(cursor: number, d: number, out: TrackPoint): TrackPoint {
+    let f = BACK + (cursor + d) / SEG;
+    f = Math.max(0, Math.min(COUNT - 1.001, f));
+    const i = Math.floor(f);
+    const t = f - i;
+    const j = i + 1;
+
+    const x0 = this.px[i]!, y0 = this.py[i]!, z0 = this.pz[i]!;
+    out.x = x0 + (this.px[j]! - x0) * t;
+    out.y = y0 + (this.py[j]! - y0) * t;
+    out.z = z0 + (this.pz[j]! - z0) * t;
+
+    const yaw0 = this.pyaw[i]!;
+    const yaw = yaw0 + (this.pyaw[j]! - yaw0) * t;
+    const b0 = this.nb[i]!;
+    const b = b0 + (this.nb[j]! - b0) * t;
+    out.yaw = yaw;
+    out.bank = b;
+
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cb = Math.cos(b), sb = Math.sin(b);
+    out.rx = cy * cb; out.ry = sb; out.rz = -sy * cb;      // droite, inclinée par le dévers
+    out.ux = -cy * sb; out.uy = cb; out.uz = sy * sb;      // normale à la piste
+    return out;
   }
 
   /** Pente interpolée à `d` mètres devant le vaisseau. */

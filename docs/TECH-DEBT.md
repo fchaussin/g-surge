@@ -27,6 +27,7 @@ are not going to be fixed where they stand — they disappear with the file.
 | 14 | All strings hardcoded in English | Low | open |
 | 15 | Reverb built on the main thread | Low | open, roadmap step 6 |
 | 16 | Missing PWA icons | Medium | open, roadmap step 5 |
+| 17 | `Math.cos` is not bit-identical across engines | Medium | measured, blocks server validation |
 
 ## 1. No module system
 
@@ -233,6 +234,31 @@ the worst possible moment. Generate it during the run or offload it.
 three icons and `sw.js` lists four in its cache manifest, so all of them 404.
 The service worker survives — each asset is cached inside its own try/catch —
 but the installed app has no icon. Roadmap step 5.
+
+## 17. Transcendentals are not bit-identical across engines
+
+`Math.cos` returns a different last bit under Chromium's V8 and Node's V8 for
+some arguments. Measured, not assumed: on four track yaw values taken from a
+real run, two disagreed by one unit in the last place while `Math.sin` agreed
+on all four. The specification allows this — only a handful of `Math` functions
+are required to be correctly rounded.
+
+Consequences, in order of how much they matter:
+
+- **A Node simulation cannot reproduce a browser run bit for bit**, so
+  server-side validation of a submitted run cannot be an equality check. It
+  needs a tolerance, or the core has to stop using the platform's
+  transcendentals and carry its own — a polynomial approximation or a table —
+  which is a real cost to weigh when the multiplayer specification is written.
+  This is the finding that matters.
+- The frozen references have to be rounded. The physics traces already were, at
+  1e-6, which is why they replay exactly; the geometry reference is rounded at
+  1e-9. Both are far above the 1e-16 noise and far below anything meaningful.
+- Two browsers on different engines will drift apart over a long run for the
+  same reason. Nothing depends on that today, ghosts and shared tracks would.
+
+Same-engine determinism is unaffected: a given build always agrees with itself,
+which is what the seeded PRNG and the fixed step guarantee.
 
 ## What is deliberately not debt
 

@@ -206,7 +206,11 @@ otherwise have to be redone.
 ## Out of scope
 
 - **Multiplayer.** Specifications come after these steps. Step 7 lifts the last
-  technical blocker; nothing else is committed.
+  blocker on the track being a function of its seed, but a second one has since
+  been measured: `Math.cos` is not bit-identical across JavaScript engines, so
+  a server cannot validate a submitted run by replaying it and comparing for
+  equality. See `TECH-DEBT.md` §17 — it has to be settled in the specification,
+  not discovered during implementation.
 - **three.js past r151.** Colour management and lighting intensity defaults
   changed: that is a visual re-tuning pass, not a dependency bump. It would also
   not make the game faster — measured, see `TECH-DEBT.md` §7: 76 draw calls and

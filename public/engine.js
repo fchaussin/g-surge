@@ -324,6 +324,28 @@ window.__gs = {
   },
   items: function(){
     return items.map(function(it){ return { id: it.id, lat: it.lat, type: it.type }; });
+  },
+  /* Instrumentation de migration, pas une fonctionnalité : elle sert à figer
+     la géométrie du legacy avant de la porter dans le noyau. Voir l'étape 2 de
+     docs/ROADMAP.md. */
+  path: function(cursor){
+    buildPath(cursor);
+    const at = [-19, -6, 0, 12, 22, 46, 120, 600, 1400];
+    // Arrondi au milliardième, comme les traces de physique. Math.cos ne rend
+    // pas le même dernier bit sous le V8 de Chromium et celui de Node : sans
+    // cet arrondi une référence capturée ici ne peut pas être rejouée là-bas.
+    const r = function(v){ return Math.round(v * 1e9) / 1e9; };
+    const ra = function(a){ return Array.prototype.map.call(a, r); };
+    return {
+      cursor: cursor,
+      px: ra(px), py: ra(py), pz: ra(pz), pyaw: ra(pyaw),
+      samples: at.map(function(d){
+        const o = sample(cursor, d, {});
+        return { d: d, x: r(o.x), y: r(o.y), z: r(o.z), yaw: r(o.yaw), bank: r(o.bank),
+                 rx: r(o.rx), ry: r(o.ry), rz: r(o.rz), ux: r(o.ux), uy: r(o.uy), uz: r(o.uz) };
+      }),
+      grades: at.map(function(d){ return r(gradeAt(cursor, d)); })
+    };
   }
 };
 

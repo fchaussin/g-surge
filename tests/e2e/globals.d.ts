@@ -51,6 +51,15 @@ interface GsDebug {
   clock(): { hz: number; dt: number; maxFrame: number; eps: number };
   nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
   items(): Array<{ id: number; lat: number; type: number }>;
+  path(cursor: number): {
+    cursor: number;
+    px: number[]; py: number[]; pz: number[]; pyaw: number[];
+    samples: Array<{
+      d: number; x: number; y: number; z: number; yaw: number; bank: number;
+      rx: number; ry: number; rz: number; ux: number; uy: number; uz: number;
+    }>;
+    grades: number[];
+  };
   trace(opts?: GsTraceOptions): {
     seed: string;
     diff: string;
