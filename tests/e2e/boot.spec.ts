@@ -106,12 +106,19 @@ test.describe('new client, skeleton', () => {
     expect(await page.evaluate(() => window.__gsNext.fixedStep())).toBeCloseTo(1 / 720, 12);
 
     const first = await page.evaluate(() => window.__gsNext.state().travel);
-    await page.waitForTimeout(1000);
-    const second = await page.evaluate(() => window.__gsNext.state().travel);
 
-    // Attract mode holds around 46 m/s, so a second of wall time is tens of
-    // metres. Anything much below that means steps are being dropped.
-    expect(second - first).toBeGreaterThan(20);
+    // Le mode attract tient ~46 m/s en temps simulé. On attend que la
+    // simulation ait avancé de 20 m, sans borner le temps mur que cela prend :
+    // un runner CI partagé sous WebGL logiciel descend à ~7 images/s, et
+    // l'anti-spirale MAX_FRAME borne alors l'avancée à 0,35 s simulée par
+    // seconde réelle. Mesurer sur une seconde de mur testait la machine, pas
+    // la boucle. Si des pas étaient réellement perdus, travel n'avancerait
+    // jamais et le poll expirerait.
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__gsNext.state().travel)) - first, {
+        timeout: 15000,
+      })
+      .toBeGreaterThan(20);
   });
 
   test('the seed can be pinned from the URL', async ({ page }) => {
