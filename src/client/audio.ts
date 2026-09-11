@@ -221,7 +221,7 @@ export class Audio {
     const wnd = WIND_BY_TIER[tier];
     const surge = tier === 3;
     const duck = surge ? SURGE_DUCK : 1;
-    /** Les constantes de temps de chaque couche, allongées pendant le surge. */
+    /** Each layer's time constant, stretched during a surge. */
     const tc = (normal: number) => (surge ? SURGE_EASE : normal);
 
     eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.1);
@@ -265,9 +265,9 @@ export class Audio {
       0.07,
     );
 
-    // La recharge : elle monte avec la réserve et ne s'entend qu'en drift,
-    // parce que c'est là qu'elle est trois fois plus rapide et que le joueur a
-    // une raison d'écouter.
+    // The charge: it climbs with the reserve and is heard only in a drift,
+    // because that is where it refills three times faster and the player has
+    // a reason to listen.
     const charging = drift > 0 && charge < 0.995 && !surge;
     this.charge.osc.frequency.setTargetAtTime(300 + charge * 560, t, 0.08);
     this.charge.gain.gain.setTargetAtTime(playing && charging ? 0.018 : 0, t, 0.09);

@@ -1,20 +1,20 @@
 /**
- * The per-frame DOM writes.
+ * Les écritures DOM de chaque frame.
  *
- * Everything here is read from simulation state and written to elements found
- * once at construction. Nothing in this file feeds back into the simulation,
- * which is why it can be skipped entirely when the game is not being played.
+ * Tout ici est lu dans l'état de la simulation et écrit dans des éléments
+ * trouvés une fois à la construction. Rien dans ce fichier ne remonte vers la
+ * simulation, ce qui permet de le sauter entièrement quand on ne joue pas.
  *
- * The one rule worth keeping: touch the DOM only when the value has changed.
- * A style write per frame at 144 Hz on eight elements is enough layout work to
- * show up next to the renderer.
+ * La seule règle qui compte : ne toucher le DOM que si la valeur a changé. Une
+ * écriture de style par frame à 144 Hz sur huit éléments, c'est assez de mise
+ * en page pour apparaître à côté du rendu.
  */
 import { thrustTier, type SimState, type Tuning } from '../sim/index.js';
 
-/** Multiplier colour by speed tier, matching the coin it came from. */
+/** Couleur du multiplicateur par palier de vitesse, celle de la pièce d'origine. */
 const TIER_CSS = ['#e0913f', '#ffc24a', '#dff4ff', '#fff6d0'] as const;
 
-/** How long the multiplier flashes after a change, in seconds. */
+/** Durée du flash du multiplicateur après un changement, en secondes. */
 const PULSE_UP = 0.16;
 const PULSE_CUT = 0.2;
 
@@ -36,7 +36,7 @@ export class Hud {
   private readonly best = byId('recline');
   private readonly pop = byId('pop');
 
-  /* Last written values, so an unchanged frame writes nothing. */
+  /* Dernières valeurs écrites, pour qu'une frame inchangée n'écrive rien. */
   private lastScore = -1;
   private lastSpeed = -1;
   private lastCoins = -1;
@@ -49,7 +49,7 @@ export class Hud {
   private pulse = 0;
   private popTime = 0;
 
-  /** Called once per frame while a run is on. */
+  /** Appelé une fois par frame pendant une partie. */
   update(state: SimState, tuning: Tuning, frameDt: number): void {
     const score = Math.round(state.score);
     if (score !== this.lastScore) {
@@ -78,13 +78,13 @@ export class Hud {
     }
   }
 
-  /** Floating label on a pickup: the multiplier gain, a repair, a super boost. */
+  /** Étiquette flottante d'un ramassage : le gain de multiplicateur, une réparation, un superboost. */
   showPop(text: string, colour: string): void {
     if (!this.pop) return;
     this.pop.textContent = text;
     this.pop.style.color = colour;
     this.pop.classList.remove('on');
-    // Forces a reflow so the animation restarts on a repeated pickup.
+    // Force un reflow pour que l'animation reparte sur un ramassage répété.
     void this.pop.offsetWidth;
     this.pop.classList.add('on');
     this.popTime = 0.9;
@@ -94,7 +94,7 @@ export class Hud {
     if (this.best) this.best.textContent = text;
   }
 
-  /** Clears everything a finished run left behind. */
+  /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
     this.lastScore = this.lastSpeed = this.lastCoins = -1;
     this.lastHull = this.lastLevel = -1;
@@ -156,8 +156,8 @@ export class Hud {
     if (hull !== this.lastHull) {
       this.lastHull = hull;
       if (this.hull) {
-        // Green at 100, yellow near 55, red at 0: the curve warns a little
-        // before the halfway point, which is when it still matters.
+        // Vert à 100, jaune vers 55, rouge à 0 : la courbe prévient un peu
+        // avant la moitié, quand ça compte encore.
         const hue = 120 * Math.pow(Math.max(0, state.hull) / 100, 1.35);
         this.hull.style.width = `${hull}%`;
         this.hull.style.background = `hsl(${hue.toFixed(0)},88%,50%)`;

@@ -1,19 +1,21 @@
 /**
- * Cosmic background: a shader on an inverted sphere centred on the camera.
+ * Le fond cosmique : un shader sur une sphère inversée centrée sur la caméra.
  *
- * Value-noise fbm for the nebula, plus two hashed star layers. `uSimple` drops
- * the second layer and halves the octaves when auto-quality asks for it; the
- * background is never switched off automatically, only detailed down, because
- * losing it costs the game its visual signature.
+ * Un fbm de bruit de valeur pour la nébuleuse, plus deux couches d'étoiles
+ * hachées. `uSimple` supprime la seconde couche et divise les octaves par deux
+ * quand la qualité automatique le demande ; le fond n'est jamais coupé
+ * automatiquement, seulement dégradé, parce que le perdre coûte au jeu sa
+ * signature visuelle.
  *
- * Ported verbatim from the legacy engine, GLSL included. Two things must not
- * be touched:
+ * Porté tel quel depuis l'ancien moteur, GLSL compris. Deux choses ne doivent
+ * pas être touchées :
  *
- * - **No `precision mediump float`.** The hash loses its spread and the stars
- *   fuse into large blobs. three.js applies `highp` by default; leave it.
- * - The sphere is rotated by hand from integrated curvature. The ship has no
- *   heading — a corner is the track bending ahead — so without `skyYaw` a turn
- *   would show no lateral motion at all.
+ * - **Pas de `precision mediump float`.** Le hachage perd son étalement et les
+ *   étoiles fusionnent en grosses taches. three.js applique `highp` par
+ *   défaut ; le laisser faire.
+ * - La sphère est tournée à la main depuis la courbure intégrée. Le vaisseau
+ *   n'a pas de cap — un virage est le ruban qui se courbe devant — donc sans
+ *   `skyYaw` un virage ne montrerait aucun mouvement latéral.
  */
 import {
   BackSide,
@@ -140,20 +142,21 @@ void main(){
   gl_FragColor = vec4(col, 1.0);
 }`;
 
-/** Star dust radius and vertical spread, from the legacy field. */
+/** Nombre de grains de poussière, repris du champ de l'ancien moteur. */
 const DUST_COUNT = 900;
 
 /**
- * Brightness gain by thrust tier. Index 1 is what a boost has always had, so
- * only the super boost moves.
+ * Gain de luminosité par palier de poussée. L'indice 1 est ce qu'un boost a
+ * toujours eu, donc seul le superboost bouge.
  *
- * The ladder is deliberately not built on brightness alone: one channel is the
- * colour-only signalling debt 10 is about. The super boost also streaks the
- * stars, which is a different kind of effect rather than more of the same one.
+ * L'échelle n'est volontairement pas bâtie sur la seule luminosité : un canal
+ * unique, c'est la dette 10 des signaux par la couleur seule. Le superboost
+ * file aussi les étoiles, ce qui est un effet d'une autre nature plutôt que
+ * davantage du même.
  */
 const WARP_BY_TIER = [0, 1, 1.35, 1.6] as const;
 
-/** Rise and fall of the streak, per second. It hits, then it lets go. */
+/** Montée et retombée du filé, par seconde. Il frappe, puis il lâche. */
 const STREAK_ATTACK = 16;
 const STREAK_RELEASE = 3.2;
 
@@ -161,11 +164,11 @@ export class Sky {
   readonly group = new Group();
 
   private readonly material: ShaderMaterial;
-  /** Integrated heading. The ship has none, so the sky carries the turn. */
+  /** Cap intégré. Le vaisseau n'en a pas, donc le ciel porte le virage. */
   private yaw = 0;
-  /** Eased, so it has to be reset for a capture. See `reset`. */
+  /** Amorti, donc à remettre à zéro pour une capture. Voir `reset`. */
   private streak = 0;
-  /** Direction of travel in the sphere's own frame, rewritten every frame. */
+  /** Direction de marche dans le repère de la sphère, réécrite à chaque frame. */
   private readonly axis = new Vector3(0, 0, 1);
 
   constructor() {
@@ -192,7 +195,7 @@ export class Sky {
     this.group.add(this.makeDust());
   }
 
-  /** Detail level. The background is never switched off automatically. */
+  /** Niveau de détail. Le fond n'est jamais coupé automatiquement. */
   setDetail(high: boolean): void {
     this.material.uniforms.uSimple!.value = high ? 0 : 1;
   }
@@ -206,11 +209,11 @@ export class Sky {
   }
 
   /**
-   * Drops the integrated heading and the streak.
+   * Remet à zéro le cap intégré et le filé.
    *
-   * The streak eases over frames, so a capture taken without this lands
-   * wherever the frames before it left it — the fourth member of a family of
-   * bugs this codebase has already paid for three times.
+   * Le filé s'amortit sur des frames, donc une capture prise sans ceci atterrit
+   * là où les frames précédentes l'ont laissé — quatrième membre d'une famille
+   * de bugs que ce code a déjà payée trois fois.
    */
   reset(): void {
     this.yaw = 0;
@@ -220,10 +223,10 @@ export class Sky {
   }
 
   /**
-   * Integrates the turn and follows the camera.
+   * Intègre le virage et suit la caméra.
    *
-   * Positional arguments on purpose: this runs every frame and an options
-   * object here would be one allocation per frame.
+   * Arguments positionnels à dessein : ceci tourne à chaque frame et un objet
+   * d'options serait ici une allocation par frame.
    */
   update(
     timeSeconds: number,
@@ -259,8 +262,9 @@ export class Sky {
   }
 
   /**
-   * Constant seed, not the run's: the field is built once at load, and a
-   * stable sky is what will make full-frame visual references comparable.
+   * Graine constante, et pas celle de la partie : le champ est bâti une fois au
+   * chargement, et un ciel stable est ce qui rend les références visuelles
+   * plein cadre comparables.
    */
   private makeDust(): Points {
     const rng = Rng.fromSeed('g-surge', 'dust');

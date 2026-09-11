@@ -1,10 +1,11 @@
 /**
- * Entry point of the new client.
+ * Point d'entrée du client.
  *
- * Wiring only: it owns no rules. The simulation core decides what happens, the
- * subsystems decide how it looks and sounds, and this file connects them and
- * runs the clock. What the simulation reports is answered in `feedback.ts`,
- * and what the tests need to reach is exposed by `debug.ts`.
+ * Du câblage, rien d'autre : ce fichier ne possède aucune règle. Le noyau de
+ * simulation décide de ce qui arrive, les sous-systèmes décident de l'aspect et
+ * du son, et ce fichier les relie et fait tourner l'horloge. Ce que la
+ * simulation rapporte trouve sa réponse dans `feedback.ts`, et ce que les tests
+ * doivent atteindre est exposé par `debug.ts`.
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, Scene } from 'three';
 import { BACK, DIFF, Sim, thrustTier, tuningFor, type Difficulty } from '../sim/index.js';
@@ -64,7 +65,7 @@ const prefs = new PreferenceStore();
 const pinnedSeed = seedFromUrl();
 const sim = new Sim({ seed: pinnedSeed ?? freshSeed(), difficulty: prefs.values.difficulty });
 
-/* ---------------------------------------------------------------- scene -- */
+/* ---------------------------------------------------------------- scène -- */
 
 const scene = new Scene();
 scene.background = new Color(VOID);
@@ -84,13 +85,14 @@ const spray = new DriftSpray();
 ship.group.add(spray.group);
 scene.add(sky.group, trackMesh.group, pickups.group, ship.group);
 
-// The ship is the only lit object; everything else is unlit on purpose.
+// Le vaisseau est le seul objet éclairé ; tout le reste est sans éclairage à
+// dessein.
 scene.add(new AmbientLight(0x2c3d59, 1.15));
 const keyLight = new DirectionalLight(0xdff0ff, 1.2);
 keyLight.position.set(0.45, 1, -0.5);
 scene.add(keyLight);
 
-/* ------------------------------------------------------------- ui, loop -- */
+/* ------------------------------------------------------- interface, boucle -- */
 
 const hud = new Hud();
 const audio = new Audio();
@@ -107,15 +109,15 @@ const fullscreen = new Fullscreen((active, blocked) => {
   if (button) {
     button.textContent = blocked ? 'FULLSCREEN BLOCKED' : active ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
   }
-  // Entering fullscreen changes what is on screen, so what is navigable moves.
+  // Passer en plein écran change ce qui est affiché, donc ce qui est navigable.
   screens.buildNav();
 });
 
 const screens = new Screens({
   onChange(mode) {
     if (mode !== 'run') input.release();
-    // Browsers only let an AudioContext start from a gesture, and every screen
-    // change is one.
+    // Les navigateurs ne laissent démarrer un AudioContext que sur un geste, et
+    // chaque changement d'écran en est un.
     audio.resume();
   },
 });
@@ -153,7 +155,8 @@ const settings = new Settings({
   scoreMultiplier: (d) => DIFF[d].mul,
   setDifficulty: (d) => {
     difficulty = d;
-    // Keep the display value: it belongs to the machine, not to the level.
+    // On garde la valeur d'affichage : elle appartient à la machine, pas au
+    // niveau.
     const scale = sim.tuning.renderScale;
     sim.setDifficulty(d);
     sim.tuning.renderScale = scale;
@@ -161,8 +164,8 @@ const settings = new Settings({
   },
   setTuning: (key, value) => {
     (sim.tuning as unknown as Record<string, number>)[key] = value;
-    // Render scale is the one tuning value that is also a preference: it
-    // describes the machine, not the game.
+    // L'échelle de rendu est la seule valeur d'accord qui soit aussi une
+    // préférence : elle décrit la machine, pas le jeu.
     if (key === 'renderScale') {
       viewport.setRenderScale(value);
       prefs.set('renderScale', value);
@@ -175,13 +178,15 @@ const settings = new Settings({
   },
   setSound: (on, byUser) => {
     audio.setMuted(!on);
-    // A press is a gesture, so it may open the audio; a restore may not.
+    // Une pression est un geste, donc elle peut ouvrir l'audio ; une
+    // restauration ne le peut pas.
     if (on && byUser) audio.unlock();
     prefs.set('sound', on);
   },
   setHaptics: (on, byUser) => {
     haptics.setEnabled(on);
-    // The confirmation buzz is an answer to a press, not to a restore.
+    // La vibration de confirmation répond à une pression, pas à une
+    // restauration.
     if (on && byUser) haptics.buzz(20);
     prefs.set('haptics', on);
   },
@@ -210,20 +215,21 @@ const settings = new Settings({
 
 let elapsed = 0;
 let bank = 0;
-/* Visual attitude, eased towards the simulation rather than snapped to it. */
+/* Attitude visuelle, amortie vers la simulation plutôt que calée dessus. */
 let lean = 0;
 let yawVisual = 0;
 
-// The observer end of the event union: sound, vibration, glow, shake, pops.
+// Le bout observateur de l'union d'événements : son, vibration, lueur,
+// secousse, pops.
 const feedback = new Feedback({ audio, haptics, hud, camera, ship, onWreck: () => endRun() });
 
 /**
- * Everything that eases over frames, reset in one place.
+ * Tout ce qui s'amortit sur des frames, remis à zéro en un seul endroit.
  *
- * Shared between the start of a run and a capture on purpose: a new eased
- * state that joins one list and forgets the other is exactly how three visual
- * reference bugs were made. The sky is not here — it keeps running from the
- * menu into the run, and only a capture resets it.
+ * Partagé à dessein entre le début d'une partie et une capture : un état amorti
+ * neuf qui rejoint une liste et oublie l'autre, c'est exactement ainsi que trois
+ * bugs de référence visuelle sont nés. Le ciel n'y est pas — il continue du menu
+ * à la partie, et seule une capture le remet à zéro.
  */
 function resetPresentation(): void {
   ship.clearSmoke();
@@ -261,7 +267,7 @@ function endRun(): void {
   });
 }
 
-/** A run counts when it ends, however it ends: crash, restart or quit. */
+/** Une partie compte quand elle finit, quelle que soit la fin : crash, relance ou abandon. */
 function submit(): { wasBest: boolean; previousBest: number } {
   const result = scores.submit(sim.state.score, sim.state.coins, difficulty, Date.now());
   if (result.accepted) hud.setBest(scores.bestLabel);
@@ -271,8 +277,8 @@ function submit(): { wasBest: boolean; previousBest: number } {
 function renderFrame(frameDt: number): void {
   elapsed += frameDt;
 
-  // The path has to be integrated before anything reads it: the ribbons walk
-  // its buffers directly and the camera samples along it.
+  // Le chemin doit être intégré avant que quoi que ce soit le lise : les rubans
+  // parcourent ses tampons directement et la caméra échantillonne le long.
   const state = sim.state;
   sim.track.buildPath(state.cursor);
   trackMesh.update(sim.track, sim.tuning.stripeEvery);
@@ -282,8 +288,9 @@ function renderFrame(frameDt: number): void {
   // le noyau publie, au lieu d'un seuil de vitesse qui l'approximait mal.
   pickups.update(sim.track, state.cursor, thrust, frameDt);
   ship.setPose(state.lat, state.hop, bank);
-  // Lean and yaw are shown, not simulated: they lag the state so the hull
-  // reads as having mass instead of snapping between attitudes.
+  // Gîte et lacet sont montrés, pas simulés : ils traînent derrière l'état pour
+  // que la coque se lise comme une masse au lieu de sauter d'une attitude à
+  // l'autre.
   const wantLean = -state.yaw * 0.9 - MathUtils.clamp(state.latVel * 0.01, -0.2, 0.2);
   lean += (wantLean - lean) * Math.min(1, frameDt * 7);
   const wantYaw =
@@ -295,7 +302,8 @@ function renderFrame(frameDt: number): void {
   ship.updateSmoke(frameDt, state.speed, thrust);
   spray.update(frameDt, state);
 
-  // Glow, client shake and the boost-ready hysteresis, on the display clock.
+  // Lueur, secousse du client et hystérésis de la réserve pleine, sur l'horloge
+  // d'affichage.
   feedback.update(frameDt, state, sim.tuning, screens.isPlaying);
 
   // L'intensité de l'état monte tant que le pilotage tient, et tout ce qui doit
@@ -349,8 +357,9 @@ function renderFrame(frameDt: number): void {
 const loop = new Loop({
   simulate(dt) {
     const mode = screens.mode;
-    // Only two modes advance the world: a run, and the attract loop behind
-    // the menu. Pause, settings and the rest freeze it deliberately.
+    // Seuls deux modes font avancer le monde : une partie, et la boucle
+    // d'attraction derrière le menu. Pause, réglages et le reste le figent à
+    // dessein.
     if (mode === 'run') {
       bank = sim.step(input.sample(), dt, false);
       feedback.consume(sim.events);
@@ -361,7 +370,7 @@ const loop = new Loop({
   render: renderFrame,
 });
 
-/* --------------------------------------------------------------- screens -- */
+/* ---------------------------------------------------------------- écrans -- */
 
 const on = (id: string, handler: () => void) =>
   document.getElementById(id)?.addEventListener('click', handler);
@@ -388,8 +397,8 @@ on('btnCloseSettings', () => screens.setMode('menu'));
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());
 
-// Both controls disappear where the API does not exist rather than sitting
-// there doing nothing.
+// Les deux commandes disparaissent là où l'API n'existe pas, plutôt que de
+// rester là sans rien faire.
 if (!fullscreen.available) {
   const group = document.getElementById('grpDisplay');
   if (group) group.style.display = 'none';
@@ -397,10 +406,11 @@ if (!fullscreen.available) {
   if (button) button.style.display = 'none';
 }
 
-// The start state is set by calling setMode, not by a class in the HTML: the
-// class alone would show the right screen with an empty navigation list.
-// Restored before anything reads it. There is no frame target to restore:
-// the game renders at whatever the display gives, and quality adapts to it.
+// L'état de départ est posé en appelant setMode, pas par une classe dans le
+// HTML : la classe seule montrerait le bon écran avec une liste de navigation
+// vide. Restauré avant que quoi que ce soit le lise. Il n'y a pas de cible de
+// cadence à restaurer : le jeu rend à ce que l'écran donne, et la qualité s'y
+// adapte.
 sim.tuning.renderScale = prefs.values.renderScale;
 viewport.setRenderScale(prefs.values.renderScale);
 
@@ -408,12 +418,12 @@ screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
 settings.syncAll();
 
-// A tab closed or hidden never runs a pending timer, and mobile browsers may
-// never fire `unload` at all.
+// Un onglet fermé ou masqué n'exécute jamais un minuteur en attente, et les
+// navigateurs mobiles peuvent ne jamais émettre `unload`.
 window.addEventListener('pagehide', () => prefs.flush());
 hud.setBest(scores.bestLabel);
-// Built ahead of the first crash: its impulse response is 288 000 samples and
-// generating it on the impact lands as a hitch at the worst possible moment.
+// Construit avant le premier crash : sa réponse impulsionnelle fait 288 000
+// échantillons et la produire à l'impact tombe comme un à-coup au pire moment.
 const openAudio = () => {
   audio.unlock();
   audio.warmUp();
@@ -422,21 +432,22 @@ window.addEventListener('pointerdown', openAudio, { once: true });
 window.addEventListener('keydown', openAudio, { once: true });
 
 /**
- * Holds the splash until the game can actually run, rather than for a fixed
- * time.
+ * Tient le splash jusqu'à ce que le jeu puisse vraiment tourner, plutôt qu'un
+ * temps fixe.
  *
- * Two things cost a visible hitch on the first frame if they are left to
- * happen during play. Shader programs are compiled lazily by three.js the
- * first time a material is drawn — the sky shader especially — which is what
- * the performance governor's "the first seconds are shader compilation" guard
- * is working around. And the road's canvas texture is uploaded on first use.
+ * Deux choses coûtent un à-coup visible à la première frame si on les laisse
+ * arriver en jeu. Les programmes de shader sont compilés paresseusement par
+ * three.js la première fois qu'un matériau est dessiné — celui du ciel surtout
+ * — ce que la garde « les premières secondes sont de la compilation » du
+ * gouverneur de performance contourne. Et la texture canvas de la route est
+ * envoyée au premier usage.
  *
- * `compile` handles the first, drawing one frame handles the second.
+ * `compile` règle la première, dessiner une frame règle la seconde.
  */
 async function boot(): Promise<void> {
   window.__gsProgress?.(45, 'COMPILING SHADERS');
-  // Two frames, so the label is actually painted before the main thread is
-  // blocked by the compile.
+  // Deux frames, pour que le libellé soit réellement peint avant que le fil
+  // principal soit bloqué par la compilation.
   await new Promise((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))),
   );
@@ -448,8 +459,8 @@ async function boot(): Promise<void> {
   window.__gsProgress?.(80, 'WARMING UP');
   await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
 
-  // One full frame: uploads the road texture and walks every path the loop
-  // will take, so the first frame the player sees is not the expensive one.
+  // Une frame entière : envoie la texture de la route et parcourt chaque chemin
+  // que la boucle prendra, pour que la première frame vue ne soit pas la chère.
   renderFrame(loop.fixedStep);
 
   loop.start();
@@ -459,20 +470,20 @@ async function boot(): Promise<void> {
 void boot();
 
 /**
- * Offline shell.
+ * La coquille hors ligne.
  *
- * Only over https, which leaves localhost alone: a service worker caching the
- * bundle during development is a stale reload waiting to happen, and the
- * benefit there is nil.
+ * Seulement en https, ce qui laisse localhost tranquille : un service worker
+ * qui met le bundle en cache pendant le développement est un rechargement
+ * périmé qui attend son heure, et le bénéfice y est nul.
  *
- * Registration lived in the legacy page's footer script and was lost when the
- * markup was ported — the file shipped and nothing activated it. Caught by
- * looking for it rather than by a test, which is the gap.
+ * L'enregistrement vivait dans le script de pied de page de l'ancienne page et
+ * s'est perdu au portage du balisage — le fichier partait et rien ne
+ * l'activait. Attrapé en le cherchant plutôt que par un test, ce qui est la
+ * lacune.
  *
- * Content-hashed asset names make the cache-first path safe by construction: a
- * changed file has a different URL, so it can never be served stale. What is
- * still missing is the precache list, which cannot name a hashed bundle and so
- * only covers an offline reload, not an offline first open. Roadmap step 5.
+ * Les noms d'actifs hachés par le contenu rendent le chemin cache-first sûr par
+ * construction : un fichier changé a une autre URL, il ne peut jamais être
+ * servi périmé. La liste de précache est générée au build, voir vite.config.ts.
  */
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => {
@@ -480,7 +491,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   });
 }
 
-/* ----------------------------------------------------------------- debug -- */
+/* ------------------------------------------------------------ mise au point -- */
 
 declare global {
   interface Window {
@@ -490,14 +501,14 @@ declare global {
 }
 
 /**
- * Stops the loop, replays a known number of fixed steps from a seed, and draws
- * exactly one frame. This is what makes a full-frame visual reference possible:
- * a frame used to depend on when it happened to be taken.
+ * Arrête la boucle, rejoue un nombre connu de pas fixes depuis une graine, et
+ * dessine exactement une frame. C'est ce qui rend une référence visuelle plein
+ * cadre possible : une frame dépendait autrefois du moment où on la prenait.
  *
- * It lives here rather than in `debug.ts` because it has to know every state
- * that eases — which is the same list a run start needs, hence the shared
- * reset — plus the sky and the elapsed time, which a run keeps and a capture
- * must not.
+ * Elle vit ici et non dans `debug.ts` parce qu'elle doit connaître chaque état
+ * qui s'amortit — la même liste qu'un début de partie, d'où la remise à zéro
+ * partagée — plus le ciel et le temps écoulé, qu'une partie garde et qu'une
+ * capture ne doit pas garder.
  */
 function freeze(seed: string, steps: number): void {
   loop.stop();
@@ -508,8 +519,9 @@ function freeze(seed: string, steps: number): void {
   const dt = loop.fixedStep;
   for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
   renderFrame(dt);
-  // The plumes ease over many frames, so one frame after a reset lands
-  // wherever the previous run left them. Snap them, then draw again.
+  // Les plumes s'amortissent sur beaucoup de frames, donc une frame après une
+  // remise à zéro atterrit là où la partie précédente les a laissées. On les
+  // cale, puis on redessine.
   ship.snapThrust(thrustTier(sim.state));
   viewport.render(scene);
 }
