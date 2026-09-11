@@ -51,6 +51,8 @@ export interface SimState {
   nearPeak: number;
   /** Temps restant d'invincibilité, en secondes. Les murs accélèrent au lieu de blesser. */
   rideT: number;
+  /** Carburant, 0 à 100. À zéro, ni boost ni super boost ; la croisière continue. */
+  fuel: number;
 
   /* Saut */
   air: boolean;
@@ -152,6 +154,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.nearHeld = 0;
   state.nearPeak = 0;
   state.rideT = 0;
+  state.fuel = 100;
 
   state.air = false;
   state.hop = 0;

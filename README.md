@@ -64,6 +64,11 @@ the edges of the screen blur, and for five seconds the world closes in.
 Touching a wall empties whatever you were climbing. As a rung ends, its layer
 drains and uncovers the one below.
 
+**Fuel.** The thin orange bar under the hull is the tank. Boosting burns it,
+a super boost burns it faster, and on Medium and Hard even cruising sips at it.
+Orange cans refill it, a G-SURGE fills it to the brim, and running dry takes
+the boost away without stopping you.
+
 **Damage.** The bar along the top is your hull. Impacts cost in proportion to
 how hard you hit, scraping along a wall drains it continuously, landing off
 track after a jump hurts, and damage cuts your top speed, your steering and

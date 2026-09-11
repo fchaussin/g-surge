@@ -17,7 +17,7 @@ import type { Audio } from './audio.js';
 import type { ChaseCamera } from './camera.js';
 import type { Haptics } from './haptics.js';
 import type { Hud } from './hud.js';
-import { COIN_COLOURS, RIDE_COLOUR } from './pickups.js';
+import { COIN_COLOURS, FUEL_COLOUR, RIDE_COLOUR } from './pickups.js';
 import type { Ship } from './ship.js';
 
 /** Durée d'extinction de la lueur d'un ramassage, en secondes. */
@@ -157,11 +157,19 @@ export class Feedback {
             haptics.buzz([22, 40, 22]);
           } else if (e.kind === 'sup') {
             this.superBoost();
-          } else {
+          } else if (e.kind === 'ride') {
             hud.showPop('INVINCIBLE', '#9b6bff');
             this.flash(RIDE_COLOUR, 1.4);
             haptics.buzz([25, 30, 25, 30, 60]);
+          } else {
+            hud.showPop(`FUEL +${Math.round(e.gain)}`, '#ff9f1a');
+            this.flash(FUEL_COLOUR, 0.6 + e.gain / 100);
+            haptics.buzz([18, 30, 18]);
           }
+          break;
+        case 'fuelEmpty':
+          hud.showPop('OUT OF FUEL', '#ff3b30');
+          haptics.buzz([30, 60, 30, 60, 30]);
           break;
         case 'ride':
           // Tenu comme le frottement, dans le violet de l'item : le mur pousse,

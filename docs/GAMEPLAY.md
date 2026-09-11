@@ -56,6 +56,18 @@ a second list, `extras`, drawn from their own stream and never before
 `extrasFrom` metres: the frozen track references record the original list as it
 was, and the physics traces end before any extra can exist.
 
+**Fuel** is a permanent resource, 0 to 100, shown as the thin orange bar under
+the hull bar. It burns per second at a rate set by the thrust rung —
+`fuelCruise`, `fuelBoost`, `fuelSup`, `fuelSurge` — and by the difficulty, which
+overrides them: on Easy cruising burns nothing, on Medium and Hard it burns a
+little. Cans on the track return `fuelCan` points, and the G-SURGE refills the
+tank when it starts. **On an empty tank the boost is unavailable and the
+cruise continues** — that was the design decision, and `fuelDryFactor` exists
+so a cruise penalty can be tried by moving a value; at 1 it does nothing. A
+super boost found on an empty tank still fires: it is a reward, it burns what
+is left. Fuel is meant to stay a secondary constraint, and the numbers were
+chosen so that it cannot run dry within the fifteen seconds of a frozen trace.
+
 Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 119 m,
 so a faster ship both collects more per second and gets more per coin.
 
@@ -135,6 +147,10 @@ easy.
 
 The settings reset applies the current level rather than easy. `renderScale`
 is kept out of that assignment: it describes the machine, not the game.
+
+Fuel is where the levels differ most in kind rather than degree: Easy burns
+nothing at cruise and has cans often, Medium and Hard leak at cruise and have
+fewer cans, and Hard alone burns a little during a G-SURGE.
 
 ## Handling
 

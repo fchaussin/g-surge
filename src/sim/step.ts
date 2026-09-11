@@ -14,7 +14,18 @@
  */
 import type { SimEvent } from './events.js';
 import { thrustTier, type SimState } from './state.js';
-import { BACK, clamp, HALF, ITEM_COIN, ITEM_FIX, ITEM_RIDE, SEG, SHIP, Track } from './track.js';
+import {
+  BACK,
+  clamp,
+  HALF,
+  ITEM_COIN,
+  ITEM_FIX,
+  ITEM_FUEL,
+  ITEM_RIDE,
+  SEG,
+  SHIP,
+  Track,
+} from './track.js';
 import { sin } from './trig.js';
 import type { Tuning } from './tuning.js';
 
@@ -97,14 +108,35 @@ export function step(
   if (attract) state.boosting = false;
   else if (topped) state.boosting = true;
   else {
-    if (boost && !state.boosting && state.energy >= T.boostMin) state.boosting = true;
-    if (!boost || state.energy <= 0) state.boosting = false;
+    // Le boost demande de la réserve et du carburant ; à sec il ne part pas et
+    // s'arrête. Le super boost trouvé, lui, n'en demande pas : c'est une
+    // récompense, elle consomme ce qu'il reste.
+    if (boost && !state.boosting && state.energy >= T.boostMin && state.fuel > 0) {
+      state.boosting = true;
+    }
+    if (!boost || state.energy <= 0 || state.fuel <= 0) state.boosting = false;
   }
   const dmg = 1 - state.hull / 100;
   if (state.boosting && !topped) state.energy -= T.boostDrain * dt;
   else if (!topped) state.energy += T.boostRecharge * (1 - dmg * 0.5) * dt;
   state.energy = clamp(state.energy, 0, 100);
   if (!attract) state.hull = Math.min(100, state.hull + T.hullRegen * dt);
+
+  // Le carburant : une consommation par palier, la croisière comprise là où la
+  // difficulté le dit. Le passage à zéro est un événement, une fois.
+  if (!attract) {
+    const burn = surgeOn
+      ? T.fuelSurge
+      : superOn
+        ? T.fuelSup
+        : state.boosting
+          ? T.fuelBoost
+          : T.fuelCruise;
+    if (burn > 0 && state.fuel > 0) {
+      state.fuel = Math.max(0, state.fuel - burn * dt);
+      if (state.fuel === 0) out.push({ type: 'fuelEmpty' });
+    }
+  }
 
   let target: number;
   let gain = T.speedGain;
@@ -123,6 +155,8 @@ export function step(
     }
     if (brake) target *= T.brakeFactor;
     target *= 1 - dmg * T.damageSpeed;
+    // À sec, la croisière peut être pénalisée ; à 1 la clé ne fait rien.
+    if (state.fuel <= 0 && !topped) target *= T.fuelDryFactor;
   }
   state.speed += (target - state.speed) * Math.min(1, dt * gain);
 
@@ -261,6 +295,7 @@ export function step(
       if (state.climb >= T.climbSurge) {
         state.climb = 0;
         state.surgeT = T.surgeTime;
+        state.fuel = 100; // le surge remplit le réservoir
         out.push({ type: 'surgeStart' });
       }
     } else if (state.boosting && state.climb >= T.climbSup) {
@@ -398,6 +433,7 @@ export function step(
         // minutes. C'est déjà un exploit, la montée n'est pas demandée.
         state.climb = 0;
         state.surgeT = T.surgeTime;
+        state.fuel = 100;
         out.push({ type: 'surgeStart' });
       } else {
         state.superT = T.supTime;
@@ -415,6 +451,10 @@ export function step(
     if (it.type === ITEM_RIDE) {
       state.rideT = T.rideTime;
       out.push({ type: 'pickup', kind: 'ride' });
+    } else if (it.type === ITEM_FUEL) {
+      const gain = Math.min(T.fuelCan, 100 - state.fuel);
+      state.fuel += gain;
+      out.push({ type: 'pickup', kind: 'fuel', gain });
     }
   }
   if (!attract && state.hull <= 0 && !state.wrecked) {

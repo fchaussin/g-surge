@@ -8,7 +8,7 @@
  * cette séparation tient.
  */
 import { describe, expect, it } from 'vitest';
-import { BACK, HALF, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
+import { BACK, HALF, ITEM_FUEL, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -62,7 +62,7 @@ describe('the extras list', () => {
       b.step(NEUTRAL, DT, false);
     }
     expect(flat(a)).toEqual(flat(b));
-    expect(a.track.extras.every((it) => it.type === ITEM_RIDE)).toBe(true);
+    expect(a.track.extras.every((it) => it.type === ITEM_RIDE || it.type === ITEM_FUEL)).toBe(true);
   });
 
   it('spawns ride items at about rideChance per segment once past extrasFrom', () => {
@@ -75,7 +75,7 @@ describe('the extras list', () => {
       const seen = new Set<number>();
       for (let i = 0; i < 6000; i++) {
         sim.step(NEUTRAL, DT, false);
-        for (const it of sim.track.extras) seen.add(it.id);
+        for (const it of sim.track.extras) if (it.type === ITEM_RIDE) seen.add(it.id);
       }
       segments += sim.track.nid[sim.track.nid.length - 1]!;
       rides += seen.size;

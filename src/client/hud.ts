@@ -30,6 +30,7 @@ export class Hud {
   private readonly warn = byId('warn');
   private readonly coins = byId('coinCount');
   private readonly hull = byId('hullBar');
+  private readonly fuel = byId('fuelBar');
   private readonly boostBox = byId('bstBox');
   /* Les trois couches de l'échelle, de la réserve au G-SURGE. */
   private readonly boost = byId('boostBar');
@@ -48,6 +49,7 @@ export class Hud {
   private lastSpeed = -1;
   private lastCoins = -1;
   private lastHull = -1;
+  private lastFuel = -1;
   private lastL1 = -1;
   private lastL2 = -1;
   private lastL3 = -1;
@@ -107,7 +109,7 @@ export class Hud {
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
     this.lastScore = this.lastSpeed = this.lastCoins = -1;
-    this.lastHull = this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
+    this.lastHull = this.lastFuel = this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
     this.lastSurging = false;
     this.lastTier = -1;
     this.lastMult = 1;
@@ -182,6 +184,18 @@ export class Hud {
         this.hull.style.background = `hsl(${hue.toFixed(0)},88%,50%)`;
         this.hull.style.boxShadow = `0 0 10px hsla(${hue.toFixed(0)},95%,55%,.65)`;
         this.hull.parentElement?.classList.toggle('crit', state.hull < 22);
+      }
+    }
+
+    // Le carburant : une largeur, et deux seuils en classes — bas sous 20, à
+    // sec à zéro. Écrit au point entier près, donc rarement.
+    const fuel = Math.round(state.fuel);
+    if (fuel !== this.lastFuel) {
+      this.lastFuel = fuel;
+      if (this.fuel) {
+        this.fuel.style.width = `${fuel}%`;
+        this.fuel.parentElement?.classList.toggle('low', fuel > 0 && fuel < 20);
+        this.fuel.parentElement?.classList.toggle('dry', fuel === 0);
       }
     }
 

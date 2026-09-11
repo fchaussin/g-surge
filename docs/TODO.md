@@ -76,7 +76,8 @@ Order of integration, least constraining first: **Perfect Drift** (done,
 1.6.0 — class B, no reference moved), **Near Miss** (done, 1.7.0 — class B,
 `sim-parity` now asserts the reference pilot never skims cleanly),
 **Invincibility with wall riding** (done, 1.8.0 — the extras list keeps the
-references intact), **Fuel**. The reverse of the document's priority, because fuel
+references intact), **Fuel** (done, 1.9.0, with answer (a) and a dry-cruise
+factor at 1). All four are in; what remains is play. The reverse of the document's priority, because fuel
 carries the one design gap below and the other three carry none.
 
 10. **Fuel at zero — what happens?** The specification gives consumption per
@@ -90,13 +91,18 @@ carries the one design gap below and the other three carry none.
     to play rather than a decision to reopen. (c) contradicts "must not break
     the arcade rhythm". **Answered: (a)**, penalty key at zero by default.
 
-11. **Fuel and the surge.** "G-SURGE: free + refill" on Easy and Medium,
-    "refill + low consumption" on Hard. Read as: the tank refills to full when
-    the surge starts; during it, no consumption on Easy and Medium, a slow one
-    on Hard. Say if the refill was meant to be continuous instead.
+11. **Fuel and the surge.** Read as: the tank refills to full when the surge
+    starts; during it, no consumption on Easy and Medium, a slow one on Hard.
+    Built that way. Say if the refill was meant to be continuous instead.
 
-12. **Fuel gauge placement.** A second thin bar under the hull bar at the top,
-    amber. Not a decision that blocks; the HUD reference regenerates.
+12. **Fuel gauge placement.** A second thin bar under the hull bar, orange —
+    built. Say if it should live elsewhere.
+
+14. **Fuel numbers.** Easy 0 / 3 / 6 per second at cruise / boost / super
+    boost, cans every 1.5 km; Medium 1 / 5 / 10, cans every 2.4 km; Hard
+    1.5 / 6 / 12 with 2 during a surge, cans every 4 km. Chosen so nothing
+    runs dry inside a frozen trace and so the tank is a rhythm, not a wall.
+    Three of them on the Advanced tab; the rest through `__gsNext.tuning()`.
 
 13. **The invincibility item.** Defaulted: 6 s, violet, and a push of 8 % of
     the speed per second of contact, which settles a fifth above the target

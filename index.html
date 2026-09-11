@@ -353,6 +353,17 @@
     background:rgba(223,242,248,.14);overflow:hidden}
   .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
   .hull.crit{animation:critpulse .55s ease-in-out infinite}
+  /* Le carburant : une seconde barre sous la coque, plus fine, dans l'orangé
+     du bidon. Une ressource permanente mérite d'être vue en permanence, et le
+     haut est l'endroit où les deux jauges qui ne se dépensent pas au bouton
+     se lisent d'un coup d'œil. */
+  .fuel{position:absolute;top:9px;left:0;right:0;height:5px;
+    background:rgba(255,159,26,.12);overflow:hidden}
+  .fuel i{display:block;height:100%;width:100%;background:#ff9f1a;
+    box-shadow:0 0 8px rgba(255,159,26,.6)}
+  .fuel.low i{background:#ff5a1a}
+  .fuel.dry{animation:critpulse .55s ease-in-out infinite}
+  .fuel.dry i{background:#ff3b30}
   @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.35}}
 
   /* La jauge de poussée sur le côté : le doigt masque le bouton, pas cette
@@ -573,6 +584,7 @@
   <div class="pop" id="pop"></div>
   <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
   <div class="hull"><i id="hullBar"></i></div>
+  <div class="fuel"><i id="fuelBar"></i></div>
   <div class="bst" id="bstBox"><i id="boostBar"></i><i class="l2"></i><i class="l3"></i></div>
   <div class="bstlbl">BOOST</div>
   <div class="stickzone" id="stickZone"></div>
@@ -681,6 +693,7 @@
           <p>Push the stick hard into a corner until grip breaks: the ship slides wide while pointing into the turn, the hull glows, and the gauge pulses. That is the main way to keep boosting, and the only way up the ladder.</p>
           <p><b>Perfect Drift.</b> Chain drifts without touching a wall. From the third one, every drift pays points and the climb up the ladder runs faster; the window to start the next drift narrows as the combo grows, and a wall or a pause drops it.</p>
           <p><b>Near Miss.</b> Skim a wall without touching it and the pass pays points and a little boost — more the closer and the faster. Touch it and the pass pays nothing.</p>
+          <p><b>Fuel.</b> The thin orange bar under the hull is your tank. Boosting burns it, a super boost burns it faster, and on Medium and Hard even cruising sips at it. Orange cans refill it, and a G-SURGE fills it to the brim. Run dry and you can still cruise, but you cannot boost until the next can.</p>
           <p><b>Invincibility.</b> A violet ring makes the walls harmless for a few seconds — and more than harmless: lean on one and it pushes you faster. Ride the outside of a corner while it lasts.</p>
         </div>
         <div class="grp">
@@ -692,7 +705,7 @@
         <div class="grp">
           <h3>Damage</h3>
           <p>The bar along the top of the screen is your hull. Impacts cost points in proportion to how hard you hit, scraping along a wall drains it continuously, and landing off track after a jump hurts too. Damage cuts your top speed, your steering and your boost recharge. At zero the run ends.</p>
-          <p>Green pickups repair the hull. Magenta ones give a super boost. Violet rings make you invincible for a while.</p>
+          <p>Green pickups repair the hull. Magenta ones give a super boost. Violet rings make you invincible for a while. Orange cans are fuel.</p>
         </div>
         <div class="grp">
           <h3>The track</h3>

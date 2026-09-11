@@ -73,6 +73,20 @@ export interface Tuning {
   rideTime: number;
   /** Gain de vitesse par seconde de contact avec un mur, en fraction de la vitesse. */
   rideGain: number;
+
+  /* Carburant : une ressource permanente, de 0 à 100 */
+  /** Consommation par seconde, en points, à chaque palier de poussée. */
+  fuelCruise: number;
+  fuelBoost: number;
+  fuelSup: number;
+  /** Consommation par seconde pendant un G-SURGE, qui remplit le réservoir à son entrée. */
+  fuelSurge: number;
+  /** Probabilité par segment de 12 m d'un bidon, au-delà de `extrasFrom`. */
+  fuelCanChance: number;
+  /** Points rendus par bidon. */
+  fuelCan: number;
+  /** Facteur sur la vitesse de croisière à sec : 1 n'en change rien. */
+  fuelDryFactor: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -194,6 +208,19 @@ export const DEFAULTS: Readonly<Tuning> = {
   rideChance: 0.0025,
   rideTime: 6,
   rideGain: 0.08,
+  /* Facile : la croisière ne consomme rien, un boost une réserve pleine
+   * durant 3,8 s en brûle 11, un super boost de 5 s en brûle 30, le surge est
+   * gratuit et remplit. Un bidon tous les 1,5 km environ. Moyen et difficile
+   * surchargent tout cela dans DIFF. À sec : plus de boost ni de super boost,
+   * la croisière continue — décidé le 11 septembre 2026 ; la pénalité de
+   * croisière existe en clé, à 1 elle ne fait rien. À rejuger en jouant. */
+  fuelCruise: 0,
+  fuelBoost: 3,
+  fuelSup: 6,
+  fuelSurge: 0,
+  fuelCanChance: 0.008,
+  fuelCan: 35,
+  fuelDryFactor: 1,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,
@@ -279,6 +306,10 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       fixChance: 0.0022,
       rollChance: 0.18,
       climbRate: 27,
+      fuelCruise: 1,
+      fuelBoost: 5,
+      fuelSup: 10,
+      fuelCanChance: 0.005,
     },
   },
   hard: {
@@ -295,6 +326,11 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       rollChance: 0.24,
       climbRate: 31,
       gripLimit: 29,
+      fuelCruise: 1.5,
+      fuelBoost: 6,
+      fuelSup: 12,
+      fuelSurge: 2,
+      fuelCanChance: 0.003,
     },
   },
 };

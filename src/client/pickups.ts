@@ -12,6 +12,7 @@
  * jauge.
  */
 import {
+  BoxGeometry,
   ConeGeometry,
   Group,
   Mesh,
@@ -48,6 +49,8 @@ const HOVER = 2.0;
  * le drift cyan ; un item qui rend les murs inoffensifs devait avoir sa teinte.
  */
 export const RIDE_COLOUR = 0x9b6bff;
+/** L'orangé d'un bidon : chaud comme l'or des pièces, mais la forme fait le reste — une caisse, pas un anneau. */
+export const FUEL_COLOUR = 0xff9f1a;
 
 export class Pickups {
   readonly group = new Group();
@@ -64,6 +67,8 @@ export class Pickups {
       new ConeGeometry(1.4, 3.0, 5),
       // Un anneau épais : un bouclier qu'on traverse, pas une pièce qu'on prend.
       new TorusGeometry(1.35, 0.5, 8, 16),
+      // Un bidon : une caisse, la seule forme anguleuse posée sur la piste.
+      new BoxGeometry(1.7, 2.2, 1.7),
     ];
     this.coinMaterial = new MeshBasicMaterial({ color: COIN_COLOURS[1] });
     const materials = [
@@ -71,9 +76,10 @@ export class Pickups {
       new MeshBasicMaterial({ color: 0x35e08a }),
       new MeshBasicMaterial({ color: 0xff2f9a }),
       new MeshBasicMaterial({ color: RIDE_COLOUR }),
+      new MeshBasicMaterial({ color: FUEL_COLOUR }),
     ];
 
-    for (let type = 0; type < 4; type++) {
+    for (let type = 0; type < 5; type++) {
       const pool: Object3D[] = [];
       const size = type === ITEM_COIN ? COIN_POOL : OTHER_POOL;
       for (let i = 0; i < size; i++) {
@@ -123,7 +129,7 @@ export class Pickups {
   }
 
   /* État de la frame en cours, tenu sur l'instance pour ne rien allouer. */
-  private readonly used = [0, 0, 0, 0];
+  private readonly used = [0, 0, 0, 0, 0];
   private base = 0;
   private coinScale = 1;
 

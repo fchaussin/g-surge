@@ -204,7 +204,8 @@ export class Audio {
           if (e.kind === 'coin') this.coin(1 + e.gain * 3);
           else if (e.kind === 'fix') this.fix();
           else if (e.kind === 'sup') this.superBoost();
-          else this.ridePickup();
+          else if (e.kind === 'ride') this.ridePickup();
+          else this.fuelPickup();
           break;
         case 'supEarned':
           // Trouvé ou mérité, le même barreau : le même son.
@@ -226,6 +227,9 @@ export class Audio {
           break;
         case 'rideEnd':
           this.rideRelease();
+          break;
+        case 'fuelEmpty':
+          this.fuelEmpty();
           break;
         case 'supEnd':
           this.superRelease();
@@ -659,6 +663,23 @@ export class Audio {
     this.blip(415, 0.32, 'triangle', 0.07, 0, 0.04);
     this.blip(494, 0.4, 'triangle', 0.06, 0, 0.08);
     this.noiseHit(ctx.currentTime, 0.12, 'highpass', 3000, 1600, 0.8, 0.25, true);
+  }
+
+  /** Un bidon : un coup sourd et un glouglou court — du liquide, pas du métal. */
+  private fuelPickup(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.thud(0.1, 380);
+    this.blip(220, 0.12, 'sine', 0.07, 60);
+    this.blip(300, 0.1, 'sine', 0.05, 40, 0.08);
+  }
+
+  /** Le réservoir est vide : un bourdon qui descend et s'étouffe. */
+  private fuelEmpty(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(180, 0.5, 'sawtooth', 0.05, -90);
+    this.blip(120, 0.6, 'triangle', 0.05, -50, 0.1);
   }
 
   /** Elle tombe : l'accord se referme, plus bas. */

@@ -37,6 +37,10 @@ export type SimEvent =
   | { readonly type: 'ride' }
   /** Fin de l'invincibilité, au pas où son compteur atteint zéro. */
   | { readonly type: 'rideEnd' }
+  /** Bidon ramassé : `gain` points rendus au réservoir, après plafonnement. */
+  | { readonly type: 'pickup'; readonly kind: 'fuel'; readonly gain: number }
+  /** Le réservoir touche zéro. Une fois, jusqu'au prochain bidon. */
+  | { readonly type: 'fuelEmpty' }
   /**
    * Super boost gagné : la montée a abouti sous un boost. Même barreau que le
    * ramassage, l'autre chemin pour y arriver — trouvé ou mérité.

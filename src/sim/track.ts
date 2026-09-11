@@ -29,7 +29,10 @@ export const ITEM_FIX = 1;
 export const ITEM_SUP = 2;
 /** L'invincibilité, et le wall riding avec elle. Un « extra », voir `Track.extras`. */
 export const ITEM_RIDE = 3;
-export type ItemType = typeof ITEM_COIN | typeof ITEM_FIX | typeof ITEM_SUP | typeof ITEM_RIDE;
+/** Un bidon de carburant. Un « extra » aussi. */
+export const ITEM_FUEL = 4;
+export type ItemType =
+  typeof ITEM_COIN | typeof ITEM_FIX | typeof ITEM_SUP | typeof ITEM_RIDE | typeof ITEM_FUEL;
 
 /** Repère local du ruban en un point. Réutilisé, jamais alloué par appel. */
 export interface TrackPoint {
@@ -397,6 +400,14 @@ export class Track {
         id,
         lat: rng.centered(HALF - 3.5),
         type: ITEM_RIDE,
+        done: false,
+        taken: false,
+      });
+    } else if (r < T.rideChance + T.fuelCanChance) {
+      this.extras.push({
+        id,
+        lat: rng.centered(HALF - 3.5),
+        type: ITEM_FUEL,
         done: false,
         taken: false,
       });
