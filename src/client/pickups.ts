@@ -48,6 +48,11 @@ const OTHER_POOL = 6;
 
 /** Les objets flottent à cette hauteur au-dessus de la route. */
 const HOVER = 2.0;
+/**
+ * Le bidon, plus haut que les autres : debout il touchait presque la route
+ * et se lisait comme un obstacle. Troisième partie, 11 septembre 2026.
+ */
+const CAN_HOVER = 3.6;
 
 /**
  * Le violet de l'invincibilité, pour ce qui n'est pas le prisme lui-même : le
@@ -160,14 +165,15 @@ export class Pickups {
   /* Partagés entre les bidons du réservoir : une géométrie et un matériau par pièce. */
   private readonly canBody = new CylinderGeometry(1.1, 1.1, 2.6, 10);
   private readonly canCap = new CylinderGeometry(0.5, 0.65, 0.5, 8);
-  private readonly canBand = new TorusGeometry(1.12, 0.14, 6, 12);
   private readonly canMaterial = new MeshBasicMaterial({ color: FUEL_COLOUR });
   private readonly canTrim = new MeshBasicMaterial({ color: 0x3a0a0e });
 
   /**
-   * Un bidon : un cylindre debout, un goulot, deux cerclages sombres. Plus
-   * gros que la caisse qu'il remplace, et la seule silhouette verticale de la
-   * piste — une bouteille se lit de loin, une boîte se confondait avec une
+   * Un bidon : un cylindre debout et un goulot, rien d'autre. Il portait deux
+   * cerclages sombres, et c'était plus de détail que n'importe quel autre
+   * objet de la piste — chacun est une seule forme pleine d'une seule couleur,
+   * et il tranchait. Le goulot reste, c'est lui qui fait la bouteille : une
+   * silhouette verticale se lit de loin, une boîte se confondait avec une
    * pièce vue de côté.
    */
   private makeCan(): Object3D {
@@ -176,12 +182,6 @@ export class Pickups {
     const cap = new Mesh(this.canCap, this.canTrim);
     cap.position.y = 1.55;
     can.add(cap);
-    for (const y of [-0.7, 0.7]) {
-      const band = new Mesh(this.canBand, this.canTrim);
-      band.rotation.x = Math.PI / 2;
-      band.position.y = y;
-      can.add(band);
-    }
     return can;
   }
 
@@ -236,11 +236,12 @@ export class Pickups {
     const grp = pool[this.used[item.type]!++]!;
 
     const s = track.sample(cursor, (i - BACK) * SEG - cursor, this.point);
+    const hover = item.type === ITEM_FUEL ? CAN_HOVER : HOVER;
     grp.visible = true;
     grp.position.set(
-      s.x + s.rx * item.lat + s.ux * HOVER,
-      s.y + s.ry * item.lat + s.uy * HOVER,
-      s.z + s.rz * item.lat + s.uz * HOVER,
+      s.x + s.rx * item.lat + s.ux * hover,
+      s.y + s.ry * item.lat + s.uy * hover,
+      s.z + s.rz * item.lat + s.uz * hover,
     );
     grp.rotation.set(0, s.yaw, s.bank, 'YXZ');
 

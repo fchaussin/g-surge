@@ -46,20 +46,14 @@ The scripted pilot, which never aims for a repair (`npm run measure:ladder`):
 | medium | 3 – 46 | 2 – 3 of 3 | 33 – 600 s |
 | hard | 4 – 18 | 3 of 3 | 29 – 169 s |
 
-### 2. The invincibility item
-
-Now a rainbow prism, 8 s instead of 6, with a SHIELD bar under the fuel bar
-that counts it down. `rideChance` still equals the super boost's, which makes
-it as rare: about one every 4.8 km. What to judge: whether it should be more
-common now that it has a gauge to fill — 0.004 would put one every 3 km.
-
-### 3. The climb thresholds and the super boost's length
+### 2. The climb thresholds and the super boost's length
 
 `climbSup` 450 m, `climbSurge` 600 m, `climbDecay` 100 m/s, `supTime` 5 s —
 starting values, dosed as 35 % and 29 % of their windows (`GAMEPLAY.md`
 recomputes them). All four are on the Advanced tab; the gauge shows the climb.
-What to judge: does a clean drift under boost reach the super boost often
-enough to feel earnable, and rarely enough to still feel earned?
+Third play: "leave it like this for now" — kept open, not urgent. What to
+judge, when it comes up: does a clean drift under boost reach the super boost
+often enough to feel earnable, and rarely enough to still feel earned?
 
 Measured with the scripted pilot (`npm run measure:ladder`, before the damage
 retune):
@@ -74,7 +68,7 @@ Recommendation: if the super boost is never earned on Hard by a human either,
 lower `climbSup` first, not `climbDecay` — the pilot reaches the top of a climb
 on every difficulty, so reach is not the problem, walls are.
 
-### 4. Fuel numbers
+### 3. Fuel numbers
 
 Easy 0 / 3 / 6 per second at cruise / boost / super boost, cans every 1.5 km;
 Medium 1 / 5 / 10, cans every 2.4 km; Hard 1.5 / 6 / 12 with 2 during a
@@ -83,23 +77,7 @@ the time on Easy, 21 – 28 % on Medium, 34 – 53 % on Hard. If Medium feels
 starved, raise `fuelCanChance` there first — 0.005 → 0.007 halves the gap
 between cans — before touching the burn rates. `fuelDryFactor` is at 1: a
 cruise penalty while dry exists as a key and does nothing until moved.
-
-### 5. The drift camera
-
-`DRIFT_AIM` 4 m and `DRIFT_ROLL` 0.07 rad in `camera.ts`, eased over 0.3 s.
-Chosen small so the surge stays the top of the ladder. If the slide is not
-felt, raise the aim before the roll — the roll is the one that risks nausea.
-
-### 6. The compact camera
-
-Below 520 px of height the camera sits at 70 % of `camDist`, 85 % of height
-and look-ahead. Judged on a Pixel 9 in landscape — say if it is still far, or
-now too close; both are one constant.
-
-### 7. The charge voice's registers
-
-300, 400 and 520 Hz per rung in `audio.ts`. Deliberately close; if the rung is
-not audible, widen the steps rather than raising the gain.
+Third play: Medium "to be seen later" — kept open.
 
 ## Asked for, and not possible as asked
 
@@ -118,7 +96,16 @@ not audible, widen the steps rather than raising the gain.
 
 ## Log — answered, newest first
 
-### 11 September 2026, after the third play — 1.14.0
+### 11 September 2026, after the third play — 1.14.0 and 1.14.1
+
+- **The prism stays as rare as it is** — "no, not more frequent". Entry
+  closed, `rideChance` 0.0025.
+- **The drift camera, the compact camera and the charge voice** — "yes,
+  better like this". All three closed as they stand.
+- **The fuel can** was more detailed than any other pickup — two dark bands
+  on top of the neck, where every other item is one solid shape — and stood
+  low enough to read as an obstacle. The bands are gone, the neck stays, and
+  it hovers at 3.6 m against 2 m for the rest. 1.14.1.
 
 - **Damage, a fourth time.** "I never lose." The third setting kept the hit
   cheap and the refill generous; this one cuts passive repair by six, halves

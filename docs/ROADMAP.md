@@ -502,6 +502,9 @@ HUD and help references did, each in its own commit. What is left is play:
   third; the hull is a budget now. The physics references moved, and the
   sixty track references with `fixChance` — the first time those have moved
   for a rebalance rather than for the opening.
+- **1.14.1** — the third play's other answers: the prism stays as rare as it
+  is, the cameras and the charge voice stay as they are; the fuel can loses
+  its two bands and floats higher than the other pickups.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
