@@ -29,8 +29,11 @@ export class Hud {
   private readonly warn = byId('warn');
   private readonly coins = byId('coinCount');
   private readonly hull = byId('hullBar');
-  private readonly boost = byId('boostBar');
   private readonly boostBox = byId('bstBox');
+  /* Les trois couches de l'échelle, de la réserve au G-SURGE. */
+  private readonly boost = byId('boostBar');
+  private readonly l2 = this.boostBox?.querySelector<HTMLElement>('.l2') ?? null;
+  private readonly l3 = this.boostBox?.querySelector<HTMLElement>('.l3') ?? null;
   private readonly boostFill = byId('boostFill');
   private readonly boostPad = document.querySelector<HTMLElement>('.pad.boost');
   private readonly best = byId('recline');
@@ -41,7 +44,10 @@ export class Hud {
   private lastSpeed = -1;
   private lastCoins = -1;
   private lastHull = -1;
-  private lastLevel = -1;
+  private lastL1 = -1;
+  private lastL2 = -1;
+  private lastL3 = -1;
+  private lastUp = -1;
   private lastSurging = false;
   private lastTier = -1;
   private lastMult = 1;
@@ -97,7 +103,7 @@ export class Hud {
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
     this.lastScore = this.lastSpeed = this.lastCoins = -1;
-    this.lastHull = this.lastLevel = -1;
+    this.lastHull = this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
     this.lastSurging = false;
     this.lastTier = -1;
     this.lastMult = 1;
@@ -166,36 +172,69 @@ export class Hud {
       }
     }
 
-    // Pendant le G-SURGE la jauge de boost ne veut plus rien dire : la réserve
-    // est figée et rien ne draine. Elle devient donc le compte à rebours de
-    // l'état, sans que le HUD gagne un élément — la §10 de la palette le veut
-    // simplifié pendant cet état, pas augmenté. Bornée à 100 parce qu'un second
-    // ramassage peut porter la durée au double.
+    // L'échelle empilée : une couche par barreau au-dessus de la croisière.
+    // En bas la réserve, en or. Par-dessus, la montée vers le super boost puis,
+    // une fois dedans, son décompte, en blanc. Par-dessus encore, la montée
+    // vers le G-SURGE puis le sien, en blanc chaud. Un palier qui s'éteint vide
+    // sa couche et découvre celle du dessous : la pile se déconstruit dans
+    // l'ordre où elle s'est bâtie. Aucun élément neuf pendant l'état — la §10
+    // de la palette le veut simplifié, pas augmenté — et tout est borné à 100,
+    // parce qu'un second ramassage peut porter une durée au double.
     const surging = state.surgeT > 0;
-    const level = surging
-      ? Math.min(100, Math.round((state.surgeT / tuning.surgeTime) * 100))
-      : Math.round(state.energy);
-    if (level === this.lastLevel && surging === this.lastSurging) return;
-    this.lastLevel = level;
+    const sup = state.superT > 0;
+    const pct = (ratio: number) => Math.min(100, Math.max(0, Math.round(ratio * 100)));
+    const l1 = sup || surging ? 100 : pct(state.energy / 100);
+    const l2 = surging
+      ? 100
+      : sup
+        ? pct(state.superT / tuning.supTime)
+        : pct(state.climb / tuning.climbSup);
+    const l3 = surging
+      ? pct(state.surgeT / tuning.surgeTime)
+      : sup
+        ? pct(state.climb / tuning.climbSurge)
+        : 0;
+    // La couche que le drift fait monter en ce moment, 0 si aucune.
+    const up = !state.drift || surging ? 0 : sup ? 3 : state.boosting ? 2 : 1;
+    if (
+      l1 === this.lastL1 &&
+      l2 === this.lastL2 &&
+      l3 === this.lastL3 &&
+      up === this.lastUp &&
+      surging === this.lastSurging
+    ) {
+      return;
+    }
+    this.lastL1 = l1;
+    this.lastL2 = l2;
+    this.lastL3 = l3;
+    this.lastUp = up;
     this.lastSurging = surging;
 
-    const pct = `${level}%`;
-    if (this.boost) this.boost.style.height = pct;
-    if (this.boostFill) this.boostFill.style.height = pct;
+    if (this.boost) this.boost.style.height = `${l1}%`;
+    if (this.l2) this.l2.style.height = `${l2}%`;
+    if (this.l3) this.l3.style.height = `${l3}%`;
+    this.boost?.classList.toggle('up', up === 1);
+    this.l2?.classList.toggle('up', up === 2);
+    this.l3?.classList.toggle('up', up === 3);
+    // Le pad suit la couche active : ce que le bouton dépense, ou ce qui reste
+    // de l'état en cours.
+    if (this.boostFill) this.boostFill.style.height = `${surging ? l3 : sup ? l2 : l1}%`;
 
-    const full = !surging && state.energy > 99.5;
-    const charging = !surging && state.drift && !full;
+    const full = !sup && !surging && state.energy > 99.5;
+    const charging = up > 0;
     // Les instruments décrochent pendant l'état : une classe, et la feuille
-    // de style fait le reste. On n'arrive ici que si `level` ou `surging` a
+    // de style fait le reste. On n'arrive ici que si une hauteur ou l'état a
     // bougé, donc ce n'est pas une écriture par frame.
     this.root?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('full', full);
-    this.boostBox?.classList.toggle('charge', charging);
     this.boostPad?.classList.toggle('low', state.energy < tuning.boostMin && !state.boosting);
     this.boostPad?.classList.toggle('charge', charging);
     this.boostPad?.classList.toggle('full', full);
+    this.boostPad?.classList.toggle('sup', sup && !surging);
+    this.boostPad?.classList.toggle('surge', surging);
     this.speedBox?.classList.toggle('hot', state.boosting);
-    this.speedBox?.classList.toggle('sup', state.superT > 0 || surging);
+    this.speedBox?.classList.toggle('sup', sup || surging);
   }
 }

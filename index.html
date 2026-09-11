@@ -246,7 +246,7 @@
   body.lefty .pads{justify-content:flex-start}
   body.lefty .stickzone{left:auto;right:0}
   body.lefty .bst{right:auto;left:10px}
-  body.lefty .bstlbl{right:auto;left:4px;margin-right:0;margin-left:22px}
+  body.lefty .bstlbl{right:auto;left:4px;margin-right:0;margin-left:28px}
   .pad{position:relative;overflow:hidden;width:72px;height:72px;border-radius:50%;
     border:1px solid var(--line);background:rgba(8,20,28,.5);backdrop-filter:blur(8px);
     display:flex;align-items:center;justify-content:center;color:var(--neon);
@@ -257,8 +257,12 @@
     font-size:10px;font-weight:700}
   .pad.boost{width:88px;height:88px;font-size:12px;font-weight:800;letter-spacing:.06em;
     border-color:rgba(37,226,255,.5)}
+  /* Le remplissage du pad suit la couche active de la jauge, dans sa couleur :
+     or pour la réserve, blanc sous un super boost, blanc chaud en G-SURGE. */
   .pad.boost .fill{position:absolute;left:0;right:0;bottom:0;height:100%;
-    background:linear-gradient(rgba(37,226,255,.32),rgba(37,226,255,.16));z-index:0}
+    background:linear-gradient(rgba(255,194,74,.34),rgba(255,194,74,.16));z-index:0}
+  .pad.boost.sup .fill{background:linear-gradient(rgba(223,244,255,.42),rgba(223,244,255,.2))}
+  .pad.boost.surge .fill{background:linear-gradient(rgba(255,246,208,.5),rgba(255,246,208,.24))}
   .pad.boost.low{color:var(--dim2);border-color:rgba(223,242,248,.14)}
   .pad.boost.low .fill{background:rgba(223,242,248,.10)}
   .pad.act{transform:scale(.93);background:rgba(37,226,255,.26);box-shadow:0 0 26px rgba(37,226,255,.35)}
@@ -308,22 +312,33 @@
     border-radius:50%;background:rgba(37,226,255,.30);border:1px solid rgba(37,226,255,.65);
     box-shadow:0 0 22px rgba(37,226,255,.4)}
 
-  .hull{position:absolute;top:0;left:0;right:0;height:5px;
-    background:rgba(223,242,248,.10);overflow:hidden}
+  /* Plus épaisse qu'elle ne l'était : à 5 px elle se perdait dans le bord. */
+  .hull{position:absolute;top:0;left:0;right:0;height:9px;
+    background:rgba(223,242,248,.14);overflow:hidden}
   .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
   .hull.crit{animation:critpulse .55s ease-in-out infinite}
   @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-  /* réserve de boost sur le côté : le doigt masque le bouton, pas cette barre */
+  /* La jauge de poussée sur le côté : le doigt masque le bouton, pas cette
+     barre. C'est l'échelle elle-même, en trois couches empilées, une par
+     barreau au-dessus de la croisière, chacune dans la couleur de son palier —
+     celle des pièces : or pour la réserve de boost, blanc pour la montée vers
+     le super boost puis son décompte, blanc chaud pour la montée vers le
+     G-SURGE puis le sien. La couche du dessus recouvre celle du dessous depuis
+     le bas ; quand un palier s'éteint sa couche se vide et découvre la
+     précédente. Le fond est teinté du bronze de la croisière. hud.ts écrit
+     les hauteurs, seulement quand elles changent. */
   .bst{position:absolute;right:10px;top:50%;transform:translateY(-50%);
-    width:7px;height:32vh;max-height:210px;border-radius:4px;
-    background:rgba(223,242,248,.12);overflow:hidden;display:flex;align-items:flex-end}
-  .bst i{display:block;width:100%;background:var(--neon);border-radius:4px;
-    box-shadow:0 0 12px rgba(37,226,255,.6)}
-  .bst.full i{background:#fff;box-shadow:0 0 16px rgba(255,255,255,.8)}
-  /* Le G-SURGE emprunte la jauge de boost : elle ne mesure plus la réserve,
-     elle décompte l'état. Blanc chaud, la couleur de sa propre plume. */
-  .bst.surge i{background:#fff6d0;box-shadow:0 0 20px rgba(255,246,208,.9)}
+    width:12px;height:34vh;max-height:230px;border-radius:6px;
+    background:rgba(224,145,63,.16);box-shadow:inset 0 0 0 1px rgba(224,145,63,.3);
+    overflow:hidden}
+  .bst i{position:absolute;left:0;right:0;bottom:0;display:block;height:0;border-radius:6px}
+  .bst #boostBar{background:#ffc24a;box-shadow:0 0 14px rgba(255,194,74,.55)}
+  .bst .l2{background:#dff4ff;box-shadow:0 0 16px rgba(223,244,255,.75)}
+  .bst .l3{background:#fff6d0;box-shadow:0 0 20px rgba(255,246,208,.9)}
+  .bst.full #boostBar{box-shadow:0 0 18px rgba(255,194,74,.95)}
+  /* La couche que le drift fait monter pulse ; les autres restent stables. */
+  .bst i.up{animation:bstpulse .5s ease-in-out infinite}
 
   /* Calque du G-SURGE : voile blanc et flou périphérique, au-dessus du canvas
      et sous le HUD. Le masque radial laisse le centre net — c'est ce qui en
@@ -336,11 +351,10 @@
       rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%);
     mask-image:radial-gradient(ellipse at 50% 52%,
       rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%)}
-  .bst.charge i{animation:bstpulse .5s ease-in-out infinite}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:4px;top:50%;font-size:8px;letter-spacing:.22em;
     color:var(--dim2);transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;
-    margin-right:22px}
+    margin-right:28px}
 
 
   .nav-sel{outline:2px solid var(--neon);outline-offset:3px;
@@ -517,7 +531,7 @@
   <div class="pop" id="pop"></div>
   <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
   <div class="hull"><i id="hullBar"></i></div>
-  <div class="bst" id="bstBox"><i id="boostBar"></i></div>
+  <div class="bst" id="bstBox"><i id="boostBar"></i><i class="l2"></i><i class="l3"></i></div>
   <div class="bstlbl">BOOST</div>
   <div class="stickzone" id="stickZone"></div>
   <div class="stick" id="stick"><div class="knob"></div></div>
