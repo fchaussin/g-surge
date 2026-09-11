@@ -84,6 +84,20 @@ const DRIFT_AIM = 4.0;
 const DRIFT_ROLL = 0.07;
 const DRIFT_EASE = 3.5;
 
+/**
+ * La caméra rapprochée des écrans bas — un téléphone en paysage.
+ *
+ * `fitAspect` tient déjà le champ horizontal sur un écran large, ce qui
+ * grossit le vaisseau de 17 % en 19,5:9 ; joué, c'était encore trop loin.
+ * Sous `COMPACT_BELOW` pixels CSS de haut la caméra recule moins et vole plus
+ * bas, ce qui rapproche le vaisseau d'un tiers de plus. Les captures de scène
+ * font 720 px de haut et ne le voient pas.
+ */
+export const COMPACT_BELOW = 520;
+const COMPACT_DIST = 0.7;
+const COMPACT_HEIGHT = 0.85;
+const COMPACT_LOOK = 0.85;
+
 export class ChaseCamera {
   /* Réutilisés à chaque frame. Voir la règle sans allocation de CLAUDE.md. */
   private readonly behind = trackPoint();
@@ -98,6 +112,8 @@ export class ChaseCamera {
   private snap = 0;
   /** La glisse telle que la caméra la sent, −1 à 1, amortie. Remise à zéro aussi. */
   private drift = 0;
+  /** Écran bas : la caméra se rapproche. Posé par le client depuis la fenêtre. */
+  private compact = false;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -124,6 +140,11 @@ export class ChaseCamera {
     this.drift = 0;
   }
 
+  /** Un écran de moins de `COMPACT_BELOW` pixels de haut rapproche la caméra. */
+  setCompact(compact: boolean): void {
+    this.compact = compact;
+  }
+
   /** Appelé sur `driftEnd` : la caméra se recentre au lieu de revenir en dérivant. */
   driftExitSnap(): void {
     this.snap = 1;
@@ -138,12 +159,14 @@ export class ChaseCamera {
    */
   update(state: SimState, track: Track, tuning: Tuning, frameDt: number, shake: number): void {
     const tier = thrustTier(state);
-    const behind = track.sample(state.cursor, -tuning.camDist, this.behind);
-    const ahead = track.sample(state.cursor, tuning.lookAhead, this.ahead);
+    const dist = tuning.camDist * (this.compact ? COMPACT_DIST : 1);
+    const look = tuning.lookAhead * (this.compact ? COMPACT_LOOK : 1);
+    const behind = track.sample(state.cursor, -dist, this.behind);
+    const ahead = track.sample(state.cursor, look, this.ahead);
 
     const offBehind = state.lat * OFFSET_BEHIND;
     const offAhead = state.lat * OFFSET_AHEAD;
-    const height = tuning.camHeight + state.hop * 0.6;
+    const height = tuning.camHeight * (this.compact ? COMPACT_HEIGHT : 1) + state.hop * 0.6;
 
     this.want.set(
       behind.x + behind.rx * offBehind + behind.ux * height,

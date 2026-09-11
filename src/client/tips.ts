@@ -6,8 +6,13 @@
  * un joueur a besoin dans sa première minute, qu'il soit allé loin ou non. Les
  * textes sont de l'interface, donc en anglais.
  */
+/** Le tactile parle manche et pads ; le clavier flèches et Espace. */
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
 const TIPS: readonly (readonly [number, string])[] = [
-  [1.5, 'Steer with the <b>stick</b>.<br>Hold <b>BOOST</b> on straights.'],
+  TOUCH
+    ? [1.5, 'Steer with the <b>stick</b>.<br>Hold <b>BOOST</b> on straights.']
+    : [1.5, 'Steer with the <b>arrows</b>.<br>Hold <b>SPACE</b> on straights.'],
   [7.0, '<b>Drift</b> in corners.<br>Sliding <b>refills the boost</b>.'],
   [14.0, 'Coins raise your <b>multiplier</b>.<br>Higher rungs pay more.'],
   [22.0, 'Drift <b>while boosting</b> to climb<br>to a <b>super boost</b>.'],

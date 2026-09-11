@@ -349,7 +349,13 @@
     box-shadow:0 0 22px rgba(37,226,255,.4)}
 
   /* Plus épaisse qu'elle ne l'était : à 5 px elle se perdait dans le bord. */
-  .hull{position:absolute;top:0;left:0;right:0;height:9px;
+  /* Les deux barres du haut portent leur nom à gauche, en petites capitales
+     espacées : une jauge sans libellé se devine, une jauge libellée se lit. */
+  .glbl{position:absolute;left:8px;font-size:.72em;letter-spacing:.18em;line-height:1;
+    color:var(--dim2);font-weight:700}
+  .hull-lbl{top:1px}
+  .fuel-lbl{top:10px}
+  .hull{position:absolute;top:0;left:52px;right:0;height:9px;
     background:rgba(223,242,248,.14);overflow:hidden}
   .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
   .hull.crit{animation:critpulse .55s ease-in-out infinite}
@@ -357,7 +363,7 @@
      du bidon. Une ressource permanente mérite d'être vue en permanence, et le
      haut est l'endroit où les deux jauges qui ne se dépensent pas au bouton
      se lisent d'un coup d'œil. */
-  .fuel{position:absolute;top:9px;left:0;right:0;height:5px;
+  .fuel{position:absolute;top:10px;left:52px;right:0;height:6px;
     background:rgba(255,159,26,.12);overflow:hidden}
   .fuel i{display:block;height:100%;width:100%;background:#ff9f1a;
     box-shadow:0 0 8px rgba(255,159,26,.6)}
@@ -416,9 +422,18 @@
   @media (pointer:coarse){.keyhint{display:none}}
 
   /* À gauche des deux pads, qui occupent désormais 178 px en bas à droite. */
-  .kb{position:absolute;right:194px;bottom:calc(env(safe-area-inset-bottom) + 18px);
+  .kb{position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);
     font-size:.9em;line-height:1.5;color:var(--dim2);text-align:right}
   @media (pointer:coarse){.kb{display:none}}
+  /* Un pointeur fin qui survole est un ordinateur : les pads tactiles n'y
+     servent à rien et prennent la place de la jauge, qui descend et grandit. */
+  @media (hover:hover) and (pointer:fine){
+    .pads,.stick{display:none}
+    .bst{bottom:calc(env(safe-area-inset-bottom) + 44px);height:46vh;max-height:380px}
+    .bstlbl{bottom:calc(env(safe-area-inset-bottom) + 44px)}
+    /* À gauche de la jauge et de son libellé, qui occupent le coin. */
+    .kb{right:64px}
+  }
 
   .pausehead{font-size:20px;font-weight:300;letter-spacing:.1em}
   .pausedist{margin:6px 0 20px;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
@@ -583,7 +598,9 @@
   <div class="warn" id="warn">WALL</div>
   <div class="pop" id="pop"></div>
   <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+  <span class="glbl hull-lbl">HULL</span>
   <div class="hull"><i id="hullBar"></i></div>
+  <span class="glbl fuel-lbl">FUEL</span>
   <div class="fuel"><i id="fuelBar"></i></div>
   <div class="bst" id="bstBox"><i id="boostBar"></i><i class="l2"></i><i class="l3"></i></div>
   <div class="bstlbl">BOOST</div>

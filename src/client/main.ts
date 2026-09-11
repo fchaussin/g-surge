@@ -18,7 +18,7 @@ import {
   type Difficulty,
 } from '../sim/index.js';
 import { Audio } from './audio.js';
-import { ChaseCamera } from './camera.js';
+import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
@@ -336,6 +336,11 @@ function renderFrame(frameDt: number): void {
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   spray.update(frameDt, state);
+
+  // Un écran bas — un téléphone en paysage — rapproche la caméra. Lu à chaque
+  // frame : `innerHeight` ne force pas de mise en page, et la rotation d'un
+  // téléphone ne prévient pas.
+  camera.setCompact(window.innerHeight < COMPACT_BELOW);
 
   // Lueur, secousse du client et hystérésis de la réserve pleine, sur l'horloge
   // d'affichage.
