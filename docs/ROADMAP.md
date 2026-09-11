@@ -440,6 +440,14 @@ which is running.
   (`npm run measure:ladder`), and three more client modules are tested without
   a browser: the feedback observer with its boost-ready hysteresis, the
   camera's aspect fit, the preferences' sanitiser.
+- **1.4.6 to 1.4.8** — the drift's last two palette rows, a wake in the smoke
+  trail and a turbulence on the drift band; an update that never reloads the
+  score screen; and the drift glow back at cruise, glow and voice reading one
+  `driftFill`. The update path and the service worker itself are tested
+  against fakes, closing the gap §18 of `TECH-DEBT.md` recorded.
+- **Debt 21 closed** — every code file is commented in French, the interface
+  and the documents stay English, the bundle's hashed name unchanged through
+  every batch.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
