@@ -8,9 +8,10 @@
 const TIPS: readonly (readonly [number, string])[] = [
   [1.5, 'Steer with the <b>stick</b>.<br>Hold <b>BOOST</b> on straights.'],
   [7.0, '<b>Drift</b> in corners.<br>Sliding <b>refills the boost</b>.'],
-  [14.0, 'Coins raise your <b>multiplier</b>.<br>Faster means more.'],
-  [22.0, 'Past <b>1000 km/h</b> coins pay most<br>and the multiplier holds.'],
-  [31.0, 'A wall <b>halves the multiplier</b><br>and damages the hull.'],
+  [14.0, 'Coins raise your <b>multiplier</b>.<br>Higher rungs pay more.'],
+  [22.0, 'Drift <b>while boosting</b> to climb<br>to a <b>super boost</b>.'],
+  [31.0, 'A wall <b>halves the multiplier</b><br>and empties the climb.'],
+  [40.0, 'Past <b>1000 km/h</b> the multiplier<br>holds twice as long.'],
 ];
 
 /** How long each bubble stays up, in seconds. */
