@@ -168,7 +168,13 @@
   .toggle.on::after{transform:translateX(21px);background:var(--neon)}
   .sheet .body .btn{max-width:520px;margin-top:10px}
 
-  .hud{position:fixed;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .2s}
+  /* Une unité pour tout le HUD, tirée de la hauteur d'écran et bornée : à 720 p
+     elle vaut ce que valaient les tailles fixes d'avant, à 1080 p elle grandit
+     d'un tiers, et sur un téléphone elle ne descend pas sous 11 px. Les
+     lectures sont en em dessous, donc une seule valeur à régler. dvh d'abord
+     en repli vh, pour les navigateurs qui ne le connaissent pas. */
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .2s;
+    font-size:clamp(11px,1.55vh,17px);font-size:clamp(11px,1.55dvh,17px)}
   .hud.on{opacity:1}
 
   /* G-SURGE : les instruments décrochent, jamais les commandes. Déplacer le
@@ -192,25 +198,25 @@
      s'efface, la vitesse et les jauges restent lisibles. */
   .hud.surge .r,.hud.surge .coins{opacity:.25;transition:opacity .4s}
   .dist{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center}
-  .dist .n{font-size:42px;font-weight:200;letter-spacing:-.02em;line-height:1;
+  .dist .n{font-size:3.8em;font-weight:200;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(37,226,255,.45)}
-  .dist .n i{font-style:normal;font-size:16px;font-weight:400;color:var(--dim);margin-left:3px}
-  .dist .r{margin-top:5px;font-size:11px;color:var(--dim2);font-variant-numeric:tabular-nums}
-  .dist .coins{margin-top:3px;font-size:10px;letter-spacing:.1em;color:var(--dim2)}
+  .dist .n i{font-style:normal;font-size:.38em;font-weight:400;color:var(--dim);margin-left:3px}
+  .dist .r{margin-top:5px;font-size:1em;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .dist .coins{margin-top:3px;font-size:.9em;letter-spacing:.1em;color:var(--dim2)}
   .dist .coins b{color:#ffc24a;font-weight:700;font-variant-numeric:tabular-nums}
-  .pop{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:17px;font-weight:800;
+  .pop{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:1.55em;font-weight:800;
     letter-spacing:.05em;opacity:0;transform:translateY(6px);pointer-events:none}
   .pop.on{opacity:1;transform:translateY(0);transition:opacity .1s,transform .1s}
   .spd{position:absolute;right:16px;top:calc(env(safe-area-inset-top) + 18px);text-align:right}
-  .spd .n{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--neon);
+  .spd .n{font-size:2.25em;font-weight:600;font-variant-numeric:tabular-nums;color:var(--neon);
     text-shadow:0 0 18px rgba(37,226,255,.5)}
-  .spd .u{font-size:10px;color:var(--dim2);letter-spacing:.1em;margin-top:-2px}
-  .dist .live{margin-top:2px;font-size:22px;font-weight:800;letter-spacing:.01em;color:#e0913f;
+  .spd .u{font-size:.9em;color:var(--dim2);letter-spacing:.1em;margin-top:-2px}
+  .dist .live{margin-top:2px;font-size:2em;font-weight:800;letter-spacing:.01em;color:#e0913f;
     font-variant-numeric:tabular-nums;text-shadow:0 0 18px currentColor;
     transition:transform .12s;transform-origin:50% 50%}
   .dist .live.up{transform:scale(1.28)}
   .dist .live.cut{transform:scale(0.78)}
-  .warn{position:absolute;left:0;right:0;top:27%;text-align:center;font-size:12px;font-weight:600;
+  .warn{position:absolute;left:0;right:0;top:27%;text-align:center;font-size:1.1em;font-weight:600;
     letter-spacing:.18em;color:var(--hot);opacity:0;transition:opacity .1s;
     text-shadow:0 0 20px rgba(255,47,154,.6)}
   .warn.on{opacity:1}
@@ -287,23 +293,22 @@
   .pad.boost.charge .hint{opacity:1}
 
   .spd .n{transition:font-size .18s ease,color .18s ease}
-  .spd.hot .n{font-size:40px;color:#fff;text-shadow:0 0 26px rgba(37,226,255,.85)}
+  .spd.hot .n{font-size:3.6em;color:#fff;text-shadow:0 0 26px rgba(37,226,255,.85)}
   .spd.sup .n{color:#ffd9f4;text-shadow:0 0 30px rgba(255,47,154,.9)}
 
   .toast{position:absolute;left:50%;transform:translateX(-50%);
-    bottom:calc(env(safe-area-inset-bottom) + 92px);
+    bottom:calc(env(safe-area-inset-bottom) + 13vh);bottom:calc(env(safe-area-inset-bottom) + 13dvh);
     width:min(330px,62vw);text-align:center;
-    padding:0 10px;font-size:14px;line-height:1.45;letter-spacing:.04em;
+    padding:0 10px;font-size:1.3em;line-height:1.45;letter-spacing:.04em;
     color:rgba(223,242,248,.72);text-shadow:0 1px 10px rgba(3,5,9,.95),0 0 22px rgba(3,5,9,.8);
     opacity:0;transition:opacity .35s,transform .35s;pointer-events:none}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  /* Les tailles suivent la hauteur d'écran par l'unité du HUD ; seule la
+     largeur du toast dépend encore de la largeur. */
   @media (min-width:900px){
-    .toast{font-size:18px;width:min(460px,44vw);bottom:calc(env(safe-area-inset-bottom) + 110px)}
-    .pop{font-size:24px}
-    .warn{font-size:15px}
+    .toast{width:min(460px,44vw)}
     .sheet .body{padding-left:32px;padding-right:32px}
   }
-  @media (min-width:1400px){ .toast{font-size:21px} .pop{font-size:28px} }
   .toast b{color:var(--neon);font-weight:700;text-shadow:0 0 14px rgba(37,226,255,.55)}
 
   .stickzone{position:absolute;left:0;bottom:0;width:54%;height:60%;pointer-events:auto}
@@ -367,7 +372,7 @@
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:36px;
     bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
-    font-size:8px;letter-spacing:.22em;color:var(--dim2);
+    font-size:.72em;letter-spacing:.22em;color:var(--dim2);
     transform:rotate(180deg);writing-mode:vertical-rl}
 
 
@@ -379,7 +384,7 @@
 
   /* À gauche des deux pads, qui occupent désormais 178 px en bas à droite. */
   .kb{position:absolute;right:194px;bottom:calc(env(safe-area-inset-bottom) + 18px);
-    font-size:10px;line-height:1.5;color:var(--dim2);text-align:right}
+    font-size:.9em;line-height:1.5;color:var(--dim2);text-align:right}
   @media (pointer:coarse){.kb{display:none}}
 
   .pausehead{font-size:20px;font-weight:300;letter-spacing:.1em}
