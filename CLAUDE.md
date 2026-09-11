@@ -8,7 +8,12 @@ Read `docs/ARCHITECTURE.md` before the first non-trivial change.
 `docs/ROADMAP.md` says what to do first and in what order.
 `docs/GAMEPLAY.md` is the design reference. Its tables are generated from
 `src/sim/tuning.ts` by `npm run docs:tuning` and a test fails if they drift —
-do not edit them by hand.
+do not edit them by hand. The line counts of `ARCHITECTURE.md` and the
+oversize table of `TECH-DEBT.md` are generated the same way by
+`npm run docs:layout`, and the same test fails if a source module is missing
+from the architecture map.
+`.claude/rules/versioning.md` says when the version bumps and by how much:
+every push that changes the bundle, patch at least.
 `docs/FX-PALETTE.md` is a resource palette to draw effects from, mainly for
 the sense of speed — not a feature backlog. Its own header records what the
 code already does, since drift and superboost are implemented and what they
