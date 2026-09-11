@@ -114,7 +114,7 @@ carries the one design gap below and the other three carry none.
     speeding the climb.
 
 13. **The invincibility item.** Defaulted: 6 s, violet, and a push of 8 % of
-    the speed per second of contact, which settles a fifth above the target
+    the speed per second of contact, which settles a quarter above the target
     speed; a landing beyond the edge is harmless too while it lasts. All three
     on the Advanced tab. One thing to judge in play: `rideChance` equals the
     super boost's, which makes it as rare — say if it should be more common.

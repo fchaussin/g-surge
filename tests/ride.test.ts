@@ -31,9 +31,15 @@ function dropRide(sim: Sim): void {
   });
 }
 
-/** Contre la paroi, en poussant dedans, `steps` pas. */
+/**
+ * Contre la paroi, en poussant dedans, `steps` pas. Les objets sont vidés à
+ * chaque pas : collé au mur à 11,5 m le vaisseau attrape ce qui est posé
+ * jusqu'à 8 m, et un super boost ramassé par hasard fausserait la vitesse.
+ */
 function grind(sim: Sim, steps: number, out: SimEvent[]): void {
   for (let i = 0; i < steps; i++) {
+    sim.track.items.length = 0;
+    sim.track.extras.length = 0;
     sim.state.lat = HALF;
     sim.state.latVel = 8;
     sim.state.yaw = 0;
@@ -126,7 +132,7 @@ describe('invincibility', () => {
     expect(ev.some((e) => e.type === 'scrape' || e.type === 'wallImpact')).toBe(false);
   });
 
-  it('caps the gain where the target speed pulls back, near rideGain / speedGain above it', () => {
+  it('caps the gain where the target speed pulls back, at rideGain / (speedGain − rideGain) above it', () => {
     const sim = fresh();
     const ev: SimEvent[] = [];
     sim.state.rideT = 99;
@@ -134,8 +140,13 @@ describe('invincibility', () => {
     sim.state.speed = sim.tuning.speedMax;
     grind(sim, 720 * 20, ev);
     const excess = sim.state.speed / sim.tuning.speedMax - 1;
-    expect(excess).toBeGreaterThan(0.12);
-    expect(excess).toBeLessThan(sim.tuning.rideGain / sim.tuning.speedGain + 0.02);
+    // Point fixe de « pousser de r par seconde, ramener de g vers la cible » :
+    // s = T·g / (g − r), donc l'excès vaut r / (g − r). La première borne écrite
+    // ici était r / g, et la mesure l'a contredite de deux centièmes.
+    const t = sim.tuning;
+    const fixed = t.rideGain / (t.speedGain - t.rideGain);
+    expect(excess).toBeGreaterThan(fixed * 0.8);
+    expect(excess).toBeLessThan(fixed * 1.05);
   });
 
   it('bites again the moment it ends', () => {

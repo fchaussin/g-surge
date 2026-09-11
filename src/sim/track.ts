@@ -337,8 +337,22 @@ export class Track {
     // soit la vitesse : le rayon de virage croît avec le carré de la vitesse
     const kMax = clamp(T.curveLoad / (v2 * T.centri), T.curveMin, T.curveMax);
 
+    // L'ouverture : `openingStraight` mètres droits et plats devant le vaisseau,
+    // qui est à BACK segments du premier nœud. Les virages viennent ensuite,
+    // les vrilles à partir de `rollFrom` — une piste qui s'apprend avant de
+    // se retourner.
+    const ahead = (gen.id - BACK) * SEG;
+    const opening = ahead < T.openingStraight;
+    if (opening) {
+      gen.kTarget = 0;
+      gen.kLeft = 1;
+      gen.gTarget = 0;
+      gen.gLeft = 1;
+      gen.crest = false;
+    }
+
     if (gen.kLeft <= 0) {
-      if (rng.chance(T.rollChance)) {
+      if (ahead >= T.rollFrom && rng.chance(T.rollChance)) {
         gen.roll = Math.round(T.rollNodes);
         gen.rollDir = rng.sign();
         gen.kTarget = 0;

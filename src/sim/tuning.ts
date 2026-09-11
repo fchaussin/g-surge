@@ -92,6 +92,10 @@ export interface Tuning {
   bankScale: number;
 
   /* Génération de piste */
+  /** Mètres de ligne droite et plate devant le vaisseau au départ. */
+  openingStraight: number;
+  /** Mètres avant lesquels aucune vrille n'est tirée. */
+  rollFrom: number;
   curveLoad: number;
   curveMin: number;
   curveMax: number;
@@ -104,6 +108,8 @@ export interface Tuning {
   hullImpact: number;
   hullScrape: number;
   hullRegen: number;
+  /** Coque perdue sur une réception hors piste. */
+  badLandingHull: number;
   damageSpeed: number;
   damageSteer: number;
 
@@ -201,9 +207,10 @@ export const DEFAULTS: Readonly<Tuning> = {
   nearScore: 0.6,
   nearCharge: 6,
   /* Au-delà des traces figées, qui couvrent 1 345 m. Aussi rare qu'un super
-   * boost, six secondes, et un gain qui pousse la vitesse un cinquième au-dessus
-   * de sa cible tant qu'on frotte — la cible la ramène à 0,42/s, donc le point
-   * d'équilibre est rideGain / speedGain. À rejuger en jouant. */
+   * boost, six secondes, et un gain qui pousse la vitesse un quart au-dessus de
+   * sa cible tant qu'on frotte — la cible la ramène à speedGain par seconde,
+   * donc l'excès se fixe à rideGain / (speedGain − rideGain), 0,235 ici. À
+   * rejuger en jouant. */
   extrasFrom: 1500,
   rideChance: 0.0025,
   rideTime: 6,
@@ -224,6 +231,8 @@ export const DEFAULTS: Readonly<Tuning> = {
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,
+  openingStraight: 200,
+  rollFrom: 5000,
   curveLoad: 30,
   curveMin: 0.0012,
   curveMax: 0.011,
@@ -231,11 +240,17 @@ export const DEFAULTS: Readonly<Tuning> = {
   rollChance: 0.14,
   rollNodes: 44,
   stripeEvery: 2,
-  hullImpact: 2.0,
-  hullScrape: 15,
-  hullRegen: 1.7,
-  damageSpeed: 0.3,
-  damageSteer: 0.28,
+  /* Allégés le 11 septembre 2026 : un jeu d'arcade pardonne. Un choc coûte
+   * 40 % de moins, un frottement moitié moins, la coque se refait deux fois
+   * plus vite, et les dégâts retirent moins de vitesse et de direction. Le
+   * pilote scripté, qui touche les murs quarante fois par dix minutes, mourait
+   * en 86 s en difficile ; il doit finir ses cinq minutes en facile. */
+  hullImpact: 1.2,
+  hullScrape: 7,
+  hullRegen: 4,
+  badLandingHull: 12,
+  damageSpeed: 0.22,
+  damageSteer: 0.2,
   coinChance: 0.015,
   fixChance: 0.003,
   fixAmount: 40,
@@ -299,9 +314,9 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 38,
       speedRamp: 6000,
-      hullImpact: 2.6,
-      hullRegen: 1.2,
-      hullScrape: 19,
+      hullImpact: 1.6,
+      hullRegen: 2.8,
+      hullScrape: 10,
       multDecay: 0.14,
       fixChance: 0.0022,
       rollChance: 0.18,
@@ -317,9 +332,9 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 46,
       speedRamp: 4000,
-      hullImpact: 3.4,
-      hullRegen: 0.8,
-      hullScrape: 24,
+      hullImpact: 2.2,
+      hullRegen: 1.8,
+      hullScrape: 14,
       multDecay: 0.2,
       fixChance: 0.0015,
       supChance: 0.0018,

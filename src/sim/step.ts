@@ -210,7 +210,7 @@ export function step(
         // réception hors piste
         state.speed *= 1 - T.badLanding;
         state.energy = Math.max(0, state.energy - 40);
-        state.hull = Math.max(0, state.hull - 18);
+        state.hull = Math.max(0, state.hull - T.badLandingHull);
         state.shake = 0.8;
         state.scrape = 0.4;
         state.mult = 1 + (state.mult - 1) * T.multWallCut;
@@ -352,8 +352,9 @@ export function step(
     if (!attract && !state.air) {
       if (riding) {
         // Le wall riding : le mur pousse au lieu de mordre. La cible ramène la
-        // vitesse à `speedGain` par seconde, donc l'excès plafonne de lui-même
-        // à rideGain / speedGain au-dessus d'elle. Montée et combo survivent.
+        // vitesse à `speedGain` par seconde, donc l'excès se fixe de lui-même à
+        // rideGain / (speedGain − rideGain) au-dessus d'elle. Montée et combo
+        // survivent.
         state.speed += state.speed * T.rideGain * dt;
         out.push({ type: 'ride' });
       } else {

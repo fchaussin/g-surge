@@ -51,7 +51,8 @@ no climb or combo dropped, and a landing beyond the edge is just a landing. A
 wall then *pushes*: each second of contact adds `rideGain` of the speed, and the
 ship hugs the edge instead of bouncing off it, so the contact is a line you can
 hold. The target speed pulls back at `speedGain` per second, so the push settles
-at about `rideGain / speedGain` above the target on its own. The pickups live in
+at `rideGain / (speedGain − rideGain)` above the target on its own — a quarter,
+at the defaults. The pickups live in
 a second list, `extras`, drawn from their own stream and never before
 `extrasFrom` metres: the frozen track references record the original list as it
 was, and the physics traces end before any extra can exist.
@@ -140,8 +141,8 @@ easy.
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
 | Share of grip that corner demands | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
-| Impact at 12 m/s closing | 24 pts | 31 pts | 41 pts |
-| Time to repair it | 14 s | 26 s | 51 s |
+| Impact at 12 m/s closing | 14 pts | 19 pts | 26 pts |
+| Time to repair it | 4 s | 7 s | 15 s |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
 
@@ -186,6 +187,10 @@ is the physical balance angle for that load, scaled by `bankScale`, capped at
 this is the knob that makes corners feel automatic or demanding, independently
 of how they look.
 
+A run opens on `openingStraight` metres of straight, flat track ahead of the
+ship — corners come after it, and no corkscrew is drawn before `rollFrom`
+metres: the track is learnt before it turns over.
+
 Gradient is capped by `climbRate` in metres per second of vertical speed, again
 speed dependent. Ramps are generated deliberately: a firm climb followed by a
 sharp crest, which is what makes the ship leave the ground. Corkscrews are pure
@@ -193,16 +198,22 @@ roll accumulated over `rollNodes` segments, with curvature forced to zero.
 
 ## Damage
 
+Retuned on 11 September 2026 for an arcade game that forgives: a hit costs
+40 % less, a scrape half, the hull heals twice as fast, and damage takes less
+speed and steering away. The scripted pilot, which hits the walls forty times
+in ten minutes, used to die in 86 s on Hard; it now finishes five minutes on
+Easy and Medium without a wreck, and lasts about 195 s on Hard.
+
 <!-- generated:damage -->
 | Event | Cost |
 |---|---|
 | Impact | `hullImpact` × lateral closing speed, clamped 2 to 42 |
-| Scraping | 15 per second |
+| Scraping | 7 per second |
 | Bad landing off track | 18 points, plus 35 % of speed |
-| Passive repair | 1.7 per second |
+| Passive repair | 4 per second |
 | Repair pickup | `fixAmount`, 40 points |
 
-Damage reduces top speed by up to 30 %, steering by 28 % and halves boost
+Damage reduces top speed by up to 22 %, steering by 20 % and halves boost
 recharge. At zero the run ends.
 <!-- /generated:damage -->
 

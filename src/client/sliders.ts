@@ -134,7 +134,7 @@ export const SLIDERS: readonly SliderSpec[] = [
     min: 0,
     max: 0.3,
     step: 0.01,
-    hint: 'Speed gained per second of wall contact while invincible, as a fraction. It settles at this over the speed gain.',
+    hint: 'Speed gained per second of wall contact while invincible, as a fraction. The excess settles at this over the speed gain minus this.',
   },
   {
     key: 'rideChance',
