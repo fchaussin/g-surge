@@ -510,6 +510,10 @@ HUD and help references did, each in its own commit. What is left is play:
   `hullImpactMax`, 24 / 34 / 42 per difficulty, a hit is at most three seconds
   of scraping, the budget of 1.14.0 stays. Physics references moved.
 - **1.15.1** — "not bad"; the can comes down from 3.6 m to 2.8 m.
+- **1.15.2** — the invincibility gets its sensory layer: a plasma globe around
+  the hull, Tesla-coil arcs inside a rainbow fresnel bubble, a low beating hum
+  with a crackle, and the side rails flowing rainbow around the ship, all
+  driven by one eased intensity in `shield.ts`. Class A: nothing frozen moved.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

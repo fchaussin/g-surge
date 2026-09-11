@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 10 | ~2 200 |
-| `src/client/` | 30 | ~6 400 |
+| `src/client/` | 31 | ~6 700 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
 
@@ -176,8 +176,9 @@ which is what makes the step runnable outside a page.
 | `viewport.ts` | Renderer, camera, resize, render scale |
 | `camera.ts` | The chase camera and its roll blend |
 | `sky.ts` | Shader background and star dust |
-| `track-mesh.ts` | Five ribbons and the gantries |
+| `track-mesh.ts` | Five ribbons and the gantries; the edges light up under the shield |
 | `ship.ts` | Hull, plumes, smoke trail, halo |
+| `shield.ts` | The invincibility as it is seen: Tesla-coil arcs and a field around the hull, and the one eased intensity the rails and the hum read |
 | `pickups.ts` | Pooled coin, repair and boost meshes |
 | `drift.ts` | `SLIP_CEILING`, 35 m/s, and the one drift intensity and side every effect reads |
 | `drift-spray.ts` | The lateral spray — pooled, allocated once, parented to the ship |
@@ -214,12 +215,28 @@ The background is a shader on an inverted sphere centred on the camera: value
 noise fbm for the nebula plus two hashed star layers. The dust in front of it
 is generated from a constant seed, so the sky is identical on every load.
 
+The invincibility is a plasma globe: a translucent bubble whose rim lights by
+fresnel in the prism's rainbow palette, and inside it a Tesla coil —
+`LineSegments` allocated once, twenty-four arcs of five segments redrawn every
+45 ms from the hull to the bubble's wall, drawn twice, white and violet at a
+slightly larger scale, since a WebGL line is one pixel wide. The violet halo of
+a rail contact is the pickup halo in `ship.ts`, held by `feedback.ts`, and
+shows through the bubble. `ShieldFx.value` eases in over 0.18 s, out over
+0.35 s, and blinks over the last 1.5 s; the track's edge colours lerp towards a
+flowing rainbow by the same value, full for fourteen segments around the ship
+and gone forty further, and the audio reads it too. It never rises in attract
+mode, so no scene reference can see it.
+
 ### Audio
 
 Web Audio, fully synthesised, no files. The engine is three bands of filtered
 noise — low rumble, mid body, high hiss — plus a very quiet sine for turbine
 whine. Oscillators were tried first and sounded like a piston engine, hence
 noise. The crash reverb is built on the first gesture, not on the first crash.
+The shield is the one place oscillators stayed: two sawtooths at 46 Hz beating
+0.7 Hz apart under a tight low-pass, chopped by a 27 Hz square — the hum and
+the crackle of a Tesla coil — with a thread of high-passed noise for the spark,
+all opened by `ShieldFx.value`.
 
 ## Startup
 

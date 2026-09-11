@@ -36,6 +36,7 @@ import { ScoreScreen } from './score-screen.js';
 import { Scores } from './scores.js';
 import { Screens } from './screens.js';
 import { Settings } from './settings.js';
+import { ShieldFx } from './shield.js';
 import { Ship } from './ship.js';
 import { SurgeOverlay } from './overlay.js';
 import { Sky } from './sky.js';
@@ -87,12 +88,13 @@ const sky = new Sky();
 const trackMesh = new TrackMesh(viewport.renderer);
 const pickups = new Pickups();
 const ship = new Ship();
+const shield = new ShieldFx();
 const surgeMeter = new SurgeMeter();
 const surgeOverlay = new SurgeOverlay();
 // Parentée au vaisseau, comme la fumée : dans le monde, une particule lâchée
 // ici croiserait la caméra 19 m derrière.
 const spray = new DriftSpray();
-ship.group.add(spray.group);
+ship.group.add(spray.group, shield.group);
 scene.add(sky.group, trackMesh.group, pickups.group, ship.group);
 
 // Le vaisseau est le seul objet éclairé ; tout le reste est sans éclairage à
@@ -276,6 +278,7 @@ function resetPresentation(): void {
   surgeMeter.reset();
   surgeOverlay.reset();
   feedback.reset();
+  shield.reset();
   lean = 0;
   yawVisual = 0;
 }
@@ -318,7 +321,9 @@ function renderFrame(frameDt: number): void {
   // parcourent ses tampons directement et la caméra échantillonne le long.
   const state = sim.state;
   sim.track.buildPath(state.cursor);
-  trackMesh.update(sim.track, sim.tuning.stripeEvery);
+  // Le bouclier d'abord : les rails lisent son intensité de cette frame.
+  shield.update(frameDt, state, screens.isPlaying);
+  trackMesh.update(sim.track, sim.tuning.stripeEvery, shield.value, elapsed);
 
   const thrust = thrustTier(state);
   // Le palier de pièce est le barreau de poussée : une seule notion, celle que
@@ -388,6 +393,7 @@ function renderFrame(frameDt: number): void {
     thrust,
     driftIntensity(state),
     driftFill(state, sim.tuning),
+    shield.value,
   );
 
   if (screens.isPlaying) {

@@ -31,13 +31,29 @@ import {
   type Texture,
   type WebGLRenderer,
 } from 'three';
-import { COUNT, HALF, type Track } from '../sim/index.js';
+import { BACK, COUNT, HALF, type Track } from '../sim/index.js';
 
 const ROAD_A = new Color(0x3d4a61);
 const ROAD_B = new Color(0x333e52);
 const NEON_A = new Color(0x25e2ff);
 const NEON_B = new Color(0x0b4a63);
 const HOT = new Color(0xff2f9a);
+
+/**
+ * Sous invincibilité les lèvres s'allument : un arc-en-ciel qui coule le long
+ * de la piste, plein autour du vaisseau et qui s'éteint avec la distance —
+ * c'est le champ du bouclier posé sur les rails, pas une piste repeinte. La
+ * teinte tourne avec l'identifiant du segment et le temps, comme le prisme.
+ */
+/** Segments autour du vaisseau où les rails sont pleinement allumés, puis où ils s'éteignent. */
+const SHIELD_FULL = 14;
+const SHIELD_FADE = 40;
+/** Tours de teinte par segment et par seconde. */
+const SHIELD_HUE_PER_SEG = 0.03;
+const SHIELD_HUE_PER_S = 0.6;
+/* Deux couleurs de travail : la teinte, et le mélange. Rien d'alloué par frame. */
+const SHIELD_HUE = new Color();
+const SHIELD_MIX = new Color();
 
 /** Largeur de la lèvre néon de chaque côté de la route, et chute de la jupe. */
 const LIP = 1.4;
@@ -175,8 +191,14 @@ export class TrackMesh {
     this.buildGantries();
   }
 
-  /** Réécrit chaque sommet de ruban depuis le chemin intégré. Une fois par frame. */
-  update(track: Track, stripeEvery: number): void {
+  /**
+   * Réécrit chaque sommet de ruban depuis le chemin intégré. Une fois par frame.
+   *
+   * @param shield intensité du bouclier, 0 à 1 ; à zéro les lèvres sont ce
+   *   qu'elles ont toujours été, et une capture n'en voit jamais autre chose.
+   * @param clock secondes écoulées, pour faire couler la teinte.
+   */
+  update(track: Track, stripeEvery: number, shield = 0, clock = 0): void {
     const { px, py, pz, pyaw, nb, nid } = track;
 
     const rp = this.road.geometry.attributes.position!.array as Float32Array;
@@ -236,7 +258,16 @@ export class TrackMesh {
       setPair(lp, i, X + rx * l1, Y + ry * l1, Z + rz * l1, X + rx * l2, Y + ry * l2, Z + rz * l2);
       setPair(qp, i, X + rx * r1, Y + ry * r1, Z + rz * r1, X + rx * r2, Y + ry * r2, Z + rz * r2);
 
-      const c = id % GANTRY_EVERY === 0 ? HOT : id % 6 < 3 ? NEON_A : NEON_B;
+      let c = id % GANTRY_EVERY === 0 ? HOT : id % 6 < 3 ? NEON_A : NEON_B;
+      if (shield > 0) {
+        const away = Math.abs(i - BACK);
+        const reach = away < SHIELD_FULL ? 1 : Math.max(0, 1 - (away - SHIELD_FULL) / SHIELD_FADE);
+        const mix = shield * reach;
+        if (mix > 0) {
+          const hue = (id * SHIELD_HUE_PER_SEG + clock * SHIELD_HUE_PER_S) % 1;
+          c = SHIELD_MIX.copy(c).lerp(SHIELD_HUE.setHSL(hue, 1, 0.72), mix);
+        }
+      }
       setColorPair(lc, i, c);
       setColorPair(qc, i, c);
 

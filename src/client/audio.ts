@@ -90,6 +90,20 @@ const DRIFT_AIRFLOW = 0.12;
  * pleine déchire.
  */
 const TURB_RATES = [3.3, 5.9] as const;
+
+/**
+ * Le bouclier : une bobine Tesla, entendue. Deux dents de scie graves qui
+ * battent l'une contre l'autre sous un passe-bas serré — le bourdon — hachées
+ * par une modulation à quelques dizaines de hertz, qui est le crépitement, et
+ * un filet de souffle aigu par-dessus, l'étincelle. Tout suit `ShieldFx.value`,
+ * donc le son monte, clignote et s'éteint avec les arcs et les rails.
+ */
+const SHIELD_HZ = 46;
+const SHIELD_BEAT = 0.7;
+const SHIELD_LOWPASS = 190;
+const SHIELD_CRACKLE_HZ = 27;
+const SHIELD_GAIN = 0.16;
+const SHIELD_SPARK_GAIN = 0.02;
 const TURB_FREQ_DEPTH = 420;
 const TURB_GAIN_DEPTH = 0.3;
 
@@ -134,6 +148,8 @@ export class Audio {
   /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
   private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
+  /** Le bourdon du bouclier et son étincelle, ouverts par une seule intensité. */
+  private shield: { gain: GainNode; filter: BiquadFilterNode; spark: Band } | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
   /** Aucun graphe n'existe avant un geste ; voir `unlock`. */
@@ -268,6 +284,8 @@ export class Audio {
    * @param charge ce que le drift remplit, 0 à 1 : la réserve de boost en
    *   croisière, la montée vers le barreau suivant en poussée. Une seule
    *   échelle, celle de la jauge.
+   * @param shield l'intensité du bouclier d'invincibilité, 0 à 1, amortie par
+   *   `ShieldFx` : la bobine Tesla est audible à proportion.
    */
   update(
     playing: boolean,
@@ -276,6 +294,7 @@ export class Audio {
     tier: ThrustTier,
     drift: number,
     charge: number,
+    shield = 0,
   ): void {
     const ctx = this.ctx;
     const eng = this.engine;
@@ -332,6 +351,16 @@ export class Audio {
     this.rideBand?.gain.gain.setTargetAtTime(playing && this.riding ? 0.11 : 0, t, 0.06);
     this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
     this.riding = false;
+
+    // Le bouclier suit son intensité amortie, déjà lissée par le client ; une
+    // constante courte suffit à ôter le clic. Le passe-bas s'ouvre un peu avec
+    // la vitesse, pour que le bourdon ne se perde pas sous le moteur.
+    if (this.shield) {
+      const level = playing ? shield : 0;
+      this.shield.gain.gain.setTargetAtTime(SHIELD_GAIN * level * duck, t, 0.05);
+      this.shield.filter.frequency.setTargetAtTime(SHIELD_LOWPASS + r * 90, t, 0.1);
+      this.shield.spark.gain.gain.setTargetAtTime(SHIELD_SPARK_GAIN * level * level, t, 0.05);
+    }
 
     const airflow = playing && !surge ? drift * DRIFT_AIRFLOW : 0;
     this.driftNoise.gain.gain.setTargetAtTime(airflow, t, 0.07);
@@ -431,6 +460,39 @@ export class Audio {
     chargeGain.connect(this.master);
     chargeOsc.start();
     this.charge = { osc: chargeOsc, gain: chargeGain };
+
+    // Le bouclier. Les deux oscillateurs somment dans le passe-bas ; le
+    // crépitement est un LFO carré sur un gain à mi-course, donc le bourdon
+    // s'ouvre et se ferme sans jamais s'inverser ; le tout dans un gain à zéro
+    // que `update` ouvre.
+    const shieldFilter = ctx.createBiquadFilter();
+    shieldFilter.type = 'lowpass';
+    shieldFilter.frequency.value = SHIELD_LOWPASS;
+    shieldFilter.Q.value = 3;
+    for (const hz of [SHIELD_HZ, SHIELD_HZ + SHIELD_BEAT]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = hz;
+      osc.connect(shieldFilter);
+      osc.start();
+    }
+    const crackle = ctx.createGain();
+    crackle.gain.value = 0.5;
+    const crackleLfo = ctx.createOscillator();
+    crackleLfo.type = 'square';
+    crackleLfo.frequency.value = SHIELD_CRACKLE_HZ;
+    const crackleDepth = ctx.createGain();
+    crackleDepth.gain.value = 0.5;
+    crackleLfo.connect(crackleDepth);
+    crackleDepth.connect(crackle.gain);
+    crackleLfo.start();
+    const shieldGain = ctx.createGain();
+    shieldGain.gain.value = 0;
+    shieldFilter.connect(crackle);
+    crackle.connect(shieldGain);
+    shieldGain.connect(this.master);
+    const spark = this.band(this.loop(1.6), 'highpass', 5200, 0.8);
+    this.shield = { gain: shieldGain, filter: shieldFilter, spark };
   }
 
   private loop(rate: number): AudioBufferSourceNode {

@@ -99,6 +99,20 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 11 September 2026, the shield's presentation — 1.15.2
+
+- **"Invincibility: a Tesla coil in a sphere, halo-style, a low sound with
+  it, and the side rails lit — keep the diamond's translucent rainbow, keep
+  the violet halo on rail contact."** Built as one state with three outputs,
+  `shield.ts`: a plasma globe — a fresnel bubble in the prism's rainbow with
+  arcs crackling from the hull to its wall — a 46 Hz beating hum chopped at
+  27 Hz with a spark of noise, and the track's neon edges flowing rainbow
+  around the ship. All three read the same eased intensity, which blinks
+  over the last second and a half. The violet contact halo is untouched and
+  shows through the bubble. Nothing to judge but taste: the arc count, the
+  hum's level and the rails' reach are constants at the top of `shield.ts`,
+  `audio.ts` and `track-mesh.ts`.
+
 ### 11 September 2026, after the fifth play — 1.15.1
 
 - **"Not bad"** on the fifth damage setting — entry 1 stays open only for a
