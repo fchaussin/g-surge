@@ -1,20 +1,22 @@
 /**
- * The ship: hull, wings, pods, exhaust plumes, smoke trail and pickup halo.
+ * Le vaisseau : coque, ailes, nacelles, plumes de réacteur, traînée de fumée et
+ * halo de ramassage.
  *
- * The only lit object in the game. Everything else is `MeshBasicMaterial`;
- * the ship gets `MeshLambertMaterial` under one key light and a dim ambient so
- * that it reads as a solid volume and so its rotation stays legible during a
- * corkscrew.
+ * Le seul objet éclairé du jeu. Tout le reste est en `MeshBasicMaterial` ; le
+ * vaisseau a un `MeshLambertMaterial` sous une lumière principale et une
+ * ambiante faible, pour se lire comme un volume plein et pour que sa rotation
+ * reste lisible dans une vrille.
  *
- * Two things carried over deliberately:
+ * Deux choses reprises à dessein :
  *
- * - **`MeshLambertMaterial` has no `flatShading` in r128.** Non-indexed
- *   geometry is already flat shaded; setting the property only logs a warning.
- *   The hulls are built as loose triangles for exactly that reason.
- * - **The smoke trail is parented to the ship, not emitted into the world.**
- *   In world space a puff released at the ship necessarily crosses the camera
- *   19 m behind it and fills the screen. Parented, the chain stays between the
- *   two and cannot cross.
+ * - **`MeshLambertMaterial` n'a pas de `flatShading` en r128.** Une géométrie
+ *   non indexée est déjà ombrée à plat ; poser la propriété ne fait que loguer
+ *   un avertissement. Les coques sont bâties en triangles libres exactement
+ *   pour cela.
+ * - **La traînée de fumée est parentée au vaisseau, pas émise dans le monde.**
+ *   En espace monde une bouffée lâchée au vaisseau croise nécessairement la
+ *   caméra 19 m derrière et remplit l'écran. Parentée, la chaîne reste entre
+ *   les deux et ne peut pas croiser.
  */
 import {
   AdditiveBlending,
@@ -37,7 +39,7 @@ import {
 } from 'three';
 import type { ThrustTier } from '../sim/index.js';
 
-/** Thrust tiers: cruising, boosting, super boost, surge. */
+/** Barreaux de poussée : croisière, boost, super boost, surge. */
 const THRUST_LEVELS = [
   { len: 1.1, rad: 0.3, opacity: 0.35, colour: 0x5fd8ff },
   { len: 3.0, rad: 0.44, opacity: 0.75, colour: 0xbdf0ff },
@@ -52,14 +54,16 @@ const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
 
 /**
- * What a drift does to the smoke trail: it bends towards the side the ship
- * came from, since the puffs were left where the ship no longer is, and it
- * breaks up — each puff wobbles on its own, more so the further back it sits.
+ * Ce qu'un drift fait à la traînée de fumée : elle se courbe vers le côté d'où
+ * le vaisseau vient, puisque les bouffées ont été laissées là où il n'est plus,
+ * et elle se disloque — chaque bouffée oscille pour son compte, d'autant plus
+ * qu'elle est loin en arrière.
  *
- * The palette's FX_DRIFT_WAKE. Deterministic, a sine per puff on a clock that
- * only runs while the wake is up, rather than a random per frame: the trail is
- * in every scene capture and a wobble that is exactly zero off drift is what
- * keeps those captures where they are. Eased, so it has to be reset.
+ * Le FX_DRIFT_WAKE de la palette. Déterministe, une sinusoïde par bouffée sur
+ * une horloge qui ne tourne que tant que le sillage est levé, plutôt qu'un
+ * hasard par frame : la traînée est dans chaque capture de scène, et une
+ * oscillation exactement nulle hors drift est ce qui tient ces captures en
+ * place. Amorti, donc à remettre à zéro.
  */
 const WAKE_BEND = 2.4;
 const WAKE_JITTER = 0.55;
@@ -68,7 +72,7 @@ const WAKE_EASE = 6;
 
 type Point3 = readonly [number, number, number];
 
-/** Loose triangles, so the geometry is flat shaded without asking for it. */
+/** Triangles libres : la géométrie est ombrée à plat sans le demander. */
 function poly(
   faces: readonly (readonly [string, string, string])[],
   points: Record<string, Point3>,
@@ -82,9 +86,9 @@ function poly(
 }
 
 export class Ship {
-  /** Follows the track. Smoke and halo hang off it. */
+  /** Suit la piste. Fumée et halo y sont accrochés. */
   readonly group = new Group();
-  /** Carries the visual lean and yaw, which the hull shows but the path does not. */
+  /** Porte la gîte et le lacet visuels, que la coque montre mais pas la trajectoire. */
   readonly body = new Group();
 
   private readonly flames: Mesh[] = [];
@@ -94,11 +98,11 @@ export class Ship {
   private readonly haloMaterial: MeshBasicMaterial;
   private readonly smoke: Sprite[] = [];
   private smokePhase = 0;
-  /** The slide as the trail currently feels it, −1 to 1, eased. */
+  /** La glisse telle que la traînée la sent, −1 à 1, amortie. */
   private wake = 0;
   private wakeClock = 0;
 
-  /* Scratch colours, so the per-frame lerps allocate nothing. */
+  /* Couleurs de travail, pour que les interpolations par frame n'allouent rien. */
   private readonly tmpA = new Color();
   private readonly tmpB = new Color();
 
@@ -122,7 +126,7 @@ export class Ship {
     this.buildSmoke();
   }
 
-  /** Places the ship in the track frame. `bank` comes from the simulation. */
+  /** Place le vaisseau dans le repère de la piste. `bank` vient de la simulation. */
   setPose(lat: number, hop: number, bank: number): void {
     const cb = Math.cos(bank),
       sb = Math.sin(bank);
@@ -131,7 +135,7 @@ export class Ship {
     this.group.rotation.z = bank;
   }
 
-  /** Visual attitude: roll into the corner, yaw with the slip. */
+  /** Attitude visuelle : roulis dans le virage, lacet avec la dérive. */
   setAttitude(lean: number, yaw: number, pitch: number): void {
     this.body.rotation.z = lean;
     this.body.rotation.y = yaw;
@@ -139,13 +143,13 @@ export class Ship {
   }
 
   /**
-   * @param level 0 cruising, 1 boosting, 2 super boost.
-   * @param frameDt real frame delta: this is display easing, not simulation.
+   * @param level 0 croisière, 1 boost, 2 super boost, 3 surge.
+   * @param frameDt vrai delta de frame : c'est un lissage d'affichage, pas de la simulation.
    */
   updateThrust(frameDt: number, level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
-    // Deliberately still on Math.random: per-frame visual noise, outside the
-    // simulation, and seeding it would couple presentation to the core.
+    // Délibérément encore sur Math.random : du bruit visuel par frame, hors
+    // simulation, et le semer couplerait la présentation au noyau.
     const flicker = 0.86 + Math.random() * 0.28;
 
     for (let i = 0; i < this.flames.length; i++) {
@@ -168,12 +172,12 @@ export class Ship {
   }
 
   /**
-   * Puts the plumes straight at their steady state, with no flicker.
+   * Pose les plumes directement à leur état stable, sans scintillement.
    *
-   * Only the deterministic frame capture uses this. The plumes ease towards
-   * their target over many frames, so a frame taken after an arbitrary number
-   * of them is not reproducible — which showed up as a 7 000 pixel difference
-   * between two captures of the same frozen simulation state.
+   * Seule la capture de frame déterministe s'en sert. Les plumes convergent
+   * vers leur cible sur beaucoup de frames, donc une frame prise après un nombre
+   * arbitraire d'entre elles n'est pas reproductible — ce qui s'est vu comme
+   * 7 000 pixels de différence entre deux captures du même état figé.
    */
   snapThrust(level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
@@ -191,9 +195,9 @@ export class Ship {
   }
 
   /**
-   * @param slide the drift, signed by the side the ship slides to, 0 outside
-   *   one — `driftIntensity × driftSide`, the shared scale. The trail bends the
-   *   other way and breaks up in proportion.
+   * @param slide le drift, signé par le côté où le vaisseau glisse, 0 en dehors
+   *   — `driftIntensity × driftSide`, l'échelle partagée. La traînée se courbe
+   *   de l'autre côté et se disloque en proportion.
    */
   updateSmoke(frameDt: number, speed: number, level: ThrustTier, slide = 0): void {
     if (speed < 1) {
@@ -210,13 +214,13 @@ export class Ship {
     for (let i = 0; i < SMOKE_COUNT; i++) {
       const sp = this.smoke[i]!;
       const side = i < half ? -1 : 1;
-      // 0 at the nozzle, 1 at the tail. Bounded by construction, which is why
-      // the sprite scale below can never go negative — a mirrored sprite
-      // filling the screen is a bug this codebase has already paid for.
+      // 0 à la tuyère, 1 à la queue. Borné par construction, d'où l'échelle de
+      // sprite ci-dessous qui ne peut jamais devenir négative — un sprite
+      // miroir plein écran est un bug que ce code a déjà payé.
       const p = (this.smokePhase + (i % half) / half) % 1;
       sp.visible = true;
-      // Zero exactly when the wake is zero: `a + 0` is `a`, so an attract-mode
-      // frame lands on the same floats as before the wake existed.
+      // Exactement nul quand le sillage est nul : `a + 0` vaut `a`, donc une
+      // frame du mode attraction tombe sur les mêmes flottants qu'avant le sillage.
       const bend = -this.wake * WAKE_BEND * p;
       const jitter = turbulence * WAKE_JITTER * p * Math.sin(this.wakeClock + i * 2.4);
       sp.position.set(
@@ -229,7 +233,7 @@ export class Ship {
     }
   }
 
-  /** Puffs hold a distance travelled, so a reset has to drop them. */
+  /** Les bouffées portent une distance parcourue, donc une remise à zéro doit les lâcher. */
   clearSmoke(): void {
     this.smokePhase = 0;
     this.wake = 0;
@@ -238,10 +242,11 @@ export class Ship {
   }
 
   /**
-   * Pickup and impact glow. Driven by the client, not by simulation state:
-   * `halo` and `haloPow` left the core when the events replaced them.
+   * Lueur de ramassage et d'impact. Pilotée par le client, pas par l'état de la
+   * simulation : `halo` et `haloPow` ont quitté le noyau quand les événements
+   * les ont remplacés.
    *
-   * @param intensity 0 to 1, decayed by the caller.
+   * @param intensity 0 à 1, amortie par l'appelant.
    */
   setHalo(colour: number, intensity: number, power: number): void {
     if (intensity <= 0) {
@@ -254,7 +259,7 @@ export class Ship {
     this.halo.scale.setScalar(0.55 + (1 - intensity) * 2.3 * power);
   }
 
-  /** An M seen head on: two high wings, a lower central spine, two hollows. */
+  /** Un M vu de face : deux ailes hautes, une épine centrale plus basse, deux creux. */
   private buildHull(): void {
     const P: Record<string, Point3> = {
       N: [0, 0.52, 2.9],
@@ -290,7 +295,7 @@ export class Ship {
       new MeshLambertMaterial({ color: 0x36485f, side: DoubleSide }),
     );
 
-    // swept wing, low root and raised tip
+    // aile en flèche, emplanture basse et bout relevé
     const W: Record<string, Point3> = {
       A: [0.52, 0.44, 1.0],
       B: [0.52, 0.44, -1.9],
@@ -311,7 +316,7 @@ export class Ship {
     const wingR = new Mesh(poly(wingFaces, W), wingMat);
     const wingL = new Mesh(poly(wingFaces, WL), wingMat);
 
-    // nacelles at two thirds of the span
+    // nacelles aux deux tiers de l'envergure
     const podGeo = new CylinderGeometry(0.26, 0.22, 1.15, 8);
     podGeo.rotateX(Math.PI / 2);
     const podMat = new MeshLambertMaterial({ color: 0x1d2836 });
@@ -355,7 +360,7 @@ export class Ship {
     this.body.add(hull, wingL, wingR, canopy, spine, ...pods, ...glows, ...strakes);
   }
 
-  /** A wide diffuse cone and a narrow bright core, per nozzle. */
+  /** Un cône large et diffus et un cœur étroit et brillant, par tuyère. */
   private buildPlumes(): { outer: MeshBasicMaterial; core: MeshBasicMaterial } {
     const geo = new ConeGeometry(1, 1, 12, 1, true);
     geo.rotateX(-Math.PI / 2);
