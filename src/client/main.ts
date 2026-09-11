@@ -3,35 +3,24 @@
  *
  * Wiring only: it owns no rules. The simulation core decides what happens, the
  * subsystems decide how it looks and sounds, and this file connects them and
- * runs the clock.
- *
- * The last piece missing before the switch is the end-of-run score screen.
+ * runs the clock. What the simulation reports is answered in `feedback.ts`,
+ * and what the tests need to reach is exposed by `debug.ts`.
  */
-import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, REVISION, Scene } from 'three';
-import {
-  atan,
-  BACK,
-  thrustTier,
-  cos,
-  DEFAULTS,
-  DIFF,
-  Sim,
-  sin,
-  tuningFor,
-  type Difficulty,
-  type SimEvent,
-} from '../sim/index.js';
+import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, Scene } from 'three';
+import { BACK, DIFF, Sim, thrustTier, tuningFor, type Difficulty } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
+import { installDebugSurface } from './debug.js';
 import { driftIntensity } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
+import { Feedback } from './feedback.js';
 import { Fullscreen } from './fullscreen.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
 import { InputSource } from './input.js';
 import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
-import { Pickups, COIN_COLOURS } from './pickups.js';
+import { Pickups } from './pickups.js';
 import { PreferenceStore } from './preferences.js';
 import { ScoreScreen } from './score-screen.js';
 import { Scores } from './scores.js';
@@ -47,47 +36,6 @@ import { Viewport } from './viewport.js';
 
 const VOID = 0x05060a;
 
-/** How long a pickup glow takes to fade, in seconds. */
-const HALO_TIME = 0.45;
-
-/**
- * How long the presentation shake takes to fade, in seconds.
- *
- * Deliberately not `state.shake`: that field belongs to the simulation and
- * writing to it from here would move every frozen reference. The camera adds
- * the two.
- */
-const FX_SHAKE_TIME = 0.42;
-
-/**
- * Shortest drift, in seconds, that makes the camera recentre.
- *
- * Independent of the audio's own threshold on purpose — they are two effects
- * and either may be retuned alone — but it comes from the same measurement: a
- * drift can last a single step, and snapping a camera that has not moved is
- * only a stiffness the player feels for no reason.
- */
-const DRIFT_SNAP_MIN = 0.12;
-
-/**
- * The drift glow: the charge's own cyan, and deliberately faint.
- *
- * `--neon` is already the boost gauge's fill, the HUD's DRIFT label and the
- * ship's spine, so the colour says "charging" before anything else does. Its
- * power stays low on purpose: the surge sits at the top of the same ladder and
- * a bright drift would eat the rung above it.
- *
- * Held at a fixed intensity with a rising power rather than the other way
- * round, because `setHalo` shrinks the sphere as intensity climbs — that law is
- * written for a flash that expands while it fades, and this is a sustained
- * glow. Power raises size and opacity together, which is what accumulating
- * energy should look like.
- */
-const DRIFT_HALO = 0x25e2ff;
-const DRIFT_HALO_HOLD = 0.75;
-const DRIFT_HALO_MIN = 0.08;
-const DRIFT_HALO_MAX = 0.3;
-
 /**
  * Secousse tenue au plein du G-SURGE, en plus du coup porté à l'entrée.
  *
@@ -96,18 +44,6 @@ const DRIFT_HALO_MAX = 0.3;
  * secondes est illisible plutôt qu'intense.
  */
 const SURGE_SHAKE = 0.45;
-
-/**
- * Reserve level below which a refill becomes worth announcing again.
- *
- * This was a simulation event first, and it was wrong there. "The reserve is at
- * 100" is a fact the core owns, but it is at 100 again three steps after a wall
- * scrape has shaved 0.036 off it — a test caught it firing eighteen times where
- * three were meant. How large a dip deserves a sound is a presentation
- * judgement, so it lives here. Five points is a short tap of the boost, and
- * more than any single step can remove.
- */
-const BOOST_READY_ARM = 95;
 
 function seedFromUrl(): string | null {
   try {
@@ -277,123 +213,36 @@ let bank = 0;
 /* Visual attitude, eased towards the simulation rather than snapped to it. */
 let lean = 0;
 let yawVisual = 0;
-/* Pickup and impact glow. It left the simulation with the events refactor. */
-let halo = 0;
-let haloPower = 1;
-let haloColour = 0xffffff;
-/* Impact shake owned by the client. See FX_SHAKE_TIME. */
-let fxShake = 0;
-/* True once the reserve has been spent enough to be worth announcing again. */
-let boostArmed = false;
 
-function flashHalo(colour: number, power = 1): void {
-  haloColour = colour;
-  halo = 1;
-  haloPower = power;
-}
+// The observer end of the event union: sound, vibration, glow, shake, pops.
+const feedback = new Feedback({ audio, haptics, hud, camera, ship, onWreck: () => endRun() });
 
-/** A scrape holds the glow up rather than restarting it every step. */
-function holdHalo(colour: number, level: number, power: number): void {
-  haloColour = colour;
-  if (halo < level) halo = level;
-  haloPower = power;
-}
-
-function consume(events: readonly SimEvent[]): void {
-  audio.play(events);
-  for (const e of events) {
-    switch (e.type) {
-      case 'land':
-        haptics.buzz(18, 120);
-        break;
-      case 'badLanding':
-        flashHalo(0xff3b30, 1.1);
-        haptics.buzz([40, 50, 120]);
-        break;
-      case 'wallImpact':
-        flashHalo(0xff3b30, 0.75 + e.force * 0.6);
-        haptics.buzz(e.force > 0.6 ? [35, 40, 110] : [25 + Math.round(e.force * 60)]);
-        break;
-      case 'scrape':
-        holdHalo(0xff3b30, 0.7, 0.7);
-        // Spaced: restarting the motor every step cancels it before it is felt.
-        haptics.buzz(9, 190);
-        break;
-      case 'pickup':
-        if (e.kind === 'coin') {
-          hud.showPop(`× +${e.gain.toFixed(1)}`, `#${COIN_COLOURS[e.tier].toString(16)}`);
-          flashHalo(COIN_COLOURS[e.tier], 0.75 + e.gain * 0.9);
-          haptics.buzz(10 + Math.round(e.gain * 22));
-        } else if (e.kind === 'fix') {
-          hud.showPop('REPAIRED', '#35e08a');
-          flashHalo(0x35e08a);
-          haptics.buzz([22, 40, 22]);
-        } else {
-          hud.showPop('SUPER BOOST', '#ff2f9a');
-          // Le ramassage est l'activation : c'est le seul instant où l'onde de
-          // choc peut partir, et elle n'a donc besoin d'aucun événement neuf.
-          flashHalo(0xff2f9a, 1.8);
-          fxShake = 1;
-          haptics.buzz([30, 30, 70, 40, 120]);
-        }
-        break;
-      case 'driftStart':
-        // Espacé : la bascule est rare — dix entrées par minute au plus,
-        // mesuré — mais relancer le moteur sur un drift d'un pas ne se sent
-        // pas, il s'annule.
-        haptics.buzz(12, 220);
-        break;
-      case 'driftEnd':
-        // Même seuil que la décharge sonore, et pour la même raison : sur un
-        // drift d'un seul pas la caméra n'a rien à rattraper.
-        if (e.held > DRIFT_SNAP_MIN) camera.driftExitSnap();
-        break;
-      case 'surgeStart':
-        // Blanc franc, et plus large que tout le reste : c'est le haut de
-        // l'échelle, il doit être impossible à confondre avec la charge.
-        flashHalo(0xffffff, 2.0);
-        fxShake = 1;
-        haptics.buzz([40, 30, 40, 30, 90]);
-        break;
-      case 'surgeEnd':
-        // Le blanc chaud de sa propre plume, et pas le cyan de la charge :
-        // celui-là appartient au drift désormais.
-        flashHalo(0xfff6d0, 1.1);
-        haptics.buzz([20, 40, 20]);
-        break;
-      case 'supEnd':
-        // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
-        // le ramassage a rempli la réserve et le superboost ne l'a pas
-        // consommée, donc la partie repart sur un boost entier. Un frottement
-        // de mur peut en avoir mordu, ce qui est pourquoi rien n'est écrit.
-        flashHalo(0xffffff, 0.9);
-        haptics.buzz([18, 30, 12]);
-        break;
-      case 'wreck':
-        endRun();
-        break;
-      default:
-        break;
-    }
-  }
-}
-
-function startRun(): void {
-  if (screens.mode === 'run') submit();
-  sim.reset(pinnedSeed ?? freshSeed());
-  tips.reset();
+/**
+ * Everything that eases over frames, reset in one place.
+ *
+ * Shared between the start of a run and a capture on purpose: a new eased
+ * state that joins one list and forgets the other is exactly how three visual
+ * reference bugs were made. The sky is not here — it keeps running from the
+ * menu into the run, and only a capture resets it.
+ */
+function resetPresentation(): void {
   ship.clearSmoke();
   spray.reset();
   pickups.reset();
   camera.reset(sim.tuning);
   surgeMeter.reset();
   surgeOverlay.reset();
-  hud.reset();
-  halo = 0;
-  fxShake = 0;
-  boostArmed = false;
+  feedback.reset();
   lean = 0;
   yawVisual = 0;
+}
+
+function startRun(): void {
+  if (screens.mode === 'run') submit();
+  sim.reset(pinnedSeed ?? freshSeed());
+  tips.reset();
+  resetPresentation();
+  hud.reset();
   loop.reset();
   screens.setMode('run');
 }
@@ -446,27 +295,9 @@ function renderFrame(frameDt: number): void {
   ship.updateSmoke(frameDt, state.speed, thrust);
   spray.update(frameDt, state);
 
-  // La lueur du drift, tenue tant qu'il dure et portée par la chaîne — donc
-  // elle dit aussi « j'y suis presque », ce qu'aucun autre élément ne dit.
-  // Écartée si un flash plus fort est en cours : un choc de mur prime.
-  if (screens.isPlaying && state.drift && halo <= DRIFT_HALO_HOLD) {
-    const ratio = Math.min(1, state.chain / sim.tuning.surgeHold);
-    // Scintillement irrégulier, pas une pulsation : le HUD pulse déjà à
-    // période fixe, et copier ce rythme ferait lire la lueur comme de
-    // l'interface posée sur la coque plutôt que comme de la friction. Même
-    // hasard par frame que la plume du réacteur, hors simulation.
-    const flicker = 0.72 + Math.random() * 0.5;
-    holdHalo(
-      DRIFT_HALO,
-      DRIFT_HALO_HOLD,
-      (DRIFT_HALO_MIN + (DRIFT_HALO_MAX - DRIFT_HALO_MIN) * ratio) * flicker,
-    );
-  }
+  // Glow, client shake and the boost-ready hysteresis, on the display clock.
+  feedback.update(frameDt, state, sim.tuning, screens.isPlaying);
 
-  if (halo > 0) halo = Math.max(0, halo - frameDt / HALO_TIME);
-  ship.setHalo(haloColour, halo, haloPower);
-
-  if (fxShake > 0) fxShake = Math.max(0, fxShake - frameDt / FX_SHAKE_TIME);
   // L'intensité de l'état monte tant que le pilotage tient, et tout ce qui doit
   // croître pendant les cinq secondes la lit : la secousse et le calque.
   surgeMeter.update(frameDt, state, sim.tuning);
@@ -476,7 +307,7 @@ function renderFrame(frameDt: number): void {
     sim.track,
     sim.tuning,
     frameDt,
-    state.shake + fxShake + surgeMeter.value * SURGE_SHAKE,
+    state.shake + feedback.shake + surgeMeter.value * SURGE_SHAKE,
   );
 
   const position = viewport.camera.position;
@@ -510,11 +341,6 @@ function renderFrame(frameDt: number): void {
   if (screens.isPlaying) {
     hud.update(state, sim.tuning, frameDt);
     tips.update(frameDt);
-    if (state.energy < BOOST_READY_ARM) boostArmed = true;
-    else if (boostArmed && state.energy >= 100) {
-      boostArmed = false;
-      audio.boostReady();
-    }
   }
 
   viewport.render(scene);
@@ -527,7 +353,7 @@ const loop = new Loop({
     // the menu. Pause, settings and the rest freeze it deliberately.
     if (mode === 'run') {
       bank = sim.step(input.sample(), dt, false);
-      consume(sim.events);
+      feedback.consume(sim.events);
     } else if (mode === 'menu') {
       bank = sim.step(input.value, dt, true);
     }
@@ -660,165 +486,32 @@ declare global {
   interface Window {
     __gsReady?: () => void;
     __gsProgress?: (percent: number, label?: string) => void;
-    __gsNext: {
-      seed(): string;
-      revision: string;
-      fixedStep(): number;
-      state(): Readonly<typeof sim.state>;
-      renderScale(): number;
-      mode(): string;
-      setSkyDetail(high: boolean): void;
-      setSkyVisible(visible: boolean): void;
-      freeze(seed: string, steps: number): void;
-      clock(): { hz: number; dt: number };
-      trig(xs: number[]): { sin: number[]; cos: number[]; atan: number[] };
-      defaults(): Record<string, number>;
-      tuning(): typeof sim.tuning;
-      nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
-      items(): Array<{ id: number; lat: number; type: number }>;
-      trace(opts: {
-        seed: string;
-        diff?: Difficulty;
-        steps?: number;
-        dt?: number;
-        every?: number;
-        script?: Array<{ from: number; steer?: number; brake?: boolean; boost?: boolean }>;
-      }): unknown;
-    };
   }
 }
 
-window.__gsNext = {
-  seed: () => sim.seed,
-  revision: REVISION,
-  fixedStep: () => loop.fixedStep,
-  state: () => sim.state,
-  renderScale: () => viewport.renderScale,
-  mode: () => screens.mode,
-  setSkyDetail: (high) => sky.setDetail(high),
-  setSkyVisible: (visible) => sky.setVisible(visible),
+/**
+ * Stops the loop, replays a known number of fixed steps from a seed, and draws
+ * exactly one frame. This is what makes a full-frame visual reference possible:
+ * a frame used to depend on when it happened to be taken.
+ *
+ * It lives here rather than in `debug.ts` because it has to know every state
+ * that eases — which is the same list a run start needs, hence the shared
+ * reset — plus the sky and the elapsed time, which a run keeps and a capture
+ * must not.
+ */
+function freeze(seed: string, steps: number): void {
+  loop.stop();
+  sim.reset(seed);
+  resetPresentation();
+  sky.reset();
+  elapsed = 0;
+  const dt = loop.fixedStep;
+  for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
+  renderFrame(dt);
+  // The plumes ease over many frames, so one frame after a reset lands
+  // wherever the previous run left them. Snap them, then draw again.
+  ship.snapThrust(thrustTier(sim.state));
+  viewport.render(scene);
+}
 
-  /**
-   * Stops the loop, replays a known number of fixed steps from a seed, and
-   * draws exactly one frame. This is what makes a full-frame visual reference
-   * possible: a frame used to depend on when it happened to be taken.
-   */
-  clock: () => ({ hz: 1 / loop.fixedStep, dt: loop.fixedStep }),
-
-  /**
-   * The core's own trigonometry, evaluated by the shipped bundle.
-   *
-   * `Math.cos` is not bit-identical across engines, so the core carries its
-   * own — see `src/sim/trig.ts`. This hands the browser's results back so the
-   * end-to-end suite can check them against Node's, which is the only place
-   * the cross-engine claim can actually be tested. See `TECH-DEBT.md` §17.
-   */
-  trig: (xs) => ({ sin: xs.map(sin), cos: xs.map(cos), atan: xs.map(atan) }),
-  defaults: () => ({ ...DEFAULTS }),
-
-  /**
-   * The live tuning object, deliberately not a copy.
-   *
-   * The legacy exposed `window.TUNING` and the docs promised console tweaking
-   * for the keys the panel does not carry; the port only handed out a copy of
-   * the defaults, which quietly killed that. Mutations here take effect on the
-   * next step — and are exactly as unsaved as they always were.
-   */
-  tuning: () => sim.tuning,
-  nodes: () => ({
-    k: Array.from(sim.track.nk),
-    g: Array.from(sim.track.ng),
-    b: Array.from(sim.track.nb),
-    id: Array.from(sim.track.nid),
-  }),
-  items: () => sim.track.items.map((it) => ({ id: it.id, lat: it.lat, type: it.type })),
-
-  /**
-   * Replays a run at fixed step, outside the render loop.
-   *
-   * Its purpose changed with the switch. It used to prove that two
-   * implementations agreed; there is only one now, so what it proves is that
-   * the **shipped bundle** still plays the same as the source — that nothing
-   * in the transpile, the minifier or the module graph moved a number. The
-   * frozen references stay the contract either way.
-   */
-  trace(opts) {
-    const steps = opts.steps === undefined ? 1200 : opts.steps;
-    const dt = opts.dt === undefined ? loop.fixedStep : opts.dt;
-    const every = opts.every === undefined ? 60 : opts.every;
-    const script = opts.script ?? [];
-    const diff = opts.diff ?? 'easy';
-
-    loop.stop();
-    sim.setDifficulty(diff);
-    sim.reset(opts.seed);
-
-    const st = sim.state;
-    const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-    const snap = (i: number) => ({
-      i,
-      dist: r6(st.dist),
-      travel: r6(st.travel),
-      cursor: r6(st.cursor),
-      speed: r6(st.speed),
-      lat: r6(st.lat),
-      latVel: r6(st.latVel),
-      yaw: r6(st.yaw),
-      hop: r6(st.hop),
-      vyRel: r6(st.vyRel),
-      energy: r6(st.energy),
-      hull: r6(st.hull),
-      mult: r6(st.mult),
-      score: r6(st.score),
-      coins: st.coins,
-      air: st.air,
-      drift: st.drift,
-      wrecked: st.wrecked,
-    });
-
-    let si = 0;
-    let cur: { from: number; steer?: number; brake?: boolean; boost?: boolean } = { from: 0 };
-    const frames = [snap(-1)];
-    let last = -1;
-    const held = { steer: 0, brake: false, boost: false };
-    for (let i = 0; i < steps; i++) {
-      while (si < script.length && script[si]!.from <= i) cur = script[si++]!;
-      held.steer = cur.steer ?? 0;
-      held.brake = !!cur.brake;
-      held.boost = !!cur.boost;
-      sim.step(held, dt, false);
-      last = i;
-      if (st.wrecked) {
-        frames.push(snap(i));
-        break;
-      }
-      if ((i + 1) % every === 0 || i === steps - 1) frames.push(snap(i));
-    }
-    return { seed: sim.seed, diff, steps, ran: last + 1, dt, wrecked: st.wrecked, frames };
-  },
-
-  freeze(seed, steps) {
-    loop.stop();
-    sim.reset(seed);
-    ship.clearSmoke();
-    spray.reset();
-    pickups.reset();
-    camera.reset(sim.tuning);
-    surgeMeter.reset();
-    surgeOverlay.reset();
-    sky.reset();
-    elapsed = 0;
-    lean = 0;
-    yawVisual = 0;
-    halo = 0;
-    fxShake = 0;
-    boostArmed = false;
-    const dt = loop.fixedStep;
-    for (let i = 0; i < steps; i++) bank = sim.step(input.value, dt, true);
-    renderFrame(dt);
-    // The plumes ease over many frames, so one frame after a reset lands
-    // wherever the previous run left them. Snap them, then draw again.
-    ship.snapThrust(thrustTier(sim.state));
-    viewport.render(scene);
-  },
-};
+installDebugSurface({ sim, loop, viewport, screens, sky, freeze });

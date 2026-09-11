@@ -43,7 +43,7 @@ Two decisions frame everything below.
 stock, no availability, no build-up and no recovery phase, which removes five
 entries from the palette and, more usefully, collapses `SUPERBOOST_START` onto
 an event that already exists — `pickup` of `kind: 'sup'`, already delivered to
-`consume()` in `main.ts`. The impact bundle therefore needs nothing from the
+`consume()` in `feedback.ts`. The impact bundle therefore needs nothing from the
 simulation at all.
 
 **`G_SURGE` is specified before it is built**, and not in the steps below. The
@@ -184,8 +184,8 @@ path goes the other, and the spray leaves on the side opposite `slip`.
 `boostFull` was written as a simulation event and removed again: it fired
 eighteen times where three were meant, because a wall scrape shaves 0.036 off
 the reserve and it resaturates three steps later. Whether a refill is large
-enough to deserve a sound is a presentation judgement, so `main.ts` owns it with
-an explicit hysteresis. The test that caught it was written before the code was
+enough to deserve a sound is a presentation judgement, so the client owns it
+with an explicit hysteresis, in `feedback.ts` today. The test that caught it was written before the code was
 believed.
 
 Acceptance: `src/sim/` untouched — 58 unit tests and 57 end-to-end, nothing

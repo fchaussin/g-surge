@@ -16,7 +16,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | File | Lines | Role |
 |---|---|---|
 | `src/sim/` | ~1 700 | Tuning, PRNG, clock, trigonometry, track, state, events, step |
-| `src/client/` | ~5 200 | Viewport, loop, camera, sky, track mesh, ship, pickups, drift and surge presentation, HUD, screens, settings, preferences, audio, input, scores |
+| `src/client/` | ~5 300 | Viewport, loop, camera, sky, track mesh, ship, pickups, drift and surge presentation, feedback, HUD, screens, settings, preferences, audio, input, scores, debug surface |
 | `index.html` | 703 | Markup and all the CSS |
 
 Line counts include comments, which this codebase writes at length; they are
@@ -150,7 +150,9 @@ which is what makes the step runnable outside a page.
 
 | File | Role |
 |---|---|
-| `main.ts` | Wiring: event consumption in `consume`, the per-frame assembly in `renderFrame`, the debug surface |
+| `main.ts` | Wiring: construction, the settings glue, the per-frame assembly in `renderFrame`, the one shared reset, boot |
+| `feedback.ts` | The observer end of `events.ts`: sound, vibration, glow, shake and HUD pops, plus the eased state they leave behind |
+| `debug.ts` | `window.__gsNext`, for the tests and nothing else — `trace` lives here, `freeze` is handed in |
 | `loop.ts` | The frame loop, and the boundary between the two clocks |
 | `viewport.ts` | Renderer, camera, resize, render scale |
 | `camera.ts` | The chase camera and its roll blend |
@@ -227,8 +229,10 @@ they are a workshop, not a preference.
 
 ## Debug surface
 
-`window.__gsNext`, built by `main.ts`. It exists for the tests and for the
-replay features to come, and it is not a game API.
+`window.__gsNext`, installed by `debug.ts`. It exists for the tests and for the
+replay features to come, and it is not a game API. `freeze` is the one entry
+`main.ts` still writes, because it must reset every state that eases before it
+draws — the same list a run start uses, plus the sky.
 
 | | |
 |---|---|

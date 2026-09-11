@@ -35,7 +35,7 @@ classic scripts, and those are gone.
 | 16 | Missing PWA icons | — | **done** |
 | 17 | `Math` transcendentals are not bit-identical across engines | — | **done**, the core carries its own |
 | 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
-| 20 | Modules over the 300-line rule | Low | seven, `main.ts` at 824 the worst |
+| 20 | Modules over the 300-line rule | Low | seven; `main.ts` split from 824 to 517, the rest one thing each |
 
 ## 3. Tests
 
@@ -371,7 +371,7 @@ current tree, comments included:
 
 | File | Lines | Why it grew |
 |---|---|---|
-| `src/client/main.ts` | 824 | Wiring, event consumption, the per-frame assembly, the debug surface, the reset for a capture |
+| `src/client/main.ts` | 517 | Construction, the settings glue, the per-frame assembly, boot |
 | `src/client/audio.ts` | 625 | One synthesised engine, ten event responses, the drift band and the surge white-out |
 | `src/sim/track.ts` | 398 | Ring buffers, generation, path integration and sampling |
 | `src/client/ship.ts` | 377 | Hull, plumes, smoke, halo and the drift glow |
@@ -379,13 +379,17 @@ current tree, comments included:
 | `src/sim/step.ts` | 315 | One physics step |
 | `src/client/track-mesh.ts` | 311 | Five ribbons and the gantries |
 
-Low, and deliberately not acted on yet. `main.ts` is the only one with several
-reasons to change: the debug surface, `trace` and `freeze`, is a hundred and
-sixty lines that serves the tests alone and would move cleanly into its own
-module; `consume` is the observer end of `events.ts` and could go with the
-things it drives. The rest are one thing each written at length, and splitting
-`step.ts` or `track.ts` to satisfy a number would cost the reader more than it
-saves. The line counts here are typed by hand, which is item 19.
+Low. `main.ts` was the only one with several reasons to change, and it was
+split on 11 September 2026: the debug surface went to `debug.ts` and the
+observer end of `events.ts` — halo, shake, haptics, HUD pops and the
+boost-ready hysteresis — to `feedback.ts`. What is left is wiring, at length:
+sixty lines of it are the settings glue alone. The split also collapsed two
+reset lists, the run start's and the capture's, into one function, which
+closes the way three visual reference bugs were made. No reference moved.
+
+The rest are one thing each written at length, and splitting `step.ts` or
+`track.ts` to satisfy a number would cost the reader more than it saves. The
+line counts here are typed by hand, which is item 19.
 
 ## What is deliberately not debt
 
