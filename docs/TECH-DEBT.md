@@ -56,9 +56,11 @@ There were none. There is now a net:
   trigonometry and parity against those references on the core; the event
   emission, the speed tiers, the climb, the earned super boost and the surge, which the frozen
   traces cannot see; on the client side the quality governor, the drift scale
-  and the spray envelope, the only presentation modules that run without a
-  browser; and two that read the tree as text — the documents' counts and the
-  element ids shared with `index.html`.
+  and the spray envelope, the gauge's layers, the feedback observer against
+  doubles, the camera's aspect fit and the preferences' sanitiser — every
+  presentation module that can be reached without a browser; and two that
+  read the tree as text — the documents' counts and the element ids shared
+  with `index.html`.
 
 Formerly listed as missing, and closed since:
 

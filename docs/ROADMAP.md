@@ -1,8 +1,9 @@
 # Roadmap
 
-State as of 10 September 2026. The migration roadmap it replaces is kept in
+State as of 11 September 2026. The migration roadmap it replaces is kept in
 condensed form below: it is finished, and what remains of it is a proof rather
-than a plan.
+than a plan. Decisions that are the author's rather than the code's are kept
+in `TODO.md`, next to this file, with options and a recommendation each.
 
 ## Where we are
 
@@ -414,6 +415,31 @@ their own. Version 1.2.0 — a rebalance, not a break.
 
 What remains is what the gauge now makes judgeable: the three climb values and
 `supTime`, by playing, with the bar in view.
+
+### Since step 8 — the same day, in patches
+
+Not steps, and not in any plan: what playing on a phone and a large screen
+asked for, each shipped as its own version so the stamp on the splash says
+which is running.
+
+- **1.2.1, 1.2.2** — the climb is heard, a register per rung, and the camera
+  feels the drift: aim and horizon lag the slide. The palette's last two P0
+  rows for the drift.
+- **1.3.0** — an installed app picks up new versions. The worker was right and
+  the page was wrong; `updates.ts` re-checks on visibility and reloads on a
+  controller change, `_headers` covers `/`. The web version offers to install
+  where the browser fires the event.
+- **1.4.0 to 1.4.2** — the mobile layout: gauge above the thumb, pads side by
+  side, a one-axis slider instead of a stick, the ship closer on screens wider
+  than 16:9, pause in the corner, and a HUD that scales with the screen's
+  height through one clamped unit.
+- **1.4.3 to 1.4.5** — the help catches up with the game, three stale
+  sentences go, the gauge's arithmetic becomes a pure function with tests, and
+  the blur steps aside as soon as quality has already been stepped down.
+- **Without a bump** — a scripted pilot measures the ladder
+  (`npm run measure:ladder`), and three more client modules are tested without
+  a browser: the feedback observer with its boost-ready hysteresis, the
+  camera's aspect fit, the preferences' sanitiser.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
