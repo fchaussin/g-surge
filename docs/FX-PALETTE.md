@@ -513,7 +513,10 @@ trace.
 
 - Préfixe `-webkit-` sur les deux propriétés, pour Safari.
 - Derrière le gouverneur de performance dès le premier jour : `backdrop-filter`
-  plein écran est cher sur plusieurs GPU mobiles.
+  plein écran est cher sur plusieurs GPU mobiles. *Fait le 11 septembre 2026* :
+  le flou s'efface dès que le détail du ciel est réduit ou que l'échelle de
+  rendu est sous 1, que ce soit le gouverneur ou le joueur qui l'ait baissé ;
+  le voile reste.
 - Le même calque peut porter l'effet tunnel de secours — des traînées radiales
   en CSS ou en SVG, sans toucher au shader. Le repli et le flou sont le même
   élément.
@@ -650,8 +653,9 @@ La révision règle ça en faisant de la jauge l'échelle elle-même.
    en jouant — désormais avec la jauge qui montre la montée, et les quatre dans
    l'onglet Avancé. L'ancienne question de `surgeHold` est dissoute plutôt que
    tranchée.
-2. Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
-   certain budget de frame ?
+2. ~~Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
+   certain budget de frame ?~~ Tranché par une règle plutôt qu'un budget : actif
+   par défaut, effacé dès que la qualité a dû baisser — voir la puce ci-dessus.
 
 Tranché depuis : pas de seconde barre pour le G-SURGE. La §10 le veut simplifié
 pendant l'état, et la jauge de boost n'y mesure plus rien — la réserve est

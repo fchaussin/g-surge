@@ -10,6 +10,7 @@
  * en page pour apparaître à côté du rendu.
  */
 import { thrustTier, type SimState, type Tuning } from '../sim/index.js';
+import { createLayers, ladderLayers } from './ladder.js';
 
 /** Couleur du multiplicateur par palier de vitesse, celle de la pièce d'origine. */
 const TIER_CSS = ['#e0913f', '#ffc24a', '#dff4ff', '#fff6d0'] as const;
@@ -38,6 +39,9 @@ export class Hud {
   private readonly boostPad = document.querySelector<HTMLElement>('.pad.boost');
   private readonly best = byId('recline');
   private readonly pop = byId('pop');
+
+  /* Objet de travail réécrit à chaque frame : voir la règle d'allocation. */
+  private readonly layers = createLayers();
 
   /* Dernières valeurs écrites, pour qu'une frame inchangée n'écrive rien. */
   private lastScore = -1;
@@ -172,30 +176,11 @@ export class Hud {
       }
     }
 
-    // L'échelle empilée : une couche par barreau au-dessus de la croisière.
-    // En bas la réserve, en or. Par-dessus, la montée vers le super boost puis,
-    // une fois dedans, son décompte, en blanc. Par-dessus encore, la montée
-    // vers le G-SURGE puis le sien, en blanc chaud. Un palier qui s'éteint vide
-    // sa couche et découvre celle du dessous : la pile se déconstruit dans
-    // l'ordre où elle s'est bâtie. Aucun élément neuf pendant l'état — la §10
-    // de la palette le veut simplifié, pas augmenté — et tout est borné à 100,
-    // parce qu'un second ramassage peut porter une durée au double.
-    const surging = state.surgeT > 0;
-    const sup = state.superT > 0;
-    const pct = (ratio: number) => Math.min(100, Math.max(0, Math.round(ratio * 100)));
-    const l1 = sup || surging ? 100 : pct(state.energy / 100);
-    const l2 = surging
-      ? 100
-      : sup
-        ? pct(state.superT / tuning.supTime)
-        : pct(state.climb / tuning.climbSup);
-    const l3 = surging
-      ? pct(state.surgeT / tuning.surgeTime)
-      : sup
-        ? pct(state.climb / tuning.climbSurge)
-        : 0;
-    // La couche que le drift fait monter en ce moment, 0 si aucune.
-    const up = !state.drift || surging ? 0 : sup ? 3 : state.boosting ? 2 : 1;
+    // L'échelle empilée, calculée dans ladder.ts et testée là : ici on ne fait
+    // qu'écrire, et seulement si une hauteur, la couche qui monte ou l'état a
+    // bougé — pas une écriture par frame.
+    const L = ladderLayers(state, tuning, this.layers);
+    const { l1, l2, l3, up, sup, surging } = L;
     if (
       l1 === this.lastL1 &&
       l2 === this.lastL2 &&
@@ -224,8 +209,7 @@ export class Hud {
     const full = !sup && !surging && state.energy > 99.5;
     const charging = up > 0;
     // Les instruments décrochent pendant l'état : une classe, et la feuille
-    // de style fait le reste. On n'arrive ici que si une hauteur ou l'état a
-    // bougé, donc ce n'est pas une écriture par frame.
+    // de style fait le reste.
     this.root?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('surge', surging);
     this.boostBox?.classList.toggle('full', full);

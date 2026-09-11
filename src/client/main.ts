@@ -333,7 +333,9 @@ function renderFrame(frameDt: number): void {
   // L'intensité de l'état monte tant que le pilotage tient, et tout ce qui doit
   // croître pendant les cinq secondes la lit : la secousse et le calque.
   surgeMeter.update(frameDt, state, sim.tuning);
-  surgeOverlay.update(surgeMeter.value);
+  // Le flou plein écran est le seul effet dont le coût dépasse le sien : il
+  // s'efface dès que la qualité a dû baisser, par le gouverneur ou à la main.
+  surgeOverlay.update(surgeMeter.value, skyDetail && sim.tuning.renderScale >= 1);
   camera.update(
     state,
     sim.track,

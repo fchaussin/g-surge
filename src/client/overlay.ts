@@ -33,15 +33,26 @@ export class SurgeOverlay {
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   private last = -1;
 
-  /** @param level 0 à 1, l'intensité de l'état. */
-  update(level: number): void {
+  /** Vrai à la dernière écriture ; un changement force une réécriture. */
+  private lastBlur = true;
+
+  /**
+   * @param level 0 à 1, l'intensité de l'état.
+   * @param blur faux quand la machine a déjà dû baisser la qualité — détail du
+   *   ciel réduit ou échelle de rendu sous 1, par le gouverneur ou par le joueur.
+   *   Le voile reste, le flou plein écran est le seul effet du jeu dont le
+   *   coût GPU dépasse le sien propre, et la palette le voulait derrière le
+   *   gouverneur dès le premier jour.
+   */
+  update(level: number, blur = true): void {
     const el = this.element;
     if (!el) return;
 
     const scaled = this.damped ? level * 0.35 : level;
     const step = Math.round(scaled * STEPS);
-    if (step === this.last) return;
+    if (step === this.last && blur === this.lastBlur) return;
     this.last = step;
+    this.lastBlur = blur;
 
     const v = step / STEPS;
     if (v <= 0) {
@@ -51,15 +62,21 @@ export class SurgeOverlay {
       el.style.removeProperty('-webkit-backdrop-filter');
       return;
     }
-    const blur = `blur(${(v * BLUR_PX).toFixed(2)}px)`;
     el.style.opacity = '1';
-    el.style.backdropFilter = blur;
-    el.style.setProperty('-webkit-backdrop-filter', blur);
+    if (blur) {
+      const filter = `blur(${(v * BLUR_PX).toFixed(2)}px)`;
+      el.style.backdropFilter = filter;
+      el.style.setProperty('-webkit-backdrop-filter', filter);
+    } else {
+      el.style.removeProperty('backdrop-filter');
+      el.style.removeProperty('-webkit-backdrop-filter');
+    }
     el.style.setProperty('--veil', (v * VEIL).toFixed(3));
   }
 
   reset(): void {
     this.last = -1;
+    this.lastBlur = true;
     this.update(0);
   }
 }
