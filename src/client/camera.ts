@@ -23,6 +23,7 @@ import {
   type Track,
   type Tuning,
 } from '../sim/index.js';
+import { driftIntensity, driftSide } from './drift.js';
 
 /** Fraction of the ship's lateral offset applied behind and ahead. */
 const OFFSET_BEHIND = 0.55;
@@ -59,6 +60,25 @@ const LAG_SCALE = [1, 1, 0.55, 0.4] as const;
 const SNAP_GAIN = 2.4;
 const SNAP_TIME = 0.32;
 
+/**
+ * What a drift does to the camera: the aim swings towards the side the ship
+ * is sliding to, and the horizon rolls the same way, both lagging the slide.
+ *
+ * The palette's CAM_DRIFT_YAW and CAM_DRIFT_ROLL. Until now the camera read
+ * neither `slip` nor `drift`, so a slide was told by the hull's yaw and the
+ * spray alone and the frame itself stayed rigid. Both effects read the one
+ * shared scale, `driftIntensity`, and its measured side; both are small, in
+ * metres of aim offset and radians of roll, because the surge sits above and a
+ * camera that swings hard on every drift would eat the rung above it.
+ *
+ * Eased in frame time, like the positional lag — the lag is the point, a
+ * camera that snaps with the slide reads as being bolted to the hull. Zero
+ * outside a drift, hence zero in every attract-mode capture.
+ */
+const DRIFT_AIM = 4.0;
+const DRIFT_ROLL = 0.07;
+const DRIFT_EASE = 3.5;
+
 export class ChaseCamera {
   /* Reused every frame. See the no-allocation rule in CLAUDE.md. */
   private readonly behind = trackPoint();
@@ -71,6 +91,8 @@ export class ChaseCamera {
   private placed = false;
   /** Eased, so it has to be dropped for a capture. See `reset`. */
   private snap = 0;
+  /** The slide as the camera currently feels it, −1 to 1, eased. Reset too. */
+  private drift = 0;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -93,6 +115,7 @@ export class ChaseCamera {
     this.placed = false;
     this.fov = tuning.fovBase;
     this.snap = 0;
+    this.drift = 0;
   }
 
   /** Called on `driftEnd`: the camera recentres instead of drifting back. */
@@ -135,16 +158,25 @@ export class ChaseCamera {
       this.camera.position.y += (Math.random() - 0.5) * a;
     }
 
+    // The slide, as the camera feels it: signed, eased, zero outside a drift.
+    const slide = driftIntensity(state) * driftSide(state);
+    this.drift += (slide - this.drift) * Math.min(1, frameDt * DRIFT_EASE);
+
     // Wrapped back into [-pi, pi]: bank is unbounded, a corkscrew adds turns.
     const bank = Math.atan2(Math.sin(behind.bank), Math.cos(behind.bank));
     const follow = MathUtils.clamp((Math.abs(bank) - FOLLOW_FROM) / FOLLOW_SPAN, 0, 1);
-    const roll = bank * (tuning.camRoll + (1 - tuning.camRoll) * follow);
+    // The drift rolls the horizon the way a bank towards the slide side would:
+    // a positive bank pushes the ship towards −lat, so the sign is inverted.
+    const roll = bank * (tuning.camRoll + (1 - tuning.camRoll) * follow) - this.drift * DRIFT_ROLL;
     this.camera.up.set(Math.sin(roll), Math.cos(roll), 0);
 
+    // The aim swings along the track's lateral axis, in lat space like the
+    // offsets above, towards where the ship is actually going.
+    const aim = offAhead + this.drift * DRIFT_AIM;
     this.target.set(
-      ahead.x + ahead.rx * offAhead + ahead.ux * tuning.lookHeight,
-      ahead.y + ahead.ry * offAhead + ahead.uy * tuning.lookHeight,
-      ahead.z + ahead.rz * offAhead + ahead.uz * tuning.lookHeight,
+      ahead.x + ahead.rx * aim + ahead.ux * tuning.lookHeight,
+      ahead.y + ahead.ry * aim + ahead.uy * tuning.lookHeight,
+      ahead.z + ahead.rz * aim + ahead.uz * tuning.lookHeight,
     );
     this.camera.lookAt(this.target);
 

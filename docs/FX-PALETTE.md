@@ -124,17 +124,20 @@ recopié à deux endroits de `main.ts` et personne d'autre ne le voyait.
 | 1 | `FAST` | — confondu avec 0, seule la vitesse change | absent |
 | 2 | `BOOST` | palier 1, `state.boosting` | existe |
 | 3 | `SUPERBOOST` | palier 2, `state.superT` | existe, différencié |
-| 4 | `G_SURGE` | — | absent, spécifié en §16 |
+| 4 | `G_SURGE` | palier 3, `state.surgeT` | existe depuis l'étape 7, spécifié en §16 |
 
 Le joueur doit pouvoir identifier chaque niveau sans regarder l'interface. Le
 palier 3 se distingue maintenant du 2 par le champ, la caméra, le ciel et le
-son ; le palier 1 reste confondu avec le 0, et le 4 n'existe pas.
+son ; le 4 s'en distingue par le blanc audio, le voile et le flou, et par une
+jauge qui n'affiche plus que son décompte. Le palier 1 reste confondu avec le
+0, seule la vitesse change — par décision, pas par oubli.
 
 ## 3. Déclencheurs
 
 `events.ts` porte une union discriminée, drainée une fois par pas. Ce qui existe :
 `land`, `badLanding`, `wallImpact`, `scrape`, `pickup` (`coin` / `fix` / `sup`),
-`supEnd`, `driftStart`, `driftEnd`, `wreck`.
+`supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`,
+`wreck`.
 
 Ce que la palette réclame en plus — tous classe **B**, donc sans effet sur les
 références. `supEnd` en est la démonstration : ajouté à l'étape 2, il n'a
@@ -169,11 +172,11 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `SHIP_DRIFT_YAW` | Lacet visuel du vaisseau | `state.slip * driftYaw` | main.ts, ship.ts | A | **existe**, sature à 35 m/s | — |
 | `HUD_DRIFT_LABEL` | Mention « DRIFT » | `state.drift` | hud.ts | A | **existe**, masquée par « WALL HIT » | — |
 | `HUD_DRIFT_CHARGE` | Jauge de recharge | `state.energy`, classes `.charge` | hud.ts + CSS | A | **existe** | P0 |
-| `CAM_DRIFT_YAW` | Retard d'orientation de caméra | `state.slip` | camera.ts | A | absent — la caméra ne lit ni `slip` ni `drift` | P0 |
-| `CAM_DRIFT_ROLL` | Roll selon la dérive | `state.slip` | camera.ts | A | absent — le roll ne suit que le dévers | P0 |
+| `CAM_DRIFT_YAW` | Retard d'orientation de caméra | `driftIntensity`, `driftSide` | camera.ts | A | **existe** — la visée glisse de 4 m vers le côté de la dérive, amortie sur 0,3 s | P0 |
+| `CAM_DRIFT_ROLL` | Roll selon la dérive | `driftIntensity`, `driftSide` | camera.ts | A | **existe** — 4° d'horizon vers la glisse, même amorti | P0 |
 | `CAM_DRIFT_EXIT_SNAP` | Recentrage à la sortie | `driftEnd` | camera.ts | B | **existe** — rattrapage × 2,4 sur 0,32 s | P1 |
 | `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `driftIntensity`, `driftSide` | drift-spray.ts | A | **existe** — 32 sprites, hasard semé, 13,5 m de portée | P0 |
-| `FX_DRIFT_CHARGE` | Énergie visible sur le vaisseau | `state.energy` + `state.drift` | ship.ts | A | absent | P0 |
+| `FX_DRIFT_CHARGE` | Énergie visible sur le vaisseau | `state.climb`, `state.drift` | feedback.ts, ship.ts | A | **existe** — lueur cyan tenue sur la coque, scintillement irrégulier, portée par la montée | P0 |
 | `FX_DRIFT_WAKE` | Turbulence derrière le vaisseau | `state.slip` | ship.ts | A | absent | P1 |
 | `PP_DRIFT_BLUR` | Blur dirigé | `state.slip` | — | A | absent, **et il n'y a pas de pipeline de post-process** | P1 |
 
