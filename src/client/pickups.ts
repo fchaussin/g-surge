@@ -6,8 +6,9 @@
  * of coins and creating a mesh per coin would hand the collector a job every
  * few seconds.
  *
- * Coin colour follows the speed tier, which is the whole point of the tiers
- * being visible at all: bronze under 500 km/h, gold to 1000, white above.
+ * Coin colour follows the thrust rung the ship is on, which is the whole point
+ * of the rungs being visible at all: bronze at cruise, gold under boost, white
+ * under a super boost, warm white in a surge — the same code as the gauge.
  */
 import {
   ConeGeometry,

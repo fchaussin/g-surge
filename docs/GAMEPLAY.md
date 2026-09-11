@@ -19,9 +19,10 @@ what makes it pay a lot.
 
 The multiplier starts at 1 and:
 
-- **rises** with each coin, by an amount that depends on the speed tier,
+- **rises** with each coin, by an amount that depends on the thrust rung you
+  take it on — see the tiers below,
 - **erodes** continuously by `multDecay` of its distance above 1, per second,
-- **erodes half as fast** above `coinTier3`, so holding top speed protects it,
+- **erodes half as fast** above `fastLane`, so holding top speed protects it,
 - **is halved** by a wall impact or a bad landing (`multWallCut`),
 - is capped at `multMax`, default 30.
 

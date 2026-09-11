@@ -109,7 +109,7 @@ void main(){
   // l'axe et s'annule au point de fuite, où rien ne bouge dans l'image.
   //
   // La branche est décidée par un uniforme : elle est cohérente sur toute la
-  // surface, et elle ne coûte que pendant les 2,6 s d'un superboost. La couche
+  // surface, et elle ne coûte que pendant les 5 s d'un superboost. La couche
   // fine est laissée de côté, elle doublerait le coût pour des points de 1,4 px.
   //
   // Nombre de prélèvements et longueur choisis par recherche hors ligne sous
