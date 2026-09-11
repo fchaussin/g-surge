@@ -74,6 +74,19 @@ const DRIFT_RELEASE_MIN = 0.12;
 /** Gain of the drift airflow band at full slip. It used to be flat at 0.09. */
 const DRIFT_AIRFLOW = 0.12;
 
+/**
+ * Where the charge voice starts, by thrust tier, in Hz.
+ *
+ * The voice used to follow the reserve alone, and fell silent the moment the
+ * reserve was full — which under boost is exactly when the drift starts
+ * counting towards the next rung. It follows whatever the drift is filling
+ * now, and each rung sings a register higher, so the ear hears which rung is
+ * being climbed without a colour telling it: debt 10, paid down a little. The
+ * surge has nothing above it, and its white-out silences this voice anyway.
+ */
+const CHARGE_BASE_BY_TIER = [300, 400, 520, 520] as const;
+const CHARGE_SPAN = 560;
+
 interface Band {
   filter: BiquadFilterNode;
   gain: GainNode;
@@ -204,7 +217,8 @@ export class Audio {
    * @param drift 0 to 1, the shared slip scale from `drift.ts`. It was a
    *   boolean, and a fixed gain: the band said that a drift was happening and
    *   never how hard.
-   * @param charge the boost reserve, 0 to 1.
+   * @param charge what the drift is filling, 0 to 1: the boost reserve at
+   *   cruise, the climb to the next rung in thrust. One scale, the gauge's.
    */
   update(
     playing: boolean,
@@ -269,11 +283,16 @@ export class Audio {
       0.07,
     );
 
-    // The charge: it climbs with the reserve and is heard only in a drift,
-    // because that is where it refills three times faster and the player has
-    // a reason to listen.
+    // The charge: it climbs with what the drift is filling and is heard only
+    // in a drift, because that is where the reserve refills three times faster,
+    // where the climb counts at all, and where the player has a reason to
+    // listen. A register per rung, see CHARGE_BASE_BY_TIER.
     const charging = drift > 0 && charge < 0.995 && !surge;
-    this.charge.osc.frequency.setTargetAtTime(300 + charge * 560, t, 0.08);
+    this.charge.osc.frequency.setTargetAtTime(
+      CHARGE_BASE_BY_TIER[tier] + charge * CHARGE_SPAN,
+      t,
+      0.08,
+    );
     this.charge.gain.gain.setTargetAtTime(playing && charging ? 0.018 : 0, t, 0.09);
   }
 

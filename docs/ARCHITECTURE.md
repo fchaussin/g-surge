@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 10 | ~1 800 |
-| `src/client/` | 27 | ~5 400 |
+| `src/client/` | 27 | ~5 500 |
 | `index.html` | 1 | ~700 |
 <!-- /generated:layout -->
 
@@ -71,7 +71,7 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
 | `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
-| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `wreck` |
+| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |

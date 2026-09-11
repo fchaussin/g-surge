@@ -187,7 +187,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `main.ts`, hystérésis à 95 | audio.ts | A | **existe** — deux notes montantes | P0 |
 | `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `state.slip` normalisé | audio.ts | A | absent | P1 |
 | `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `driftEnd` | audio.ts | B | **existe** — dosé par `held`, muet sous 0,12 s | P1 |
-| `SFX_DRIFT_CHAIN` | Intensification progressive | `state.climb` | audio.ts | A | absent — la montée se voit, elle ne s'entend pas encore | P1 |
+| `SFX_DRIFT_CHAIN` | Intensification progressive | `state.climb` | audio.ts | A | fait — la voix de recharge suit la montée en poussée, un registre par barreau | P1 |
 | `HAP_DRIFT_ENTRY` | Impulsion d'entrée | `driftStart` | haptics.ts | B | **existe** — espacée de 220 ms | P1 |
 
 `haptics.ts` n'existe que là où `navigator.vibrate` existe : ni iOS, ni bureau.

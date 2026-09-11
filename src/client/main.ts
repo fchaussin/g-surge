@@ -8,7 +8,15 @@
  * doivent atteindre est exposé par `debug.ts`.
  */
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, Scene } from 'three';
-import { BACK, DIFF, Sim, thrustTier, tuningFor, type Difficulty } from '../sim/index.js';
+import {
+  BACK,
+  climbGoal,
+  DIFF,
+  Sim,
+  thrustTier,
+  tuningFor,
+  type Difficulty,
+} from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
 import { installDebugSurface } from './debug.js';
@@ -337,13 +345,16 @@ function renderFrame(frameDt: number): void {
     if (el) el.textContent = String(Math.round(perf.fps));
   }
 
+  // Ce que le drift remplit en ce moment : la réserve en croisière, la montée
+  // vers le barreau suivant en poussée. Une seule échelle, celle de la jauge.
+  const goal = climbGoal(state, sim.tuning);
   audio.update(
     screens.isPlaying,
     state.speed,
     sim.tuning.speedMax,
     thrust,
     driftIntensity(state),
-    state.energy / 100,
+    goal > 0 ? Math.min(1, state.climb / goal) : state.energy / 100,
   );
 
   if (screens.isPlaying) {
