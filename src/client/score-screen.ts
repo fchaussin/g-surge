@@ -1,10 +1,10 @@
 /**
- * The end-of-run screen: four figures counted up in sequence.
+ * L'écran de fin de partie : quatre chiffres comptés à la suite.
  *
- * The staggering is not decoration. Distance, coins, peak multiplier and total
- * are shown in the order they combine, so the screen explains where the number
- * came from — which is the only place the game teaches that coins raise the
- * multiplier and walls halve it.
+ * Le décalage n'est pas une décoration. Distance, pièces, multiplicateur crête
+ * et total apparaissent dans l'ordre où ils se combinent, pour que l'écran
+ * explique d'où vient le nombre — c'est le seul endroit où le jeu enseigne que
+ * les pièces montent le multiplicateur et que les murs le divisent par deux.
  */
 export interface ScoreBreakdown {
   distance: number;
@@ -15,7 +15,7 @@ export interface ScoreBreakdown {
   previousBest: number;
 }
 
-/** Delay between two rows, and how long each takes to count, in ms. */
+/** Délai entre deux lignes, et durée du comptage de chacune, en ms. */
 const STAGGER = 260;
 const COUNT_MS = 480;
 
@@ -23,7 +23,7 @@ const fmt = (v: number) => Math.round(v).toLocaleString('en-GB');
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 export class ScoreScreen {
-  /** Cancels a reveal still running when a new one starts. */
+  /** Annule une révélation encore en cours quand une nouvelle démarre. */
   private generation = 0;
 
   constructor(private readonly onRowDone?: (last: boolean) => void) {}
@@ -76,7 +76,7 @@ export class ScoreScreen {
     const t0 = performance.now();
 
     const tick = (now: number): void => {
-      // A restart while this is counting must not keep writing into the DOM.
+      // Une relance pendant le comptage ne doit pas continuer d'écrire dans le DOM.
       if (id !== this.generation) return;
       const t = now - t0;
       let done = 0;

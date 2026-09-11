@@ -1,22 +1,24 @@
 /**
- * The screen state machine and its keyboard navigation.
+ * La machine à états des écrans et sa navigation au clavier.
  *
- * One `Mode` string drives which layer is shown. **The start state must be set
- * by calling `setMode('menu')`, never by leaving a class in the HTML**: the
- * class alone would show the right screen with an empty navigation list, and
- * the keyboard would do nothing on it.
+ * Une chaîne `Mode` décide quel calque est montré. **L'état de départ doit être
+ * posé en appelant `setMode('menu')`, jamais en laissant une classe dans le
+ * HTML** : la classe seule montrerait le bon écran avec une liste de navigation
+ * vide, et le clavier n'y ferait rien.
  *
- * Navigation is a flat list per screen, rebuilt on every transition, with a
- * group of segmented buttons counting as a single stop — left and right then
- * change the value instead of moving on.
+ * La navigation est une liste plate par écran, rebâtie à chaque transition, où
+ * un groupe de boutons segmentés compte pour un seul arrêt — gauche et droite
+ * changent alors la valeur au lieu d'avancer.
  */
 export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
 
 /**
- * Navigable elements per screen, in order. Settings builds its own.
+ * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la
+ * leur.
  *
- * Exported, with the two tables below, for `tests/dom-ids` alone: they are the
- * ids this module looks up, and the test reconciles them with `index.html`.
+ * Exportés, avec les deux tables en dessous, pour `tests/dom-ids` seul : ce
+ * sont les identifiants que ce module cherche, et le test les rapproche
+ * d'`index.html`.
  */
 export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu', 'btnInstall'],
@@ -25,7 +27,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   over: ['btnAgain', 'btnOverMenu'],
 };
 
-/** Preselected element when a screen opens. */
+/** L'élément présélectionné à l'ouverture d'un écran. */
 export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   menu: 'btnStart',
   pause: 'btnResume',
@@ -33,22 +35,22 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   help: 'btnCloseHelp',
 };
 
-/** The screens that are also element ids. `run` is not one: it shows the HUD. */
+/** Les écrans qui sont aussi des identifiants. `run` n'en est pas un : il montre le HUD. */
 export const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings'];
 
 export interface ScreensOptions {
-  /** Called on every transition, so the rest of the client can react. */
+  /** Appelé à chaque transition, pour que le reste du client réagisse. */
   onChange?: (mode: Mode, previous: Mode) => void;
 }
 
 export class Screens {
   private current: Mode = 'menu';
-  /** Where Escape returns from settings: the menu or the pause screen. */
+  /** Où Échap ramène depuis les réglages : le menu ou l'écran de pause. */
   private settingsBack: Mode = 'menu';
 
   private navList: HTMLElement[] = [];
   private navIndex = -1;
-  /** The keyboard cursor is only painted once the keyboard has been used. */
+  /** Le curseur clavier n'est peint qu'une fois le clavier utilisé. */
   private navActive = false;
 
   constructor(private readonly options: ScreensOptions = {}) {
@@ -72,8 +74,8 @@ export class Screens {
       document.getElementById(layer)?.classList.toggle('on', layer === mode);
     }
     document.getElementById('hud')?.classList.toggle('on', mode === 'run');
-    // The mute button would sit on top of both of these; and during a run it
-    // steps right, so the pause button gets the corner.
+    // Le bouton de son se poserait sur ces deux écrans ; et pendant une partie
+    // il se décale à droite, pour que la pause ait le coin.
     const mute = document.getElementById('btnMute');
     mute?.classList.toggle('hide', mode === 'settings' || mode === 'help');
     mute?.classList.toggle('run', mode === 'run');
@@ -87,9 +89,9 @@ export class Screens {
     this.setMode('settings');
   }
 
-  /** Rebuilds the navigation list. Call after changing what is on screen. */
+  /** Rebâtit la liste de navigation. À appeler après un changement de ce qui est affiché. */
   buildNav(): void {
-    // A tab change inside settings must not lose the selection.
+    // Un changement d'onglet dans les réglages ne doit pas perdre la sélection.
     const previous = this.navList[this.navIndex];
 
     if (this.current === 'settings') {
@@ -99,8 +101,9 @@ export class Screens {
             '#settings .page.on button, #settings .page.on input[type=range]',
         ),
       );
-      // A group counts as one stop, so its own buttons are dropped. Reset
-      // buttons are skipped: they are a per-row affordance, not a stop.
+      // Un groupe compte pour un arrêt, donc ses propres boutons sont écartés.
+      // Les boutons de remise à zéro sont sautés : une commodité par ligne, pas
+      // un arrêt.
       this.navList = nodes.filter(
         (el) =>
           el.classList.contains('navgroup') ||
@@ -141,7 +144,7 @@ export class Screens {
     this.paintNav();
   }
 
-  /** Cycles a segmented control by clicking, so its own handler runs. */
+  /** Fait tourner un contrôle segmenté par un clic, pour que son gestionnaire tourne. */
   private stepGroup(group: HTMLElement, dir: number): void {
     const buttons = Array.from(group.querySelectorAll('button'));
     if (!buttons.length) return;
@@ -151,7 +154,7 @@ export class Screens {
   }
 
   private bindPointer(): void {
-    // Touch or mouse: the keyboard cursor stops being relevant.
+    // Tactile ou souris : le curseur clavier cesse d'être pertinent.
     window.addEventListener(
       'pointerdown',
       () => {
@@ -161,7 +164,7 @@ export class Screens {
       },
       true,
     );
-    // If the browser moves focus elsewhere, the index follows it.
+    // Si le navigateur déplace le focus ailleurs, l'index le suit.
     window.addEventListener('focusin', (e) => {
       const i = this.navList.indexOf(e.target as HTMLElement);
       if (i >= 0) this.navIndex = i;
@@ -175,7 +178,7 @@ export class Screens {
         e.preventDefault();
         return;
       }
-      if (this.current === 'run') return; // driving keys belong to InputSource
+      if (this.current === 'run') return; // les touches de conduite sont à InputSource
 
       if (e.code === 'ArrowDown' || e.code === 'KeyS' || (e.code === 'Tab' && !e.shiftKey)) {
         this.move(1);
@@ -205,17 +208,17 @@ export class Screens {
       if (['Enter', 'NumpadEnter', 'Space'].includes(e.code)) {
         if (current) current.click();
         else {
-          // First keypress only reveals the cursor; it does not activate.
+          // La première touche ne fait que révéler le curseur ; elle n'active pas.
           this.navActive = true;
           this.paintNav();
         }
         e.preventDefault();
       }
-      // Sliders take left and right themselves; leave those to the browser.
+      // Les curseurs prennent gauche et droite eux-mêmes ; on les laisse au navigateur.
     });
   }
 
-  /** Escape, and the pause button, both land here. */
+  /** Échap et le bouton de pause arrivent tous deux ici. */
   private onBack(): void {
     switch (this.current) {
       case 'run':
@@ -236,8 +239,8 @@ export class Screens {
   }
 
   /**
-   * Shows the keyboard cursor straight away on a precise pointer, and leaves
-   * it hidden on touch, where it would only be visual noise.
+   * Montre le curseur clavier d'emblée avec un pointeur précis, et le laisse
+   * caché au tactile, où il ne serait que du bruit visuel.
    */
   revealCursorOnPrecisePointer(): void {
     if (window.matchMedia?.('(pointer: fine)').matches) {

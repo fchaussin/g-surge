@@ -1,14 +1,15 @@
 /**
- * Coins, repairs and super boosts, drawn from a pool.
+ * Pièces, réparations et super boosts, tirés d'un réservoir.
  *
- * The simulation owns which pickups exist and where; this only decides how
- * they look. Meshes are allocated once and reused — a run collects thousands
- * of coins and creating a mesh per coin would hand the collector a job every
- * few seconds.
+ * La simulation possède quels objets existent et où ; ceci ne décide que de
+ * leur aspect. Les maillages sont alloués une fois et réutilisés — une partie
+ * ramasse des milliers de pièces, et créer un maillage par pièce donnerait du
+ * travail au ramasse-miettes toutes les quelques secondes.
  *
- * Coin colour follows the thrust rung the ship is on, which is the whole point
- * of the rungs being visible at all: bronze at cruise, gold under boost, white
- * under a super boost, warm white in a surge — the same code as the gauge.
+ * La couleur d'une pièce suit le barreau de poussée du vaisseau, ce qui est
+ * toute la raison d'être visible des barreaux : bronze en croisière, or sous
+ * boost, blanc sous super boost, blanc chaud en surge — le même code que la
+ * jauge.
  */
 import {
   ConeGeometry,
@@ -30,14 +31,14 @@ import {
   type Track,
 } from '../sim/index.js';
 
-/** Bronze, gold, white, warm white. Indexed by thrust tier, like `COIN_GAIN`. */
+/** Bronze, or, blanc, blanc chaud. Indexé par barreau de poussée, comme `COIN_GAIN`. */
 export const COIN_COLOURS = [0xc47a2e, 0xffc24a, 0xdff4ff, 0xfff6d0] as const;
 
-/** Coins are common enough to need a deep pool; the other two are not. */
+/** Les pièces sont assez fréquentes pour un réservoir profond ; les deux autres non. */
 const COIN_POOL = 40;
 const OTHER_POOL = 6;
 
-/** Pickups float this far above the road surface. */
+/** Les objets flottent à cette hauteur au-dessus de la route. */
 const HOVER = 2.0;
 
 export class Pickups {
@@ -78,17 +79,18 @@ export class Pickups {
   }
 
   /**
-   * Drops the accumulated spin, so a frame after a reset is reproducible.
-   * Without it, pickups sit at whatever angle the frames before the reset left
-   * them, which is exactly as many frames as the page happened to take to load.
+   * Abandonne la rotation accumulée, pour qu'une frame après une remise à zéro
+   * soit reproductible. Sans cela les objets restent à l'angle où les frames
+   * précédentes les ont laissés, c'est-à-dire autant de frames que la page a
+   * mis à charger.
    */
   reset(): void {
     this.spin = 0;
   }
 
   /**
-   * @param tier current thrust tier, 0 to 3. Drives colour and size.
-   * @param frameDt real frame delta: the spin is decoration.
+   * @param tier barreau de poussée courant, 0 à 3. Pilote couleur et taille.
+   * @param frameDt vrai delta de frame : la rotation est de la décoration.
    */
   update(track: Track, cursor: number, tier: ThrustTier, frameDt: number): void {
     this.spin += frameDt * (2.6 + tier * 1.6);
@@ -99,7 +101,8 @@ export class Pickups {
     const base = track.nid[0]!;
 
     for (const item of track.items) {
-      // Taken ones vanish at once; the rest stay drawn until they leave range.
+      // Les objets pris disparaissent aussitôt ; les autres restent dessinés
+      // jusqu'à sortir de portée.
       if (item.taken) continue;
       const i = item.id - base;
       if (i < 0 || i >= COUNT - 1) continue;

@@ -1,17 +1,18 @@
 /**
- * The frame loop, and the boundary between two clocks.
+ * La boucle de frame, et la frontière entre deux horloges.
  *
- * The simulation advances in whole fixed steps and knows nothing of frames.
- * Display smoothing — camera lag, smoke, thrust — uses the real frame delta.
- * Mixing the two is the mistake this class exists to make hard: `simulate`
- * never receives a frame delta, `render` never receives a simulation step.
+ * La simulation avance par pas fixes entiers et ne sait rien des frames.
+ * L'amortissement d'affichage — retard de caméra, fumée, poussée — prend le
+ * vrai delta de frame. Mélanger les deux est l'erreur que cette classe existe
+ * pour rendre difficile : `simulate` ne reçoit jamais un delta de frame,
+ * `render` ne reçoit jamais un pas de simulation.
  */
 import { Clock, MAX_FRAME } from '../sim/clock.js';
 
 export interface LoopHandlers {
-  /** Called zero or more times per frame, always with the fixed step. */
+  /** Appelé zéro fois ou plus par frame, toujours avec le pas fixe. */
   simulate(dt: number): void;
-  /** Called once per frame, with the real elapsed time since the last one. */
+  /** Appelé une fois par frame, avec le vrai temps écoulé depuis la précédente. */
   render(frameDt: number): void;
 }
 
@@ -40,7 +41,7 @@ export class Loop {
     this.clock.reset();
   }
 
-  /** Drops any time owed. Use when a run restarts, never mid-run. */
+  /** Abandonne le temps dû. Au redémarrage d'une partie, jamais en cours. */
   reset(): void {
     this.clock.reset();
     this.last = performance.now();
@@ -52,8 +53,9 @@ export class Loop {
 
     const since = (now - this.last) / 1000;
 
-    // Clamped so a long frame — backgrounded tab, shader compile, collection
-    // pause — slows the game down instead of asking for thousands of steps.
+    // Borné pour qu'une frame longue — onglet en arrière-plan, compilation de
+    // shader, pause du ramasse-miettes — ralentisse le jeu au lieu de demander
+    // des milliers de pas.
     const frameDt = Math.min(Math.max(since, 0), MAX_FRAME);
     this.last = now;
 

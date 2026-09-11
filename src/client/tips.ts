@@ -1,9 +1,10 @@
 /**
- * Help bubbles, on a clock, once per run.
+ * Les bulles d'aide, à l'horloge, une fois par partie.
  *
- * On a timer rather than on progress: they teach the loop — drift, then boost,
- * then chase the multiplier — and that order is what a player needs in their
- * first minute, whether or not they got far.
+ * Au minuteur plutôt qu'à la progression : elles enseignent la boucle — drifter,
+ * puis booster, puis courir après le multiplicateur — et cet ordre est ce dont
+ * un joueur a besoin dans sa première minute, qu'il soit allé loin ou non. Les
+ * textes sont de l'interface, donc en anglais.
  */
 const TIPS: readonly (readonly [number, string])[] = [
   [1.5, 'Steer with the <b>stick</b>.<br>Hold <b>BOOST</b> on straights.'],
@@ -14,7 +15,7 @@ const TIPS: readonly (readonly [number, string])[] = [
   [40.0, 'Past <b>1000 km/h</b> the multiplier<br>holds twice as long.'],
 ];
 
-/** How long each bubble stays up, in seconds. */
+/** Durée d'affichage de chaque bulle, en secondes. */
 const SHOW_FOR = 4.5;
 
 export class Tips {
@@ -36,7 +37,7 @@ export class Tips {
     this.hide();
   }
 
-  /** Call once a frame while a run is on. */
+  /** À appeler une fois par frame pendant une partie. */
   update(frameDt: number): void {
     this.elapsed += frameDt;
 

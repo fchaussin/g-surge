@@ -1,16 +1,18 @@
 /**
- * Fullscreen, with its two awkward realities.
+ * Le plein écran, avec ses deux réalités ingrates.
  *
- * The prefixed WebKit spelling is still what iPad Safari answers to, and a
- * request from inside an iframe without `allow="fullscreen"` rejects rather
- * than throwing — which is how this game is usually embedded, so the refusal
- * has to be said out loud instead of failing silently.
+ * La graphie préfixée WebKit est encore celle à laquelle Safari sur iPad
+ * répond, et une demande depuis une iframe sans `allow="fullscreen"` est
+ * rejetée plutôt que levée — c'est ainsi que ce jeu est le plus souvent
+ * embarqué, donc le refus doit être dit tout haut au lieu d'échouer en
+ * silence.
  *
- * It also carries the orientation lock, because that is where the browser will
- * accept one: `screen.orientation.lock` is refused outside fullscreen. The
- * manifest asks an installed app for landscape; this is what asks for it in a
- * tab, and it is a request in both cases — desktop refuses it, iOS has no such
- * API at all, and neither is an error worth showing anyone.
+ * Il porte aussi le verrou d'orientation, parce que c'est là que le navigateur
+ * l'accepte : `screen.orientation.lock` est refusé hors du plein écran. Le
+ * manifeste demande le paysage à une application installée ; ceci le demande
+ * dans un onglet, et c'est une demande dans les deux cas — l'ordinateur la
+ * refuse, iOS n'a pas cette API du tout, et ni l'un ni l'autre n'est une
+ * erreur qui mérite d'être montrée.
  */
 type FsElement = HTMLElement & {
   webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void> | void;
@@ -19,7 +21,7 @@ type FsDocument = Document & {
   webkitFullscreenElement?: Element | null;
   webkitExitFullscreen?: () => Promise<void> | void;
 };
-/** Structural, like the two above: the API is absent on several targets. */
+/** Structurel, comme les deux au-dessus : l'API manque sur plusieurs cibles. */
 type LockableOrientation = {
   lock?: (orientation: string) => Promise<void>;
   unlock?: () => void;
@@ -29,7 +31,7 @@ const root = document.documentElement as FsElement;
 const doc = document as FsDocument;
 
 export class Fullscreen {
-  /** False where the API is missing entirely; the controls then hide. */
+  /** Faux là où l'API manque entièrement ; les commandes se cachent alors. */
   readonly available = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 
   constructor(private readonly onChange: (active: boolean, blocked: boolean) => void) {
@@ -61,16 +63,16 @@ export class Fullscreen {
     } catch {
       this.blocked();
     }
-    // The change event does not always fire on a refusal.
+    // L'événement de changement ne part pas toujours sur un refus.
     setTimeout(() => this.onChange(this.active, false), 150);
   }
 
   /**
-   * Landscape while fullscreen, free again on the way out.
+   * Paysage en plein écran, libre à nouveau en sortant.
    *
-   * Hung off the change event rather than off `toggle`, so it also covers the
-   * ways fullscreen is entered and left without going through this class — the
-   * Escape key, and the browser's own controls.
+   * Accroché à l'événement de changement plutôt qu'à `toggle`, pour couvrir
+   * aussi les façons d'entrer et de sortir du plein écran sans passer par cette
+   * classe — la touche Échap, et les commandes du navigateur lui-même.
    */
   private applyOrientation(): void {
     const orientation = screen.orientation as unknown as LockableOrientation | undefined;
@@ -79,7 +81,7 @@ export class Fullscreen {
       if (this.active) void orientation.lock?.('landscape')?.catch(() => undefined);
       else orientation.unlock?.();
     } catch {
-      // Refused, which is the normal answer on a desktop. Nothing to do.
+      // Refusé, ce qui est la réponse normale sur un ordinateur. Rien à faire.
     }
   }
 

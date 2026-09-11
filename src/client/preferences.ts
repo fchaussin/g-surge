@@ -1,24 +1,24 @@
 /**
- * What the player chose, kept between visits.
+ * Ce que le joueur a choisi, gardé entre deux visites.
  *
- * Only the settings a person sets deliberately. The advanced tuning sliders
- * are not here on purpose: they are a workshop, not a preference, and a value
- * nudged once and forgotten would follow someone across every later session
- * with no obvious way back.
+ * Seulement les réglages qu'une personne pose délibérément. Les curseurs
+ * d'accord avancés n'y sont pas, à dessein : c'est un atelier, pas une
+ * préférence, et une valeur poussée une fois puis oubliée suivrait quelqu'un
+ * dans toutes ses sessions sans retour évident.
  *
- * Every field is validated on the way in. Storage is shared with anything else
- * on the origin and survives across versions of this code, so a value read
- * from it is untrusted input: a bad one is dropped for its default rather than
- * allowed to produce a game with a negative render scale.
+ * Chaque champ est validé à l'entrée. Le stockage est partagé avec tout ce qui
+ * tourne sur l'origine et survit aux versions de ce code, donc une valeur qui
+ * en sort est une entrée non fiable : une mauvaise est remplacée par son défaut
+ * plutôt que laissée produire un jeu à l'échelle de rendu négative.
  */
 const KEY = 'gsurge.prefs.v1';
 
-/** Writes are coalesced: dragging a slider would otherwise write per frame. */
+/** Les écritures sont regroupées : glisser un curseur écrirait sinon à chaque frame. */
 const WRITE_DELAY = 250;
 
 export interface Preferences {
   difficulty: 'easy' | 'medium' | 'hard';
-  /** Stick on the right, pedals on the left. */
+  /** Manche à droite, pédales à gauche. */
   lefty: boolean;
   sound: boolean;
   haptics: boolean;
@@ -26,7 +26,7 @@ export interface Preferences {
   sky: boolean;
   skyDetail: boolean;
   showFps: boolean;
-  /** Fraction of the native resolution, 0.4 to 1. */
+  /** Fraction de la résolution native, de 0,4 à 1. */
   renderScale: number;
 }
 
@@ -47,7 +47,7 @@ const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean'
 const number = (v: unknown, fallback: number, min: number, max: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fallback;
 
-/** Exported for its tests alone: storage is untrusted input, and this is the gate. */
+/** Exporté pour ses tests seuls : le stockage est une entrée non fiable, et ceci est la porte. */
 export function sanitise(raw: unknown): Preferences {
   const d = DEFAULT_PREFERENCES;
   if (typeof raw !== 'object' || raw === null) return { ...d };
@@ -71,7 +71,7 @@ export function sanitise(raw: unknown): Preferences {
 }
 
 export class PreferenceStore {
-  /** Read once at construction; mutate through `set`. */
+  /** Lu une fois à la construction ; modifier par `set`. */
   readonly values: Preferences;
 
   private readonly available: boolean;
@@ -88,7 +88,7 @@ export class PreferenceStore {
     this.schedule();
   }
 
-  /** Forces a pending write out, for `pagehide` where a timer will not fire. */
+  /** Force une écriture en attente, pour `pagehide` où un minuteur ne partira pas. */
   flush(): void {
     if (this.timer === null) return;
     clearTimeout(this.timer);
@@ -109,7 +109,7 @@ export class PreferenceStore {
     try {
       window.localStorage.setItem(KEY, JSON.stringify(this.values));
     } catch {
-      // Quota reached. The session keeps its settings in memory.
+      // Quota atteint. La session garde ses réglages en mémoire.
     }
   }
 
@@ -123,7 +123,7 @@ export class PreferenceStore {
     }
   }
 
-  /** Private browsing throws on access rather than returning null. */
+  /** La navigation privée lève à l'accès au lieu de rendre null. */
   private static probe(): boolean {
     try {
       const k = '__gs_probe';

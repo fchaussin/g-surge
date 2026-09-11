@@ -1,11 +1,11 @@
 /**
- * Vibration feedback.
+ * Le retour par vibration.
  *
- * `navigator.vibrate` does not exist on iOS, so the setting hides itself
- * rather than offering a switch that does nothing.
+ * `navigator.vibrate` n'existe pas sur iOS, donc le réglage se cache lui-même
+ * plutôt que d'offrir un interrupteur qui ne fait rien.
  */
 export class Haptics {
-  /** False on iOS and on desktop, where the API is absent. */
+  /** Faux sur iOS et sur ordinateur, où l'API est absente. */
   readonly available = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
   private enabled = true;
@@ -20,9 +20,9 @@ export class Haptics {
   }
 
   /**
-   * @param minGap milliseconds below which a repeat is dropped. A scrape fires
-   *   every step, and restarting the motor that often cancels it before it is
-   *   felt, so the continuous cases pass a gap.
+   * @param minGap millisecondes sous lesquelles une répétition est ignorée. Un
+   *   frottement tire à chaque pas, et relancer le moteur si souvent l'annule
+   *   avant qu'il soit senti ; les cas continus passent donc un écart.
    */
   buzz(pattern: number | number[], minGap = 0): void {
     if (!this.enabled || !this.available) return;
@@ -32,7 +32,7 @@ export class Haptics {
     try {
       navigator.vibrate(pattern);
     } catch {
-      // Some browsers throw when the page is not visible. Nothing to do.
+      // Certains navigateurs lèvent quand la page n'est pas visible. Rien à faire.
     }
   }
 }

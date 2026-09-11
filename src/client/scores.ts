@@ -1,46 +1,48 @@
 /**
- * The local leaderboard.
+ * Le tableau des scores local.
  *
- * Five best runs, kept in `localStorage`. Access is guarded by a write probe
- * because private browsing throws on the first touch rather than returning
- * null, and a game that crashes on load in a private window is worse than one
- * that forgets its scores.
+ * Les cinq meilleures parties, dans `localStorage`. L'accès est gardé par une
+ * sonde d'écriture parce que la navigation privée lève au premier contact au
+ * lieu de rendre null, et un jeu qui plante au chargement dans une fenêtre
+ * privée est pire qu'un jeu qui oublie ses scores.
  */
 import type { Difficulty } from '../sim/index.js';
 
 /**
- * Where the board lives.
+ * Où vit le tableau.
  *
- * The suffix tracks **scoring compatibility, not the version of the game**. It
- * moves when a change makes old scores incomparable to new ones, and stays put
- * through every feature that does not — otherwise every release would wipe the
- * board for no reason.
+ * Le suffixe suit **la compatibilité des scores, pas la version du jeu**. Il
+ * bouge quand un changement rend les anciens scores incomparables aux
+ * nouveaux, et reste en place à travers toute fonctionnalité qui ne le fait
+ * pas — sinon chaque version effacerait le tableau sans raison.
  *
- * v2 exists because 1.1.0 keyed the coin ladder to the thrust rung, which moved
- * the reachable multiplier from 26 / 21 / 11 to 22 / 29 / 17 across the
- * difficulties. A board holding both would be ranking two different games
- * against each other, which is worse than a board that starts again.
+ * v2 existe parce que 1.1.0 a calé l'échelle des pièces sur le barreau de
+ * poussée, ce qui a déplacé le multiplicateur atteignable de 26 / 21 / 11 à
+ * 22 / 29 / 17 selon la difficulté. Un tableau tenant les deux classerait deux
+ * jeux différents l'un contre l'autre, ce qui est pire qu'un tableau qui
+ * repart.
  *
- * The v1 entries are left where they are, neither migrated nor deleted.
- * Migrating would carry the incomparable scores forward, which is the whole
- * point of moving; deleting would destroy someone's record to reclaim a few
- * hundred bytes. The same goes for `voidrunner.scores.v1`, older still, whose
- * migration is retired with this: it belonged to the same scoring era as v1.
+ * Les entrées v1 sont laissées où elles sont, ni migrées ni supprimées. Migrer
+ * porterait les scores incomparables plus loin, ce qui est tout l'intérêt de
+ * bouger ; supprimer détruirait le record de quelqu'un pour récupérer quelques
+ * centaines d'octets. Même chose pour `voidrunner.scores.v1`, plus vieux
+ * encore, dont la migration est retirée ici : il appartenait à la même ère de
+ * score que v1.
  */
 const KEY = 'gsurge.scores.v2';
 
 const KEEP = 5;
-/** Below this a run is not worth a row; it is usually a misclick. */
+/** Sous ce score une partie ne vaut pas une ligne ; c'est d'ordinaire un faux clic. */
 const MIN_SCORE = 50;
 
 export interface ScoreEntry {
-  /** Score, not distance. The field name predates the change and stays for compatibility. */
+  /** Le score, pas la distance. Le nom du champ précède le changement et reste par compatibilité. */
   d: number;
-  /** Coins collected. */
+  /** Pièces ramassées. */
   c: number;
-  /** Timestamp. */
+  /** Horodatage. */
   t: number;
-  /** First letter of the difficulty. */
+  /** Première lettre de la difficulté. */
   x: string;
 }
 
@@ -60,7 +62,7 @@ export class Scores {
     this.load();
   }
 
-  /** Highest score kept, or zero. */
+  /** Le plus haut score conservé, ou zéro. */
   get best(): number {
     return this.entries[0]?.d ?? 0;
   }
@@ -70,8 +72,8 @@ export class Scores {
   }
 
   /**
-   * Adds a run and returns whether it took the top spot, plus what the top
-   * spot was before — the score screen shows both.
+   * Ajoute une partie et dit si elle a pris la première place, plus ce que la
+   * première place valait avant — l'écran de score montre les deux.
    */
   submit(
     score: number,
@@ -120,7 +122,7 @@ export class Scores {
     if (line) line.textContent = this.bestLabel;
   }
 
-  /** Private browsing throws on access rather than returning null. */
+  /** La navigation privée lève à l'accès au lieu de rendre null. */
   private static probe(): boolean {
     try {
       const k = '__gs_probe';
@@ -149,7 +151,7 @@ export class Scores {
     try {
       window.localStorage.setItem(KEY, JSON.stringify(this.entries));
     } catch {
-      // Quota reached. The board stays correct in memory for this session.
+      // Quota atteint. Le tableau reste juste en mémoire pour cette session.
     }
   }
 }

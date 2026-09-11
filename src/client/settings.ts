@@ -1,21 +1,21 @@
 /**
- * The settings panel: tabs, toggles, sliders, difficulty and frame rate.
+ * Le panneau des réglages : onglets, interrupteurs, curseurs, difficulté.
  *
- * It owns no state of its own beyond what a control needs to draw itself. Every
- * switch calls out and then reflects what it is told, so the panel can never
- * disagree with the game — a class toggled locally is how a checkbox ends up
- * lying about what it controls.
+ * Il ne possède aucun état propre au-delà de ce qu'un contrôle a besoin pour se
+ * dessiner. Chaque interrupteur appelle vers l'extérieur puis reflète ce qu'on
+ * lui dit, pour que le panneau ne puisse jamais contredire le jeu — une classe
+ * basculée localement, c'est ainsi qu'une case à cocher finit par mentir sur ce
+ * qu'elle commande.
  *
- * `aria-pressed` and `aria-checked` are kept in step with the classes here, not
- * only in the markup: an assistive technology reads the attribute, and a
- * setting that changes without announcing itself is worse than one that cannot
- * be reached at all.
+ * `aria-pressed` et `aria-checked` sont tenus au pas des classes ici, et pas
+ * seulement dans le balisage : une technologie d'assistance lit l'attribut, et
+ * un réglage qui change sans s'annoncer est pire qu'un réglage inatteignable.
  */
 import { DEFAULTS, type Difficulty, type Tuning } from '../sim/index.js';
 import type { Preferences } from './preferences.js';
 import { SLIDERS } from './sliders.js';
 
-/** Labels and blurbs live with the UI, not with the tuning tables. */
+/** Libellés et notes vivent avec l'interface, pas avec les tables d'accord. En anglais : c'est de l'interface. */
 const DIFF_UI: Record<Difficulty, { label: string; note: string }> = {
   easy: {
     label: 'EASY',
@@ -32,7 +32,7 @@ const DIFF_UI: Record<Difficulty, { label: string; note: string }> = {
 };
 
 export interface SettingsOptions {
-  /** Where every control starts, restored from the last visit. */
+  /** D'où chaque contrôle part, restauré de la dernière visite. */
   initial: Preferences;
   tuning: () => Tuning;
   difficulty: () => Difficulty;
@@ -42,7 +42,7 @@ export interface SettingsOptions {
   setTuning: (key: keyof Tuning, value: number) => void;
   resetTuning: () => void;
 
-  /** `byUser` is false when a stored value is being restored at startup. */
+  /** `byUser` est faux quand une valeur stockée est restaurée au démarrage. */
   setSound: (on: boolean, byUser: boolean) => void;
   setHaptics: (on: boolean, byUser: boolean) => void;
   hapticsAvailable: boolean;
@@ -52,25 +52,25 @@ export interface SettingsOptions {
   setSkyDetail: (high: boolean) => void;
   setShowFps: (on: boolean) => void;
   clearScores: () => void;
-  /** The navigation list has to be rebuilt when the panel's contents change. */
+  /** La liste de navigation doit être rebâtie quand le contenu du panneau change. */
   rebuildNav: () => void;
 }
 
 const byId = (id: string) => document.getElementById(id);
 
 /**
- * The panel's tabs and the page each one shows.
+ * Les onglets du panneau et la page que chacun montre.
  *
- * Literals rather than a `page${...}` template on purpose: `tests/dom-ids`
- * reconciles every id the client looks up with `index.html`, and an id built
- * at runtime is one it cannot see.
+ * Des littéraux plutôt qu'un gabarit `page${...}`, à dessein : `tests/dom-ids`
+ * rapproche chaque identifiant que le client cherche d'`index.html`, et un
+ * identifiant bâti à l'exécution lui est invisible.
  */
 export const TABS = [
   { tab: 'tabGen', page: 'pageGen' },
   { tab: 'tabAdv', page: 'pageAdv' },
 ] as const;
 
-/** Keeps a toggle's class and its announced state together. */
+/** Tient ensemble la classe d'un interrupteur et son état annoncé. */
 function paintToggle(el: HTMLElement | null, on: boolean): void {
   if (!el) return;
   el.classList.toggle('on', on);
@@ -90,7 +90,7 @@ export class Settings {
     this.paintDifficulty();
   }
 
-  /** Pushes current tuning values back into every slider. */
+  /** Repousse les valeurs d'accord courantes dans chaque curseur. */
   syncAll(): void {
     for (const key of this.rows.keys()) this.syncRow(key);
   }
@@ -156,7 +156,7 @@ export class Settings {
         tab?.classList.toggle('on', on);
         tab?.setAttribute('aria-selected', String(on));
       }
-      // The visible page decides what is navigable.
+      // La page visible décide de ce qui est navigable.
       this.options.rebuildNav();
     };
     for (const t of TABS) byId(t.tab)?.addEventListener('click', () => show(t));
@@ -189,13 +189,14 @@ export class Settings {
   private bindToggles(): void {
     const initial = this.options.initial;
 
-    // Each toggle is painted from the stored value and then applied, so the
-    // control and the thing it controls cannot start out disagreeing.
+    // Chaque interrupteur est peint depuis la valeur stockée puis appliqué,
+    // pour que le contrôle et ce qu'il commande ne puissent pas partir en
+    // désaccord.
     //
-    // `byUser` separates restoring a setting from choosing one. Anything that
-    // answers back — a confirmation buzz, starting the audio graph — is only
-    // allowed on a real press: browsers refuse both without a gesture, and
-    // rightly so.
+    // `byUser` sépare restaurer un réglage de le choisir. Tout ce qui répond —
+    // une vibration de confirmation, le démarrage du graphe audio — n'est
+    // permis que sur une vraie pression : les navigateurs refusent les deux
+    // sans geste, et à raison.
     const simple = (id: string, start: boolean, apply: (on: boolean, byUser: boolean) => void) => {
       const el = byId(id);
       let on = start;
@@ -215,13 +216,13 @@ export class Settings {
       byId('fps')?.classList.toggle('on', on);
       this.options.setShowFps(on);
     });
-    // Left-handed layout is pure presentation, so it stays here.
+    // La disposition gaucher est de la pure présentation, donc elle reste ici.
     simple('tglLefty', initial.lefty, (on) => {
       document.body.classList.toggle('lefty', on);
       this.options.setLefty(on);
     });
 
-    // Sound has a second control in the corner, so both are painted together.
+    // Le son a un second contrôle dans le coin, donc les deux sont peints ensemble.
     const sound = byId('tglSound');
     let soundOn = initial.sound;
     this.paintSound(soundOn);
@@ -234,7 +235,7 @@ export class Settings {
     sound?.addEventListener('click', flipSound);
     byId('btnMute')?.addEventListener('click', flipSound);
 
-    // Absent on iOS, where the switch would do nothing at all.
+    // Absent sur iOS, où l'interrupteur ne ferait rien du tout.
     if (!this.options.hapticsAvailable) {
       const row = byId('rowHaptics');
       if (row) row.style.display = 'none';
@@ -243,7 +244,7 @@ export class Settings {
     }
   }
 
-  /** Two presses to clear: it is the only irreversible control on the panel. */
+  /** Deux pressions pour effacer : c'est le seul contrôle irréversible du panneau. */
   private bindClear(): void {
     const button = byId('btnClear');
     button?.addEventListener('click', () => {
