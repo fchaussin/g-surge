@@ -521,6 +521,8 @@ HUD and help references did, each in its own commit. What is left is play:
 - **1.15.4** — the HUD stops ticking the score: distance and a stopwatch
   instead, and the end screen adds time and average speed above the score.
   `state.time` joins the core; the traces do not record it.
+- **1.15.5** — a repair pickup gives 50 instead of 30: two bring the hull back
+  from anywhere, where it took four or five.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

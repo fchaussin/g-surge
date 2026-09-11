@@ -28,7 +28,7 @@ half the bar. The fifth scales the hit to the scrape:
 | … in seconds of scraping | 3 s | 2.4 s | 2.3 s |
 | `hullScrape` per second | 8 | 14 | 18 |
 | `hullRegen` per second | 0.25 | 0.2 | 0.15 |
-| repair | +30 every 9 km | 11 km | 13 km |
+| repair | +50 every 9 km | 11 km | 13 km |
 
 What a hit costs is the lateral closing speed into the wall — the same slam
 costs the same at 300 km/h and at 900 — capped at `hullImpactMax`; the run's
@@ -99,6 +99,14 @@ Third play: Medium "to be seen later" — kept open.
   by commit, so any moment is a safe one.
 
 ## Log — answered, newest first
+
+### 11 September 2026, the repair — 1.15.5
+
+- **"The damage seems fairly balanced now, but the repair pickups are
+  stingy: two should bring you back to full, not four or five."** Easy
+  only, played; `fixAmount` 30 → 50 on every difficulty — the amount is not
+  overridden by `DIFF`, the frequency is. Entry 1 stays open for Medium and
+  Hard.
 
 ### 11 September 2026, the HUD readout — 1.15.4
 

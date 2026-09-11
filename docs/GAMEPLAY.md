@@ -210,7 +210,7 @@ and the table is generated from it.
 | Pickup | Look | Effect | Easy | Medium | Hard |
 |---|---|---|---|---|---|
 | Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |
-| Repair | green octahedron | hull +30 | every 8.9 km | every 11.1 km | every 13.3 km |
+| Repair | green octahedron | hull +50 | every 8.9 km | every 11.1 km | every 13.3 km |
 | Super boost | magenta cone | 5 s at ×1.22, reserve pinned full | every 5.6 km | every 5.6 km | every 7.4 km |
 | Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 4.8 km | every 4.8 km | every 4.8 km |
 | Fuel can | red cylinder | fuel +35 | every 1.5 km | every 2.4 km | every 4.0 km |
@@ -245,7 +245,10 @@ speed, never the speed of the run. Four to five clean hits with no repair lose
 the run, two do not. The scripted pilot, which never aims for a repair,
 finishes ten minutes on Easy with six to fourteen hits, dies around the fourth
 minute on Medium and the second on Hard. Damage takes less speed and steering
-away than it did at first, so a damaged hull is not locked into a spiral.
+away than it did at first, so a damaged hull is not locked into a spiral. A
+sixth touch changed only the repair: with the damage judged balanced, a
+30-point repair was stingy — four or five pickups to get back to full. Two
+must do from anywhere, so `fixAmount` is 50.
 
 <!-- generated:damage -->
 | Event | Cost |
@@ -254,7 +257,7 @@ away than it did at first, so a damaged hull is not locked into a spiral.
 | Scraping | 8 per second |
 | Bad landing off track | 12 points, plus 35 % of speed |
 | Passive repair | 0.25 per second |
-| Repair pickup | `fixAmount`, 30 points |
+| Repair pickup | `fixAmount`, 50 points |
 
 Damage reduces top speed by up to 22 %, steering by 20 % and halves boost
 recharge. At zero the run ends.

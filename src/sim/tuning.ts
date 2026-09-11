@@ -264,7 +264,10 @@ export const DEFAULTS: Readonly<Tuning> = {
    * latérale de fermeture, pas la vitesse de la course. Quatre à cinq chocs
    * francs sans réparation, et la course est perdue. Les dégâts retirent
    * moins de vitesse et de direction qu'au départ, pour ne pas enfermer une
-   * coque abîmée dans une spirale. */
+   * coque abîmée dans une spirale. La sixième touche ne change que la
+   * réparation : les dégâts jugés équilibrés, la réparation de 30 était
+   * radine — quatre ou cinq objets pour revenir au plein. Deux doivent
+   * suffire depuis n'importe où, donc 50. */
   hullImpact: 1.4,
   hullImpactMax: 24,
   hullScrape: 8,
@@ -274,7 +277,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   damageSteer: 0.2,
   coinChance: 0.015,
   fixChance: 0.0015,
-  fixAmount: 30,
+  fixAmount: 50,
   supChance: 0.0024,
   /* 2,6 s tant que le super boost n'était qu'un ramassage ; 5 s depuis qu'il
    * est un barreau dans lequel on drifte pour monter au suivant. */
