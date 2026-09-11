@@ -14,6 +14,9 @@ oversize table of `TECH-DEBT.md` are generated the same way by
 from the architecture map.
 `.claude/rules/versioning.md` says when the version bumps and by how much:
 every push that changes the bundle, patch at least.
+`docs/NETWORK.md` is the online design: ranked boards and multiplayer as a
+layer over the offline game, which stays as it is; what a server can and
+cannot prove, and why the client sends a trace, never a score.
 `docs/FX-PALETTE.md` is a resource palette to draw effects from, mainly for
 the sense of speed — not a feature backlog. Its own header records what the
 code already does, since drift and superboost are implemented and what they

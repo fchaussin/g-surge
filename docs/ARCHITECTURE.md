@@ -16,7 +16,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 10 | ~2 200 |
+| `src/sim/` | 11 | ~2 400 |
 | `src/client/` | 31 | ~6 700 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
@@ -73,7 +73,8 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
 | `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `ride`, `rideEnd`, `fuelEmpty`, `wreck` |
 | `step.ts` | One physics step |
-| `sim.ts` | The assembly |
+| `sim.ts` | The assembly; records every non-attract step into the trace |
+| `replay.ts` | The trace of a run — seed, difficulty, inputs by span — its `Recorder`, `validTrace` and `replay`, which reproduces a run bit for bit and reports its `Outcome`; what a server rejeu runs, see `NETWORK.md` |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
 
 ### Track model
@@ -282,6 +283,7 @@ draws — the same list a run start uses, plus the sky.
 | `setSkyDetail(high)`, `setSkyVisible(visible)` | what the quality governor would do, by hand |
 | `trig(xs)` | the core's `sin`, `cos`, `atan` over a vector, replayed against Node |
 | `trace(opts)` | replays a run at fixed step, outside the render loop |
+| `record()` | the live run's trace, for the browser-to-Node replay proof |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |
 
 `trace` is what proves the shipped bundle still plays like the source, and

@@ -5,6 +5,7 @@
  * serveur exécuterait pour arbitrer, et celui qu'un rejeu de partie rejouerait.
  */
 import type { SimEvent } from './events.js';
+import { Recorder, type Trace } from './replay.js';
 import { createState, resetState, type SimState } from './state.js';
 import { step, type Input } from './step.js';
 import { Track } from './track.js';
@@ -23,6 +24,13 @@ export class Sim {
 
   /** Événements du dernier pas. Remis à zéro à chaque appel de `step`. */
   readonly events: SimEvent[] = [];
+
+  /**
+   * Les entrées reçues depuis le dernier `reset`, hors mode d'attraction. La
+   * trace est ce qu'un serveur rejoue ; elle s'accumule ici pour que le mode
+   * hors ligne et le mode classé jouent exactement le même code.
+   */
+  private readonly recorder = new Recorder();
 
   private difficulty: Difficulty;
   private currentSeed: string;
@@ -54,11 +62,18 @@ export class Sim {
     resetState(this.state, this.tuning);
     this.track.seed(this.currentSeed);
     this.events.length = 0;
+    this.recorder.reset();
+  }
+
+  /** La partie en cours, ou finie, sous la forme qu'un serveur rejoue. */
+  trace(): Trace {
+    return this.recorder.trace(this.currentSeed, this.difficulty);
   }
 
   /** Avance d'un pas. Renvoie le dévers sous le vaisseau, pour le rendu. */
   step(input: Input, dt: number, attract = false): number {
     this.events.length = 0;
+    if (!attract) this.recorder.push(input);
     return step(this.state, this.track, this.tuning, this.diffMul, input, dt, attract, this.events);
   }
 }

@@ -20,6 +20,7 @@ import {
   type Difficulty,
   type Sim,
   type SimState,
+  type Trace,
   type Tuning,
 } from '../sim/index.js';
 import type { Loop } from './loop.js';
@@ -61,6 +62,8 @@ export interface DebugSurface {
   nodes(): { k: number[]; g: number[]; b: number[]; id: number[] };
   items(): Array<{ id: number; lat: number; type: number }>;
   trace(opts: TraceOptions): unknown;
+  /** La trace de la partie en cours ou finie — ce qu'un serveur rejouerait. */
+  record(): Trace;
 }
 
 declare global {
@@ -190,5 +193,6 @@ export function installDebugSurface(deps: DebugDeps): void {
     }),
     items: () => sim.track.items.map((it) => ({ id: it.id, lat: it.lat, type: it.type })),
     trace: (opts) => trace(sim, loop, opts),
+    record: () => sim.trace(),
   };
 }

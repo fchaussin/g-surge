@@ -100,6 +100,26 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 11 September 2026, the online layer — 1.15.6
+
+- **"The leaderboard is multiplayer now; a score sent at the end is forged
+  in two minutes with devtools, so a backend has to compute it."** Yes, and
+  the core was built for it: the client sends the run — seed, difficulty,
+  inputs — and the server replays it. **"This must not prevent standalone
+  offline play; keep the current mode and override nothing, but share all
+  that can be shared."** The offline game is the base and is untouched; the
+  trace accumulates inside `Sim` so both modes run one code path. **"Both
+  boards, global and friends/weekly — and simultaneous multiplayer is
+  coming, so no dodging."** Both, in that order, then rooms. **"If possible
+  on Cloudflare."** Workers, Durable Objects, D1 — the core imports neither
+  `node:*` nor the DOM, so it runs in a Worker as it is.
+
+  What went where: the design and its honest limits — a bot cannot be made
+  impossible, it can be bounded and priced — in `NETWORK.md`; the trace, its
+  recorder and `replay()` in `src/sim/replay.ts`, proven bit-exact by
+  `tests/replay.test.ts`; `__gsNext.record()` for the browser-to-Node proof
+  to come. Nothing changes for the player yet: patch.
+
 ### 11 September 2026, the repair — 1.15.5
 
 - **"The damage seems fairly balanced now, but the repair pickups are

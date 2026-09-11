@@ -545,7 +545,10 @@ submitted run and compare for equality. What remains is specification, not
 arithmetic — an equality check proves reproduction, not honesty, since the client
 can be modified; and the server must compare only what the core produces, never
 presentation state. When it is written, do not hand-roll state synchronisation:
-Colyseus, or Cloudflare Durable Objects.
+Colyseus, or Cloudflare Durable Objects. Decided on 11 September 2026 —
+ranked boards and simultaneous multiplayer, over the offline game left as it
+is; the design, its honest limits and the order of work are in `NETWORK.md`,
+and the first stone, the input trace and its replay, is in the core.
 
 **three.js past r151.** Colour management and lighting defaults changed: a visual
 re-tuning pass, not a dependency bump. It would not make the game faster either —

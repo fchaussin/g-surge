@@ -38,4 +38,13 @@ export {
   type DifficultyDef,
   type Tuning,
 } from './tuning.js';
+export {
+  MAX_SPANS,
+  Recorder,
+  outcomeOf,
+  replay,
+  validTrace,
+  type Outcome,
+  type Trace,
+} from './replay.js';
 export { Sim, type SimOptions } from './sim.js';
