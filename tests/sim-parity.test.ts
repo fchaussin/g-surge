@@ -187,7 +187,14 @@ describe('parité du noyau avec le jeu', () => {
         // score et en réserve, deux champs de la trace.
         for (const e of sim.events) {
           expect(e.type, `${diff} a frôlé un mur proprement au pas ${i}`).not.toBe('nearMiss');
+          // Et aucun extra : ils n'apparaissent qu'au-delà de `extrasFrom`, plus
+          // loin que la trace ne va.
+          expect(
+            e.type === 'pickup' && e.kind === 'ride',
+            `${diff} a ramassé un extra au pas ${i}`,
+          ).toBe(false);
         }
+        expect(sim.state.rideT).toBe(0);
       }
     }
   });

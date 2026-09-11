@@ -17,7 +17,7 @@ import type { Audio } from './audio.js';
 import type { ChaseCamera } from './camera.js';
 import type { Haptics } from './haptics.js';
 import type { Hud } from './hud.js';
-import { COIN_COLOURS } from './pickups.js';
+import { COIN_COLOURS, RIDE_COLOUR } from './pickups.js';
 import type { Ship } from './ship.js';
 
 /** Durée d'extinction de la lueur d'un ramassage, en secondes. */
@@ -155,9 +155,23 @@ export class Feedback {
             hud.showPop('REPAIRED', '#35e08a');
             this.flash(0x35e08a);
             haptics.buzz([22, 40, 22]);
-          } else {
+          } else if (e.kind === 'sup') {
             this.superBoost();
+          } else {
+            hud.showPop('INVINCIBLE', '#9b6bff');
+            this.flash(RIDE_COLOUR, 1.4);
+            haptics.buzz([25, 30, 25, 30, 60]);
           }
+          break;
+        case 'ride':
+          // Tenu comme le frottement, dans le violet de l'item : le mur pousse,
+          // il ne mord pas, et la coque doit le dire à chaque pas de contact.
+          this.hold(RIDE_COLOUR, 0.8, 0.9);
+          haptics.buzz(7, 160);
+          break;
+        case 'rideEnd':
+          this.flash(RIDE_COLOUR, 0.7);
+          haptics.buzz([12, 30, 12]);
           break;
         case 'supEarned':
           // Trouvé ou mérité, c'est le même barreau : même onde de choc.

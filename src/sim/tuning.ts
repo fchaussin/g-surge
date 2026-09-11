@@ -63,6 +63,16 @@ export interface Tuning {
   nearScore: number;
   /** Points de réserve rendus à la proximité maximale. */
   nearCharge: number;
+
+  /* Invincibilité et wall riding */
+  /** Mètres de piste avant lesquels aucun « extra » n'apparaît. */
+  extrasFrom: number;
+  /** Probabilité par segment de 12 m d'un item d'invincibilité, au-delà. */
+  rideChance: number;
+  /** Durée de l'invincibilité, en secondes. */
+  rideTime: number;
+  /** Gain de vitesse par seconde de contact avec un mur, en fraction de la vitesse. */
+  rideGain: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -176,6 +186,14 @@ export const DEFAULTS: Readonly<Tuning> = {
   nearMinHeld: 0.08,
   nearScore: 0.6,
   nearCharge: 6,
+  /* Au-delà des traces figées, qui couvrent 1 345 m. Aussi rare qu'un super
+   * boost, six secondes, et un gain qui pousse la vitesse un cinquième au-dessus
+   * de sa cible tant qu'on frotte — la cible la ramène à 0,42/s, donc le point
+   * d'équilibre est rideGain / speedGain. À rejuger en jouant. */
+  extrasFrom: 1500,
+  rideChance: 0.0025,
+  rideTime: 6,
+  rideGain: 0.08,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,

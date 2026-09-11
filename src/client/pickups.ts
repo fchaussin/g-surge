@@ -25,6 +25,7 @@ import {
   COUNT,
   ITEM_COIN,
   ITEM_SUP,
+  type Item,
   SEG,
   trackPoint,
   type ThrustTier,
@@ -41,6 +42,13 @@ const OTHER_POOL = 6;
 /** Les objets flottent à cette hauteur au-dessus de la route. */
 const HOVER = 2.0;
 
+/**
+ * Le violet de l'invincibilité : aucune autre chose du jeu ne le porte. Les
+ * pièces sont bronze à blanc chaud, la réparation verte, le super boost magenta,
+ * le drift cyan ; un item qui rend les murs inoffensifs devait avoir sa teinte.
+ */
+export const RIDE_COLOUR = 0x9b6bff;
+
 export class Pickups {
   readonly group = new Group();
 
@@ -54,15 +62,18 @@ export class Pickups {
       new TorusGeometry(1.55, 0.26, 6, 18),
       new OctahedronGeometry(1.5),
       new ConeGeometry(1.4, 3.0, 5),
+      // Un anneau épais : un bouclier qu'on traverse, pas une pièce qu'on prend.
+      new TorusGeometry(1.35, 0.5, 8, 16),
     ];
     this.coinMaterial = new MeshBasicMaterial({ color: COIN_COLOURS[1] });
     const materials = [
       this.coinMaterial,
       new MeshBasicMaterial({ color: 0x35e08a }),
       new MeshBasicMaterial({ color: 0xff2f9a }),
+      new MeshBasicMaterial({ color: RIDE_COLOUR }),
     ];
 
-    for (let type = 0; type < 3; type++) {
+    for (let type = 0; type < 4; type++) {
       const pool: Object3D[] = [];
       const size = type === ITEM_COIN ? COIN_POOL : OTHER_POOL;
       for (let i = 0; i < size; i++) {
@@ -95,44 +106,54 @@ export class Pickups {
   update(track: Track, cursor: number, tier: ThrustTier, frameDt: number): void {
     this.spin += frameDt * (2.6 + tier * 1.6);
     this.coinMaterial.color.setHex(COIN_COLOURS[tier]);
-    const coinScale = 1 + tier * 0.16;
+    this.coinScale = 1 + tier * 0.16;
+    this.used.fill(0);
+    this.base = track.nid[0]!;
 
-    const used = [0, 0, 0];
-    const base = track.nid[0]!;
+    // Les deux listes se dessinent pareil ; la seconde est celle des extras.
+    // Deux boucles et pas une concaténation : un tableau par frame est ce que
+    // la règle d'allocation interdit.
+    for (const item of track.items) this.place(item, track, cursor);
+    for (const item of track.extras) this.place(item, track, cursor);
 
-    for (const item of track.items) {
-      // Les objets pris disparaissent aussitôt ; les autres restent dessinés
-      // jusqu'à sortir de portée.
-      if (item.taken) continue;
-      const i = item.id - base;
-      if (i < 0 || i >= COUNT - 1) continue;
-
-      const pool = this.pools[item.type]!;
-      if (used[item.type]! >= pool.length) continue;
-      const grp = pool[used[item.type]!++]!;
-
-      const s = track.sample(cursor, (i - BACK) * SEG - cursor, this.point);
-      grp.visible = true;
-      grp.position.set(
-        s.x + s.rx * item.lat + s.ux * HOVER,
-        s.y + s.ry * item.lat + s.uy * HOVER,
-        s.z + s.rz * item.lat + s.uz * HOVER,
-      );
-      grp.rotation.set(0, s.yaw, s.bank, 'YXZ');
-
-      const mesh = grp.children[0]!;
-      if (item.type === ITEM_COIN) {
-        grp.scale.setScalar(coinScale);
-        mesh.rotation.z = 0;
-        mesh.rotation.y = this.spin * 0.5;
-      } else {
-        mesh.rotation.z = this.spin;
-      }
-    }
-
-    for (let type = 0; type < 3; type++) {
+    for (let type = 0; type < this.pools.length; type++) {
       const pool = this.pools[type]!;
-      for (let k = used[type]!; k < pool.length; k++) pool[k]!.visible = false;
+      for (let k = this.used[type]!; k < pool.length; k++) pool[k]!.visible = false;
+    }
+  }
+
+  /* État de la frame en cours, tenu sur l'instance pour ne rien allouer. */
+  private readonly used = [0, 0, 0, 0];
+  private base = 0;
+  private coinScale = 1;
+
+  private place(item: Item, track: Track, cursor: number): void {
+    // Les objets pris disparaissent aussitôt ; les autres restent dessinés
+    // jusqu'à sortir de portée.
+    if (item.taken) return;
+    const i = item.id - this.base;
+    if (i < 0 || i >= COUNT - 1) return;
+
+    const pool = this.pools[item.type]!;
+    if (this.used[item.type]! >= pool.length) return;
+    const grp = pool[this.used[item.type]!++]!;
+
+    const s = track.sample(cursor, (i - BACK) * SEG - cursor, this.point);
+    grp.visible = true;
+    grp.position.set(
+      s.x + s.rx * item.lat + s.ux * HOVER,
+      s.y + s.ry * item.lat + s.uy * HOVER,
+      s.z + s.rz * item.lat + s.uz * HOVER,
+    );
+    grp.rotation.set(0, s.yaw, s.bank, 'YXZ');
+
+    const mesh = grp.children[0]!;
+    if (item.type === ITEM_COIN) {
+      grp.scale.setScalar(this.coinScale);
+      mesh.rotation.z = 0;
+      mesh.rotation.y = this.spin * 0.5;
+    } else {
+      mesh.rotation.z = this.spin;
     }
   }
 }

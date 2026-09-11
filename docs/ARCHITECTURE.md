@@ -16,8 +16,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 10 | ~1 900 |
-| `src/client/` | 30 | ~6 000 |
+| `src/sim/` | 10 | ~2 000 |
+| `src/client/` | 30 | ~6 100 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
 
@@ -69,9 +69,9 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `rng.ts` | Seeded sfc32, serialisable, separate streams |
 | `clock.ts` | The fixed-step accumulator and the reasoning behind 720 Hz |
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
-| `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
+| `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt`; `items` as the frozen references know them, and `extras` — pickups added since, on their own stream, past `extrasFrom` |
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
-| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `wreck` |
+| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `ride`, `rideEnd`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
@@ -150,7 +150,8 @@ Perfect Drift: from `comboArm` on it pays score at each drift and speeds the
 climb; a wall or an expired `comboLeft` window drops it. Skimming a wall
 without touching it — into `nearBand` and out again, clean — pays score and a
 little reserve, the Near Miss; the reference pilot enters that band and touches
-every time, and `sim-parity` asserts it. None of it costs a frozen reference: the traces contain
+every time, and `sim-parity` asserts it. A violet extra grants `rideT` seconds
+of invincibility, during which a wall pushes instead of biting — wall riding. None of it costs a frozen reference: the traces contain
 no drift and no super boost, and `sim-parity` asserts the first.
 
 Airborne state is triggered physically: when the track falls away faster than

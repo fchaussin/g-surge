@@ -127,6 +127,10 @@ export class Audio {
   private engine: Engine | null = null;
   private wind: Band | null = null;
   private driftNoise: Band | null = null;
+  /** Le frottement sous invincibilité : une bande tenue tant que les pas de contact arrivent. */
+  private rideBand: Band | null = null;
+  /** Un pas de contact est arrivé depuis la dernière frame. */
+  private riding = false;
   /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
   private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
@@ -199,7 +203,8 @@ export class Audio {
         case 'pickup':
           if (e.kind === 'coin') this.coin(1 + e.gain * 3);
           else if (e.kind === 'fix') this.fix();
-          else this.superBoost();
+          else if (e.kind === 'sup') this.superBoost();
+          else this.ridePickup();
           break;
         case 'supEarned':
           // Trouvé ou mérité, le même barreau : le même son.
@@ -213,6 +218,14 @@ export class Audio {
           break;
         case 'nearMiss':
           this.nearMiss(e.closeness);
+          break;
+        case 'ride':
+          // Un pas de contact : `update` tient la bande allumée tant qu'il en
+          // arrive, et la laisse retomber sinon.
+          this.riding = true;
+          break;
+        case 'rideEnd':
+          this.rideRelease();
           break;
         case 'supEnd':
           this.superRelease();
@@ -309,6 +322,13 @@ export class Audio {
       tc(0.18),
     );
 
+    // Le frottement d'invincibilité : visé haut si un pas de contact est arrivé
+    // depuis la dernière frame, vers zéro sinon. Les constantes de temps font
+    // le reste, sans dépendre de la cadence — `update` n'a pas le delta.
+    this.rideBand?.gain.gain.setTargetAtTime(playing && this.riding ? 0.11 : 0, t, 0.06);
+    this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
+    this.riding = false;
+
     const airflow = playing && !surge ? drift * DRIFT_AIRFLOW : 0;
     this.driftNoise.gain.gain.setTargetAtTime(airflow, t, 0.07);
     if (this.turb) {
@@ -375,6 +395,8 @@ export class Audio {
     };
     this.wind = this.band(this.loop(0.55), 'bandpass', 900, 0.7);
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
+    // Le wall riding : un grondement métallique médium, à part du souffle du drift.
+    this.rideBand = this.band(this.loop(0.7), 'bandpass', 1100, 1.6);
 
     // Turbulence : les deux LFO somment dans deux gains de profondeur, l'un sur
     // la fréquence de la bande, l'autre sur son gain. Les deux partent de zéro
@@ -627,6 +649,24 @@ export class Audio {
       0.11,
       false,
     );
+  }
+
+  /** L'invincibilité ramassée : un accord qui s'ouvre, tenu — une protection qui se pose. */
+  private ridePickup(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(330, 0.32, 'triangle', 0.08);
+    this.blip(415, 0.32, 'triangle', 0.07, 0, 0.04);
+    this.blip(494, 0.4, 'triangle', 0.06, 0, 0.08);
+    this.noiseHit(ctx.currentTime, 0.12, 'highpass', 3000, 1600, 0.8, 0.25, true);
+  }
+
+  /** Elle tombe : l'accord se referme, plus bas. */
+  private rideRelease(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(494, 0.14, 'triangle', 0.05);
+    this.blip(330, 0.22, 'triangle', 0.05, 0, 0.1);
   }
 
   /** Le combo tombe : deux notes qui descendent, discrètes — c'est une perte, pas un choc. */

@@ -45,6 +45,17 @@ the pass cancels it without ending it: the band re-arms on the next pass. Nothin
 counts in the air, where the edge is a different object. No new gauge, as the
 specification asked.
 
+**Invincibility and wall riding.** A violet pickup grants `rideTime` seconds in
+which the walls are harmless — no hull lost, no speed cut, no multiplier halved,
+no climb or combo dropped, and a landing beyond the edge is just a landing. A
+wall then *pushes*: each second of contact adds `rideGain` of the speed, and the
+ship hugs the edge instead of bouncing off it, so the contact is a line you can
+hold. The target speed pulls back at `speedGain` per second, so the push settles
+at about `rideGain / speedGain` above the target on its own. The pickups live in
+a second list, `extras`, drawn from their own stream and never before
+`extrasFrom` metres: the frozen track references record the original list as it
+was, and the physics traces end before any extra can exist.
+
 Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 119 m,
 so a faster ship both collects more per second and gets more per coin.
 

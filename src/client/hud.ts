@@ -148,7 +148,15 @@ export class Hud {
 
   private updateWarning(state: SimState): void {
     if (!this.warn) return;
-    const text = state.scrape > 0 ? 'WALL HIT' : state.drift ? 'DRIFT' : '';
+    // Sous invincibilité un contact n'est pas un choc : c'est du wall riding.
+    const text =
+      state.rideT > 0 && state.contact
+        ? 'WALL RIDE'
+        : state.scrape > 0
+          ? 'WALL HIT'
+          : state.drift
+            ? 'DRIFT'
+            : '';
     if (text === this.lastWarn) return;
     this.lastWarn = text;
 
@@ -158,6 +166,7 @@ export class Hud {
     }
     this.warn.textContent = text;
     this.warn.classList.toggle('drift', text === 'DRIFT');
+    this.warn.classList.toggle('ride', text === 'WALL RIDE');
     this.warn.classList.add('on');
   }
 

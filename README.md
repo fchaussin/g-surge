@@ -45,7 +45,9 @@ it is the only way up the ladder. Chain them without touching a wall and the
 **Perfect Drift** kicks in from the third: every drift pays points and the
 climb runs faster, as long as the next drift starts before the window closes.
 Skim a wall without touching it and the **Near Miss** pays points and a little
-boost, more the closer and the faster.
+boost, more the closer and the faster. A violet ring grants a few seconds of
+**invincibility**, during which a wall pushes instead of biting: lean on the
+outside of a corner and ride it.
 
 **The ladder has four rungs, and the vertical gauge is the ladder.**
 

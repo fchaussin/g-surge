@@ -31,6 +31,12 @@ export type SimEvent =
   | { readonly type: 'pickup'; readonly kind: 'fix' }
   /** Super boost ramassé. Le ramassage est l'activation : il n'y a pas de stock. */
   | { readonly type: 'pickup'; readonly kind: 'sup' }
+  /** Invincibilité ramassée : `rideTime` secondes où les murs accélèrent au lieu de blesser. */
+  | { readonly type: 'pickup'; readonly kind: 'ride' }
+  /** Un pas de contact avec un mur sous invincibilité : le wall riding. Émis à chaque pas, comme `scrape`. */
+  | { readonly type: 'ride' }
+  /** Fin de l'invincibilité, au pas où son compteur atteint zéro. */
+  | { readonly type: 'rideEnd' }
   /**
    * Super boost gagné : la montée a abouti sous un boost. Même barreau que le
    * ramassage, l'autre chemin pour y arriver — trouvé ou mérité.

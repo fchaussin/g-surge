@@ -18,6 +18,7 @@ export {
   HALF,
   ITEM_COIN,
   ITEM_FIX,
+  ITEM_RIDE,
   ITEM_SUP,
   SEG,
   SHIP,

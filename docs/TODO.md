@@ -75,7 +75,8 @@ order. Measured against the frozen references before touching anything:
 Order of integration, least constraining first: **Perfect Drift** (done,
 1.6.0 — class B, no reference moved), **Near Miss** (done, 1.7.0 — class B,
 `sim-parity` now asserts the reference pilot never skims cleanly),
-**Invincibility with wall riding**, **Fuel**. The reverse of the document's priority, because fuel
+**Invincibility with wall riding** (done, 1.8.0 — the extras list keeps the
+references intact), **Fuel**. The reverse of the document's priority, because fuel
 carries the one design gap below and the other three carry none.
 
 10. **Fuel at zero — what happens?** The specification gives consumption per
@@ -97,9 +98,11 @@ carries the one design gap below and the other three carry none.
 12. **Fuel gauge placement.** A second thin bar under the hull bar at the top,
     amber. Not a decision that blocks; the HUD reference regenerates.
 
-13. **The invincibility item.** Duration, colour and wall acceleration are
-    mine to default — 6 s, violet, and a speed gain on contact in place of the
-    wall penalty — and go on the Advanced tab.
+13. **The invincibility item.** Defaulted: 6 s, violet, and a push of 8 % of
+    the speed per second of contact, which settles a fifth above the target
+    speed; a landing beyond the edge is harmless too while it lasts. All three
+    on the Advanced tab. One thing to judge in play: `rideChance` equals the
+    super boost's, which makes it as rare — say if it should be more common.
 
 ## Asked for, and not possible as asked
 

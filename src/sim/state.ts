@@ -49,6 +49,8 @@ export interface SimState {
   /** Secondes passées dans la bande, et proximité maximale atteinte, 0 à 1. */
   nearHeld: number;
   nearPeak: number;
+  /** Temps restant d'invincibilité, en secondes. Les murs accélèrent au lieu de blesser. */
+  rideT: number;
 
   /* Saut */
   air: boolean;
@@ -149,6 +151,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.nearClean = false;
   state.nearHeld = 0;
   state.nearPeak = 0;
+  state.rideT = 0;
 
   state.air = false;
   state.hop = 0;

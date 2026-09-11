@@ -14,7 +14,7 @@
  */
 import type { SimEvent } from './events.js';
 import { thrustTier, type SimState } from './state.js';
-import { BACK, clamp, HALF, ITEM_COIN, ITEM_FIX, SEG, SHIP, Track } from './track.js';
+import { BACK, clamp, HALF, ITEM_COIN, ITEM_FIX, ITEM_RIDE, SEG, SHIP, Track } from './track.js';
 import { sin } from './trig.js';
 import type { Tuning } from './tuning.js';
 
@@ -82,6 +82,11 @@ export function step(
     // donc les références figées ne bougent pas d'un chiffre
     if (state.superT === 0) out.push({ type: 'supEnd' });
   }
+  if (state.rideT > 0) {
+    state.rideT = Math.max(0, state.rideT - dt);
+    if (state.rideT === 0) out.push({ type: 'rideEnd' });
+  }
+  const riding = state.rideT > 0 && !attract;
   const superOn = state.superT > 0 && !attract;
   const surgeOn = state.surgeT > 0 && !attract;
   // Le G-SURGE roule à la vitesse d'un super boost, pas au-delà : il ne reste
@@ -165,7 +170,9 @@ export function step(
       state.air = false;
       state.vyRel = 0;
       out.push({ type: 'land' });
-      if (Math.abs(state.lat) > HALF - SHIP) {
+      // Sous invincibilité la bordure est inoffensive, en l'air comme au sol :
+      // une réception dessus n'est qu'une réception.
+      if (Math.abs(state.lat) > HALF - SHIP && !riding) {
         // réception hors piste
         state.speed *= 1 - T.badLanding;
         state.energy = Math.max(0, state.energy - 40);
@@ -283,8 +290,11 @@ export function step(
     const impact = Math.abs(state.latVel);
     state.lat = Math.sign(state.lat) * lim;
     if (Math.sign(state.latVel) === Math.sign(state.lat)) {
-      state.latVel = -state.latVel * T.wallBounce;
-      if (!attract && !state.air) {
+      // Sous invincibilité le mur ne renvoie pas : la vitesse latérale meurt
+      // et le vaisseau épouse la bordure. Être projeté serait imprévisible, et
+      // c'est le contact tenu que le wall riding récompense.
+      state.latVel = riding ? 0 : -state.latVel * T.wallBounce;
+      if (!attract && !state.air && !riding) {
         // Un mur casse la montée : elle récompense la propreté, pas l'obstination.
         state.climb = 0;
         // Et le combo avec elle, s'il était armé.
@@ -305,8 +315,16 @@ export function step(
       }
     }
     if (!attract && !state.air) {
-      state.hull = Math.max(0, state.hull - T.hullScrape * dt);
-      out.push({ type: 'scrape' });
+      if (riding) {
+        // Le wall riding : le mur pousse au lieu de mordre. La cible ramène la
+        // vitesse à `speedGain` par seconde, donc l'excès plafonne de lui-même
+        // à rideGain / speedGain au-dessus d'elle. Montée et combo survivent.
+        state.speed += state.speed * T.rideGain * dt;
+        out.push({ type: 'ride' });
+      } else {
+        state.hull = Math.max(0, state.hull - T.hullScrape * dt);
+        out.push({ type: 'scrape' });
+      }
     }
     if (!state.air) {
       state.contact = true;
@@ -384,6 +402,19 @@ export function step(
       } else {
         state.superT = T.supTime;
       }
+    }
+  }
+  // Les extras, ramassés comme les objets : même test, autre liste.
+  for (const it of track.extras) {
+    if (it.done) continue;
+    if ((it.id - ibase - BACK) * SEG - state.cursor > 0) continue;
+    it.done = true;
+    if (attract) continue;
+    if (Math.abs(state.lat - it.lat) > T.pickRadius || state.hop > 4) continue;
+    it.taken = true;
+    if (it.type === ITEM_RIDE) {
+      state.rideT = T.rideTime;
+      out.push({ type: 'pickup', kind: 'ride' });
     }
   }
   if (!attract && state.hull <= 0 && !state.wrecked) {

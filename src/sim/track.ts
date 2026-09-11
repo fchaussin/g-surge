@@ -27,7 +27,9 @@ export const SHIP = 1.9;
 export const ITEM_COIN = 0;
 export const ITEM_FIX = 1;
 export const ITEM_SUP = 2;
-export type ItemType = typeof ITEM_COIN | typeof ITEM_FIX | typeof ITEM_SUP;
+/** L'invincibilité, et le wall riding avec elle. Un « extra », voir `Track.extras`. */
+export const ITEM_RIDE = 3;
+export type ItemType = typeof ITEM_COIN | typeof ITEM_FIX | typeof ITEM_SUP | typeof ITEM_RIDE;
 
 /** Repère local du ruban en un point. Réutilisé, jamais alloué par appel. */
 export interface TrackPoint {
@@ -92,6 +94,15 @@ export class Track {
   readonly nid = new Int32Array(COUNT);
 
   items: Item[] = [];
+  /**
+   * Les objets ajoutés après le gel des références — l'invincibilité, et ce
+   * qui viendra. Une liste à part avec son propre flux aléatoire, et jamais
+   * avant `extrasFrom` mètres : les références de piste enregistrent `items`
+   * tel que l'ancien jeu le produisait, et les traces physiques couvrent
+   * 1 345 m. Ainsi le contrat de la migration reste exactement ce qu'il était,
+   * et une mécanique neuve ne demande à personne de le régénérer.
+   */
+  extras: Item[] = [];
 
   /* Ruban intégré, rempli par `buildPath`. Réécrit sur place à chaque image.
      Exposé en lecture : les rubans du rendu parcourent ces tampons directement
@@ -119,6 +130,7 @@ export class Track {
   private readonly coinRun = { left: 0, lat: 0, drift: 0 };
   private trackRng: Rng;
   private itemRng: Rng;
+  private extraRng: Rng;
 
   constructor(
     private tuning: Tuning,
@@ -126,6 +138,7 @@ export class Track {
   ) {
     this.trackRng = Rng.fromSeed(seed, 'track');
     this.itemRng = Rng.fromSeed(seed, 'items');
+    this.extraRng = Rng.fromSeed(seed, 'extras');
     this.seed(seed);
   }
 
@@ -138,6 +151,7 @@ export class Track {
   seed(seed: string): void {
     this.trackRng = Rng.fromSeed(seed, 'track');
     this.itemRng = Rng.fromSeed(seed, 'items');
+    this.extraRng = Rng.fromSeed(seed, 'extras');
 
     const g = this.gen;
     g.k = g.kTarget = g.g = g.gTarget = 0;
@@ -150,6 +164,7 @@ export class Track {
     g.id = 0;
 
     this.items = [];
+    this.extras = [];
     this.coinRun.left = 0;
 
     for (let i = 0; i < COUNT; i++) {
@@ -160,7 +175,10 @@ export class Track {
       this.nid[i] = n.id;
       // pas d'objet sur les premiers segments : ils sont déjà derrière ou sous
       // le vaisseau au premier rendu
-      if (i > BACK + 6) this.spawnItems(n.id);
+      if (i > BACK + 6) {
+        this.spawnItems(n.id);
+        this.spawnExtras(n.id);
+      }
     }
   }
 
@@ -178,9 +196,13 @@ export class Track {
     this.nid[COUNT - 1] = n.id;
 
     this.spawnItems(n.id);
+    this.spawnExtras(n.id);
     const oldest = this.nid[0]!;
     if (this.items.length && this.items[0]!.id < oldest - 2) {
       this.items = this.items.filter((it) => it.id >= oldest - 2);
+    }
+    if (this.extras.length && this.extras[0]!.id < oldest - 2) {
+      this.extras = this.extras.filter((it) => it.id >= oldest - 2);
     }
   }
 
@@ -358,6 +380,27 @@ export class Track {
     b += gen.rollPhase;
 
     return { k: gen.k, g: gen.g, b, id: gen.id++ };
+  }
+
+  /**
+   * Les objets de la liste à part. Un tirage par segment sur leur propre flux,
+   * donc rien ici ne déplace un objet de `items` ; et rien avant `extrasFrom`,
+   * qui est au-delà des traces figées — la piste s'ouvre d'abord.
+   */
+  private spawnExtras(id: number): void {
+    const T = this.tuning;
+    if (id * SEG < T.extrasFrom) return;
+    const rng = this.extraRng;
+    const r = rng.next();
+    if (r < T.rideChance) {
+      this.extras.push({
+        id,
+        lat: rng.centered(HALF - 3.5),
+        type: ITEM_RIDE,
+        done: false,
+        taken: false,
+      });
+    }
   }
 
   private spawnItems(id: number): void {
