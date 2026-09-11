@@ -471,6 +471,9 @@
   .pausedist b{color:var(--text);font-weight:600;font-size:15px}
   .overtag{margin:2px 0 16px;font-size:12px;color:var(--hot);font-weight:600;letter-spacing:.04em;
     min-height:15px}
+  /* la ligne du fantôme ne prend de place que lorsqu'elle a quelque chose à dire */
+  .ghosttag{margin:-10px 0 16px;color:var(--neon)}
+  .ghosttag:empty{display:none}
   .score{margin:16px 0 4px}
   .srow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 0;
     border-bottom:1px solid rgba(223,242,248,.07);font-size:12px;letter-spacing:.05em;color:var(--dim)}
@@ -717,6 +720,7 @@
       <div class="srow total"><span>SCORE</span><b id="sTotal">0</b></div>
     </div>
     <div class="overtag" id="overTag"></div>
+    <div class="overtag ghosttag" id="overGhost"></div>
     <button class="btn" id="btnAgain">RUN AGAIN</button>
     <button class="btn ghost" id="btnOverMenu">MAIN MENU</button>
   </div>
@@ -797,6 +801,10 @@
           <span>Show tips<small>Short hints during the first minute of a run</small></span>
           <button class="toggle on" id="tglTips" aria-pressed="true"></button>
         </div>
+        <div class="switch">
+          <span>Race your ghost<small>Your best run rides beside you, on its own track</small></span>
+          <button class="toggle" id="tglGhost" aria-pressed="false"></button>
+        </div>
         <div class="switch" id="rowHaptics">
           <span>Haptics<small>Vibration on impacts, pickups and boost</small></span>
           <button class="toggle on" id="tglHaptics" aria-pressed="true"></button>
@@ -823,7 +831,7 @@
       </div>
       <div class="grp">
         <h3>Data</h3>
-        <p>The leaderboard is stored on this device only.</p>
+        <p>The leaderboard and your ghost runs are stored on this device only.</p>
         <button class="btn danger" id="btnClear">CLEAR LEADERBOARD</button>
       </div>
       </div>

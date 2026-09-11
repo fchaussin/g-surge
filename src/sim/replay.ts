@@ -26,8 +26,8 @@ import { Track } from './track.js';
 import { DIFF, tuningFor, type Difficulty } from './tuning.js';
 
 /** Bit du frein et bit du boost dans `flags`. */
-const BRAKE = 1;
-const BOOST = 2;
+export const BRAKE = 1;
+export const BOOST = 2;
 
 /**
  * Plafond du nombre de plages. Au-delà, l'enregistrement s'arrête et la trace
@@ -164,6 +164,47 @@ export function validTrace(t: Trace): boolean {
 }
 
 /**
+ * Lit une trace pas à pas, à la cadence de l'appelant.
+ *
+ * Le serveur l'épuise en une boucle serrée ; le fantôme du client l'avance
+ * d'un pas chaque fois que la partie vivante en fait un. Les deux lisent les
+ * mêmes plages par le même curseur, et c'est ce qui garantit qu'un fantôme
+ * montre exactement ce qu'un serveur a compté. L'entrée renvoyée est un objet
+ * réutilisé : à consommer dans le pas, jamais à garder.
+ */
+export class TraceCursor {
+  private readonly input: Input = { steer: 0, brake: false, boost: false };
+  private span = 0;
+  private i = 0;
+
+  constructor(readonly trace: Trace) {}
+
+  /** Pas déjà livrés. */
+  get position(): number {
+    return this.i;
+  }
+
+  /** Vrai quand la trace n'a plus de pas à donner. */
+  get done(): boolean {
+    return this.i >= this.trace.steps;
+  }
+
+  /** L'entrée tenue au pas suivant. Ne pas appeler une fois `done`. */
+  advance(): Input {
+    const t = this.trace;
+    while (this.span < t.from.length && t.from[this.span]! <= this.i) {
+      this.input.steer = t.steer[this.span]!;
+      const flags = t.flags[this.span]!;
+      this.input.brake = (flags & BRAKE) !== 0;
+      this.input.boost = (flags & BOOST) !== 0;
+      this.span++;
+    }
+    this.i++;
+    return this.input;
+  }
+}
+
+/**
  * Rejoue une trace depuis une simulation neuve et rapporte l'issue.
  *
  * Le pas est `DT`, sans exception : le réglage est celui de la difficulté,
@@ -176,24 +217,14 @@ export function replay(t: Trace): Outcome {
   const diffMul = DIFF[t.difficulty].mul;
   const state = createState(tuning);
   const track = new Track(tuning, t.seed);
-  const input: Input = { steer: 0, brake: false, boost: false };
   const events: SimEvent[] = [];
-  let span = 0;
-  let steps = 0;
-  for (let i = 0; i < t.steps; i++) {
-    while (span < t.from.length && t.from[span]! <= i) {
-      input.steer = t.steer[span]!;
-      const flags = t.flags[span]!;
-      input.brake = (flags & BRAKE) !== 0;
-      input.boost = (flags & BOOST) !== 0;
-      span++;
-    }
-    step(state, track, tuning, diffMul, input, DT, false, events);
+  const cursor = new TraceCursor(t);
+  while (!cursor.done) {
+    step(state, track, tuning, diffMul, cursor.advance(), DT, false, events);
     events.length = 0;
-    steps++;
     if (state.wrecked) break;
   }
-  return outcomeOf(state, steps);
+  return outcomeOf(state, cursor.position);
 }
 
 /** Les chiffres de fin d'un état, sous la forme que `replay` rapporte. */

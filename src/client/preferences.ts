@@ -28,6 +28,8 @@ export interface Preferences {
   showFps: boolean;
   /** L'invitation à installer a été fermée : elle ne revient pas. */
   installDismissed: boolean;
+  /** Courir contre sa meilleure partie, sur la piste de celle-ci. */
+  ghost: boolean;
   /** Fraction de la résolution native, de 0,4 à 1. */
   renderScale: number;
 }
@@ -42,6 +44,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   skyDetail: true,
   showFps: false,
   installDismissed: false,
+  ghost: false,
   renderScale: 1,
 };
 
@@ -68,6 +71,7 @@ export function sanitise(raw: unknown): Preferences {
     skyDetail: bool(r.skyDetail, d.skyDetail),
     showFps: bool(r.showFps, d.showFps),
     installDismissed: bool(r.installDismissed, d.installDismissed),
+    ghost: bool(r.ghost, d.ghost),
     // Un frameTarget stocké par une version antérieure est simplement ignoré :
     // sanitise reconstruit l'objet champ par champ, les clés inconnues tombent.
     renderScale: number(r.renderScale, d.renderScale, 0.4, 1),

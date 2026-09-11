@@ -47,6 +47,7 @@ export interface SettingsOptions {
   setHaptics: (on: boolean, byUser: boolean) => void;
   hapticsAvailable: boolean;
   setTips: (on: boolean) => void;
+  setGhost: (on: boolean) => void;
   setLefty: (on: boolean) => void;
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
@@ -210,6 +211,7 @@ export class Settings {
     };
 
     simple('tglTips', initial.tips, (on) => this.options.setTips(on));
+    simple('tglGhost', initial.ghost, (on) => this.options.setGhost(on));
     simple('tglSky', initial.sky, (on) => this.options.setSky(on));
     simple('tglSkyHi', initial.skyDetail, (on) => this.options.setSkyDetail(on));
     simple('tglFps', initial.showFps, (on) => {

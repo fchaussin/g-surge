@@ -29,6 +29,7 @@ interface GsNextDebug {
     script?: Array<{ from: number; steer?: number; brake?: boolean; boost?: boolean }>;
   }): unknown;
   record(): unknown;
+  ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
 }
 
 declare global {

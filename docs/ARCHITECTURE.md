@@ -16,9 +16,9 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 11 | ~2 400 |
-| `src/client/` | 32 | ~6 800 |
-| `index.html` | 1 | ~800 |
+| `src/sim/` | 12 | ~2 600 |
+| `src/client/` | 34 | ~7 100 |
+| `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
 Line counts include comments, which this codebase writes at length, and are
@@ -74,6 +74,7 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `ride`, `rideEnd`, `fuelEmpty`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly; records every non-attract step into the trace |
+| `trace-bytes.ts` | `packTrace` and `unpackTrace`, the trace in bytes — two per steer on the 1/1024 grid `quantiseSteer` sets, eight off it — for local storage and the wire |
 | `replay.ts` | The trace of a run — seed, difficulty, inputs by span — its `Recorder`, `validTrace` and `replay`, which reproduces a run bit for bit and reports its `Outcome`; what a server rejeu runs, see `NETWORK.md` |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
 
@@ -178,7 +179,9 @@ which is what makes the step runnable outside a page.
 | `camera.ts` | The chase camera and its roll blend |
 | `sky.ts` | Shader background and star dust |
 | `track-mesh.ts` | Five ribbons and the gantries; the edges light up under the shield |
-| `ship.ts` | Hull, plumes, smoke trail, halo |
+| `ship.ts` | Hull, plumes, smoke trail, halo; `hullBody` is the hull alone, shared with the ghost |
+| `ghost.ts` | The ghost: a second `Sim` fed by a `TraceCursor` in step with the live one, drawn as a translucent hull on the live track from its distance, lateral offset and hop — never inside the player's simulation |
+| `ghosts.ts` | `gsurge.ghost.v1.<difficulty>` — the best run of each difficulty, packed and base64, to race against |
 | `shield.ts` | The invincibility as it is seen: Tesla-coil arcs and a field around the hull, and the one eased intensity the rails and the hum read |
 | `pickups.ts` | Pooled coin, repair and boost meshes |
 | `drift.ts` | `SLIP_CEILING`, 35 m/s, and the one drift intensity and side every effect reads |
@@ -285,6 +288,7 @@ draws — the same list a run start uses, plus the sky.
 | `trig(xs)` | the core's `sin`, `cos`, `atan` over a vector, replayed against Node |
 | `trace(opts)` | replays a run at fixed step, outside the render loop |
 | `record()` | the live run's trace, for the browser-to-Node replay proof |
+| `ghost()` | whether a ghost is racing, whether it is drawn, its gap and its score |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |
 
 `trace` is what proves the shipped bundle still plays like the source, and

@@ -121,7 +121,21 @@ export class Hud {
 
   setBest(text: string): void {
     if (this.best) this.best.textContent = text;
+    this.lastGap = null;
   }
+
+  /**
+   * L'écart au fantôme, dans l'emplacement du record : positif quand il est
+   * devant. Écrit par pas de cinq mètres, pas à chaque frame.
+   */
+  setGap(metres: number): void {
+    const step = Math.round(metres / 5) * 5;
+    if (step === this.lastGap || !this.best) return;
+    this.lastGap = step;
+    this.best.textContent = `ghost ${step >= 0 ? '+' : '\u2212'}${Math.abs(step)} m`;
+  }
+
+  private lastGap: number | null = null;
 
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {

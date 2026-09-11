@@ -24,6 +24,8 @@ import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
 import { Feedback } from './feedback.js';
 import { Fullscreen } from './fullscreen.js';
+import { Ghost } from './ghost.js';
+import { GhostStore } from './ghosts.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
 import { InputSource } from './input.js';
@@ -88,6 +90,7 @@ const sky = new Sky();
 const trackMesh = new TrackMesh(viewport.renderer);
 const pickups = new Pickups();
 const ship = new Ship();
+const ghost = new Ghost();
 const shield = new ShieldFx();
 const surgeMeter = new SurgeMeter();
 const surgeOverlay = new SurgeOverlay();
@@ -95,7 +98,7 @@ const surgeOverlay = new SurgeOverlay();
 // ici croiserait la caméra 19 m derrière.
 const spray = new DriftSpray();
 ship.group.add(spray.group, shield.group);
-scene.add(sky.group, trackMesh.group, pickups.group, ship.group);
+scene.add(sky.group, trackMesh.group, pickups.group, ship.group, ghost.group);
 
 // Le vaisseau est le seul objet éclairé ; tout le reste est sans éclairage à
 // dessein.
@@ -110,6 +113,7 @@ const hud = new Hud();
 const audio = new Audio();
 const haptics = new Haptics();
 const scores = new Scores();
+const ghosts = new GhostStore();
 const tips = new Tips();
 const scoreScreen = new ScoreScreen(() => audio.resume());
 
@@ -168,6 +172,8 @@ const input = new InputSource({
 });
 
 let difficulty: Difficulty = prefs.values.difficulty;
+/** Courir contre sa meilleure partie, sur sa piste. */
+let ghostOn = prefs.values.ghost;
 let showFps = prefs.values.showFps;
 
 const perf = new PerformanceGovernor({
@@ -248,7 +254,14 @@ const settings = new Settings({
     showFps = on;
     prefs.set('showFps', on);
   },
-  clearScores: () => scores.clear(),
+  setGhost: (on) => {
+    ghostOn = on;
+    prefs.set('ghost', on);
+  },
+  clearScores: () => {
+    scores.clear();
+    ghosts.clear();
+  },
   rebuildNav: () => screens.buildNav(),
 });
 
@@ -285,7 +298,13 @@ function resetPresentation(): void {
 
 function startRun(): void {
   if (screens.mode === 'run') submit();
-  sim.reset(pinnedSeed ?? freshSeed());
+  // Avec le fantôme, la partie se joue sur la piste de la meilleure : c'est la
+  // seule façon de courir contre elle. Une graine épinglée par l'URL l'emporte,
+  // et le fantôme ne court alors que si c'est aussi la sienne.
+  const best = ghostOn ? ghosts.best(difficulty) : null;
+  sim.reset(pinnedSeed ?? best?.trace.seed ?? freshSeed());
+  if (best && best.trace.seed === sim.seed) ghost.arm(best.trace);
+  else ghost.disarm();
   tips.reset();
   resetPresentation();
   hud.reset();
@@ -295,6 +314,8 @@ function startRun(): void {
 
 function endRun(): void {
   haptics.buzz([90, 60, 200]);
+  // le score du fantôme avant `submit`, qui peut le remplacer par cette partie
+  const raced = ghost.armed ? ghosts.bestScore(difficulty) : null;
   const { wasBest, previousBest } = submit();
   screens.setMode('over');
   scoreScreen.show({
@@ -305,13 +326,19 @@ function endRun(): void {
     total: sim.state.score,
     wasBest,
     previousBest,
+    ghostScore: raced,
   });
 }
 
 /** Une partie compte quand elle finit, quelle que soit la fin : crash, relance ou abandon. */
 function submit(): { wasBest: boolean; previousBest: number } {
   const result = scores.submit(sim.state.score, sim.state.coins, difficulty, Date.now());
-  if (result.accepted) hud.setBest(scores.bestLabel);
+  // Toujours repeint : pendant une course au fantôme, l'étiquette montrait l'écart.
+  hud.setBest(scores.bestLabel);
+  // La trace de chaque partie est proposée, fantôme ou pas : celle qui bat la
+  // meilleure devient le prochain fantôme de la difficulté.
+  ghosts.offer(sim.trace(), sim.state.score);
+  ghost.disarm();
   return result;
 }
 
@@ -330,6 +357,8 @@ function renderFrame(frameDt: number): void {
   // Le palier de pièce est le barreau de poussée : une seule notion, celle que
   // le noyau publie, au lieu d'un seuil de vitesse qui l'approximait mal.
   pickups.update(sim.track, state.cursor, thrust, frameDt);
+  ghost.update(sim);
+  if (ghost.armed && screens.isPlaying) hud.setGap(ghost.gap);
   ship.setPose(state.lat, state.hop, bank);
   // Gîte et lacet sont montrés, pas simulés : ils traînent derrière l'état pour
   // que la coque se lise comme une masse au lieu de sauter d'une attitude à
@@ -414,6 +443,7 @@ const loop = new Loop({
     if (mode === 'run') {
       bank = sim.step(input.sample(), dt, false);
       feedback.consume(sim.events);
+      ghost.step(dt);
     } else if (mode === 'menu') {
       bank = sim.step(input.value, dt, true);
     }
@@ -570,4 +600,4 @@ function freeze(seed: string, steps: number): void {
   viewport.render(scene);
 }
 
-installDebugSurface({ sim, loop, viewport, screens, sky, freeze });
+installDebugSurface({ sim, loop, viewport, screens, sky, ghost, freeze });

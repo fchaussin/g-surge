@@ -100,6 +100,19 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the ghost — 1.16.0
+
+- **"Go"** on the multiplayer roadmap, M1 first. Built: the best run of each
+  difficulty is kept on the device and, with *Race your ghost* on in
+  Settings, the next run plays on that run's track with the ghost riding
+  beside — a translucent cyan hull, a second `Sim` fed by the same
+  `TraceCursor` a server uses, never inside the player's simulation. The
+  HUD's record slot reads the gap, the end screen says by how much the
+  ghost was beaten or not. Off by default; the offline game is unchanged
+  with it off. To judge in play: the ghost's tint and opacity (`ghost.ts`,
+  two constants), and whether starting on the ghost's seed rather than a
+  fresh one reads as fair — it is the only way to race it.
+
 ### 11 September 2026, the online layer — 1.15.6
 
 - **"The leaderboard is multiplayer now; a score sent at the end is forged

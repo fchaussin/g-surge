@@ -12,9 +12,14 @@ import {
   DT,
   Recorder,
   Rng,
+  STEER_QUANTUM,
   Sim,
+  TraceCursor,
   outcomeOf,
+  packTrace,
+  quantiseSteer,
   replay,
+  unpackTrace,
   validTrace,
   type Difficulty,
   type Input,
@@ -29,14 +34,16 @@ const PER_FRAME = 12;
  * comme un vrai manche, freine rarement et booste souvent. Il n'a pas à être
  * bon : il doit produire une trace dense et des valeurs non triviales.
  */
-function play(sim: Sim, seconds: number, rng: Rng): void {
+function play(sim: Sim, seconds: number, rng: Rng, quantised = true): void {
   const input: Input = { steer: 0, brake: false, boost: false };
   const steps = Math.round(seconds / DT);
   for (let i = 0; i < steps; i++) {
     if (i % PER_FRAME === 0) {
       const s = sim.state;
       const centring = -(s.lat * 0.1 + s.latVel * 0.55);
-      input.steer = Math.max(-1, Math.min(1, centring + rng.centered(0.6)));
+      const raw = Math.max(-1, Math.min(1, centring + rng.centered(0.6)));
+      // comme `input.ts` : le manche est quantifié, sauf quand le test veut des flottants libres
+      input.steer = quantised ? quantiseSteer(raw) : raw;
       input.brake = rng.chance(0.02);
       input.boost = rng.chance(0.7);
     }
@@ -45,10 +52,15 @@ function play(sim: Sim, seconds: number, rng: Rng): void {
   }
 }
 
-function record(seed: string, difficulty: Difficulty, seconds = 45): { sim: Sim; trace: Trace } {
+function record(
+  seed: string,
+  difficulty: Difficulty,
+  seconds = 45,
+  quantised = true,
+): { sim: Sim; trace: Trace } {
   const sim = new Sim({ seed, difficulty });
   sim.reset(seed);
-  play(sim, seconds, Rng.fromSeed(seed, 'player'));
+  play(sim, seconds, Rng.fromSeed(seed, 'player'), quantised);
   return { sim, trace: sim.trace() };
 }
 
@@ -134,6 +146,61 @@ describe('replay', () => {
     expect(bad({ steps: trace.from[trace.from.length - 1]! })).toBe(false);
     expect(validTrace({ ...trace, steps: 0, from: [], steer: [], flags: [] })).toBe(true);
     expect(validTrace({ ...trace, steps: 1, from: [], steer: [], flags: [] })).toBe(false);
+  });
+
+  it('reads through a cursor exactly as replay() does', () => {
+    const { sim, trace } = record('cursor', 'medium');
+    const twin = new Sim({ seed: trace.seed, difficulty: trace.difficulty });
+    twin.reset(trace.seed);
+    const cursor = new TraceCursor(trace);
+    // au rythme d'un fantôme : un pas quand on le lui demande, pas une boucle serrée
+    while (!cursor.done && !twin.state.wrecked) twin.step(cursor.advance(), DT, false);
+    expect(outcomeOf(twin.state, cursor.position)).toEqual(outcomeOf(sim.state, trace.steps));
+    expect(outcomeOf(twin.state, cursor.position)).toEqual(replay(trace));
+  });
+
+  it('packs to bytes and back without losing a bit — on the grid and off it', () => {
+    for (const quantised of [true, false]) {
+      const { trace } = record('pack-' + quantised, 'hard', 30, quantised);
+      const bytes = packTrace(trace);
+      const back = unpackTrace(bytes);
+      expect(back).toEqual(trace);
+      expect(replay(back!)).toEqual(replay(trace));
+      // sur la grille, deux octets par braquage ; en dehors, huit
+      const perSpan = bytes.byteLength / trace.from.length;
+      if (quantised) expect(perSpan).toBeLessThan(5.5);
+      else expect(perSpan).toBeGreaterThan(8);
+    }
+  });
+
+  it('packs any seed and any span, and refuses what is not a trace', () => {
+    const odd: Trace = {
+      seed: 'gr\u00e2ce \u2014 \ud83d\ude80 seed',
+      difficulty: 'easy',
+      steps: 300000,
+      from: [0, 1, 200, 20000, 299999],
+      steer: [0, -1, 1, 0.5 + STEER_QUANTUM, 0.1234567],
+      flags: [0, 1, 2, 3, 0],
+      truncated: false,
+    };
+    expect(validTrace(odd)).toBe(true);
+    expect(unpackTrace(packTrace(odd))).toEqual(odd);
+    const empty: Trace = { ...odd, steps: 0, from: [], steer: [], flags: [] };
+    expect(unpackTrace(packTrace(empty))).toEqual(empty);
+    // le zéro négatif d'un script passe en large et revient signé ; la grille n'en produit pas
+    const signed: Trace = { ...empty, steps: 1, from: [0], steer: [-0], flags: [0] };
+    expect(Object.is(unpackTrace(packTrace(signed))!.steer[0], -0)).toBe(true);
+    expect(Object.is(quantiseSteer(-0.0003), 0)).toBe(true);
+    expect(quantiseSteer(-0.7)).toBe(-717 * STEER_QUANTUM);
+    expect(unpackTrace(packTrace({ ...odd, truncated: true }))?.truncated).toBe(true);
+
+    expect(unpackTrace(new Uint8Array(0))).toBeNull();
+    expect(unpackTrace(new Uint8Array([9, 0, 0]))).toBeNull();
+    const bytes = packTrace(odd);
+    expect(unpackTrace(bytes.subarray(0, bytes.length - 1))).toBeNull();
+    const longer = new Uint8Array(bytes.length + 1);
+    longer.set(bytes);
+    expect(unpackTrace(longer)).toBeNull();
   });
 
   it('grows its buffers past 256 spans without losing one', () => {

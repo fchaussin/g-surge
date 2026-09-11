@@ -15,7 +15,7 @@
  * `+X` du monde apparaît à gauche de l'écran ; pousser le manche à droite doit
  * emmener le vaisseau vers `-X`.
  */
-import type { Input } from '../sim/index.js';
+import { quantiseSteer, type Input } from '../sim/index.js';
 
 /** Touches physiques, par `KeyboardEvent.code`, pour que la disposition n'importe pas. */
 const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
@@ -75,10 +75,18 @@ export class InputSource {
     this.bindPads();
   }
 
-  /** Recalcule `value` depuis l'état courant des périphériques. */
+  /**
+   * Recalcule `value` depuis l'état courant des périphériques.
+   *
+   * Le manche est posé sur une grille de 1/1024 avant d'atteindre la
+   * simulation. Sous ce qu'un pouce distingue, et c'est ce qui fait tenir une
+   * trace de partie en deux octets par braquage au lieu de huit — la trace
+   * enregistre ce que `step()` reçoit, donc la quantification se fait ici,
+   * en amont, et nulle part ailleurs.
+   */
   sample(): Input {
     const kb = (this.keys.left ? 1 : 0) - (this.keys.right ? 1 : 0);
-    this.value.steer = kb !== 0 ? kb : this.stickX;
+    this.value.steer = kb !== 0 ? kb : quantiseSteer(this.stickX);
     this.value.brake = this.keys.brake || this.pads.brake;
     this.value.boost = this.keys.boost || this.pads.boost;
     return this.value;

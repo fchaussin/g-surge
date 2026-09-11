@@ -31,7 +31,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 | # | Milestone | Player sees | Needs from the author | Phase in `NETWORK.md` |
 |---|---|---|---|---|
 | M0 | The trace and its replay | nothing | — | primitive — **done** |
-| M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 |
+| M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 — **done**, 1.16.0 |
 | M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing |
 | M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
@@ -52,7 +52,12 @@ browser-to-Node proof in `bundle.spec.ts`: a run recorded in Chromium
 replays in Node to the same outcome. Nothing visible; the offline game
 records its trace and does nothing with it.
 
-## M1 — Ghosts, locally
+## M1 — Ghosts, locally — done
+
+1.16.0. `ghost.ts`, `ghosts.ts`, `trace-bytes.ts`; the stick quantised to
+1/1024 in `input.ts` so a run packs to two bytes a steer. The e2e round
+trip is `ghost.spec.ts`. The per-frame budget with a ghost on was not
+measured on the compact profile — open, below.
 
 **Goal.** Replay a stored trace as a second ship on the same track, at frame
 rate, beside the live one. This is the presentation half of multiplayer —

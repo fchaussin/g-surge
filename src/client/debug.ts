@@ -24,6 +24,7 @@ import {
   type Tuning,
 } from '../sim/index.js';
 import { CORE_DIGEST } from './core.js';
+import type { Ghost } from './ghost.js';
 import type { Loop } from './loop.js';
 import type { Screens } from './screens.js';
 import type { Sky } from './sky.js';
@@ -67,6 +68,8 @@ export interface DebugSurface {
   trace(opts: TraceOptions): unknown;
   /** La trace de la partie en cours ou finie — ce qu'un serveur rejouerait. */
   record(): Trace;
+  /** Le fantôme : en course, dessiné, son écart et son score. */
+  ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
 }
 
 declare global {
@@ -81,6 +84,7 @@ export interface DebugDeps {
   readonly viewport: Viewport;
   readonly screens: Screens;
   readonly sky: Sky;
+  readonly ghost: Ghost;
   /**
    * Arrête la boucle, rejoue `steps` pas fixes depuis `seed` et dessine
    * exactement une frame. Fournie par le client, qui est le seul à connaître
@@ -198,5 +202,11 @@ export function installDebugSurface(deps: DebugDeps): void {
     items: () => sim.track.items.map((it) => ({ id: it.id, lat: it.lat, type: it.type })),
     trace: (opts) => trace(sim, loop, opts),
     record: () => sim.trace(),
+    ghost: () => ({
+      armed: deps.ghost.armed,
+      visible: deps.ghost.group.visible,
+      gap: deps.ghost.gap,
+      score: deps.ghost.score,
+    }),
   };
 }

@@ -31,6 +31,7 @@ import {
   Float32BufferAttribute,
   Group,
   Mesh,
+  Material,
   MeshBasicMaterial,
   MeshLambertMaterial,
   SphereGeometry,
@@ -259,105 +260,8 @@ export class Ship {
     this.halo.scale.setScalar(0.55 + (1 - intensity) * 2.3 * power);
   }
 
-  /** Un M vu de face : deux ailes hautes, une épine centrale plus basse, deux creux. */
   private buildHull(): void {
-    const P: Record<string, Point3> = {
-      N: [0, 0.52, 2.9],
-      T: [0, 1.05, -0.2],
-      L: [-0.62, 0.46, -0.2],
-      R: [0.62, 0.46, -0.2],
-      B: [0, -0.02, -0.2],
-      T2: [0, 0.86, -2.4],
-      L2: [-0.48, 0.46, -2.4],
-      R2: [0.48, 0.46, -2.4],
-      B2: [0, 0.12, -2.4],
-    };
-    const hull = new Mesh(
-      poly(
-        [
-          ['N', 'T', 'R'],
-          ['N', 'R', 'B'],
-          ['N', 'B', 'L'],
-          ['N', 'L', 'T'],
-          ['T', 'L', 'L2'],
-          ['T', 'L2', 'T2'],
-          ['R', 'T', 'T2'],
-          ['R', 'T2', 'R2'],
-          ['B', 'R', 'R2'],
-          ['B', 'R2', 'B2'],
-          ['L', 'B', 'B2'],
-          ['L', 'B2', 'L2'],
-          ['T2', 'L2', 'B2'],
-          ['T2', 'B2', 'R2'],
-        ],
-        P,
-      ),
-      new MeshLambertMaterial({ color: 0x36485f, side: DoubleSide }),
-    );
-
-    // aile en flèche, emplanture basse et bout relevé
-    const W: Record<string, Point3> = {
-      A: [0.52, 0.44, 1.0],
-      B: [0.52, 0.44, -1.9],
-      K1: [1.5, 1.3, -0.15],
-      K2: [1.52, 1.3, -2.15],
-      T1: [1.88, 1.02, -0.8],
-      T2: [1.9, 1.02, -2.35],
-    };
-    const WL: Record<string, Point3> = {};
-    for (const k of Object.keys(W)) WL[k] = [-W[k]![0], W[k]![1], W[k]![2]];
-    const wingFaces = [
-      ['A', 'K1', 'K2'],
-      ['A', 'K2', 'B'],
-      ['K1', 'T1', 'T2'],
-      ['K1', 'T2', 'K2'],
-    ] as const;
-    const wingMat = new MeshLambertMaterial({ color: 0x2b3b52, side: DoubleSide });
-    const wingR = new Mesh(poly(wingFaces, W), wingMat);
-    const wingL = new Mesh(poly(wingFaces, WL), wingMat);
-
-    // nacelles aux deux tiers de l'envergure
-    const podGeo = new CylinderGeometry(0.26, 0.22, 1.15, 8);
-    podGeo.rotateX(Math.PI / 2);
-    const podMat = new MeshLambertMaterial({ color: 0x1d2836 });
-    const pods = [-1.15, 1.15].map((x) => {
-      const m = new Mesh(podGeo, podMat);
-      m.position.set(x, 1.0, -1.7);
-      return m;
-    });
-
-    const glowMat = new MeshBasicMaterial({ color: 0x8af4ff, transparent: true, opacity: 0.95 });
-    const glowGeo = new CircleGeometry(0.23, 8);
-    const glows = [-1.15, 1.15].map((x) => {
-      const m = new Mesh(glowGeo, glowMat);
-      m.position.set(x, 1.0, -2.29);
-      m.rotation.y = Math.PI;
-      return m;
-    });
-
-    const canopy = new Mesh(
-      new BoxGeometry(0.44, 0.3, 1.05),
-      new MeshLambertMaterial({ color: 0x0d1620 }),
-    );
-    canopy.position.set(0, 0.96, 0.75);
-    canopy.rotation.x = -0.12;
-
-    const spine = new Mesh(
-      new BoxGeometry(0.13, 0.06, 2.0),
-      new MeshBasicMaterial({ color: 0x25e2ff }),
-    );
-    spine.position.set(0, 1.07, -0.9);
-
-    const strakeGeo = new BoxGeometry(0.09, 0.36, 0.72);
-    const strakeMat = new MeshBasicMaterial({ color: 0xff2f9a });
-    const strakes = [-1.51, 1.51].map((x) => {
-      const m = new Mesh(strakeGeo, strakeMat);
-      m.position.set(x, 1.46, -1.2);
-      m.rotation.z = x < 0 ? 0.16 : -0.16;
-      return m;
-    });
-
-    this.body.add(hull, wingL, wingR, canopy, spine, ...pods, ...glows, ...strakes);
+    this.body.add(hullBody());
   }
 
   /** Un cône large et diffus et un cœur étroit et brillant, par tuyère. */
@@ -415,4 +319,115 @@ export class Ship {
       this.smoke.push(sp);
     }
   }
+}
+
+/**
+ * La coque : un M vu de face — deux ailes hautes, une épine centrale plus
+ * basse, deux creux — avec ses nacelles, sa verrière et ses feux.
+ *
+ * Exportée pour le fantôme, qui est le même vaisseau vu à travers : avec un
+ * `material`, chaque pièce le porte à la place du sien, et la silhouette reste
+ * celle que le joueur connaît. Sans, ce sont les matériaux du joueur.
+ */
+export function hullBody(material?: Material): Group {
+  const mat = (own: Material): Material => material ?? own;
+  const P: Record<string, Point3> = {
+    N: [0, 0.52, 2.9],
+    T: [0, 1.05, -0.2],
+    L: [-0.62, 0.46, -0.2],
+    R: [0.62, 0.46, -0.2],
+    B: [0, -0.02, -0.2],
+    T2: [0, 0.86, -2.4],
+    L2: [-0.48, 0.46, -2.4],
+    R2: [0.48, 0.46, -2.4],
+    B2: [0, 0.12, -2.4],
+  };
+  const hull = new Mesh(
+    poly(
+      [
+        ['N', 'T', 'R'],
+        ['N', 'R', 'B'],
+        ['N', 'B', 'L'],
+        ['N', 'L', 'T'],
+        ['T', 'L', 'L2'],
+        ['T', 'L2', 'T2'],
+        ['R', 'T', 'T2'],
+        ['R', 'T2', 'R2'],
+        ['B', 'R', 'R2'],
+        ['B', 'R2', 'B2'],
+        ['L', 'B', 'B2'],
+        ['L', 'B2', 'L2'],
+        ['T2', 'L2', 'B2'],
+        ['T2', 'B2', 'R2'],
+      ],
+      P,
+    ),
+    mat(new MeshLambertMaterial({ color: 0x36485f, side: DoubleSide })),
+  );
+
+  // aile en flèche, emplanture basse et bout relevé
+  const W: Record<string, Point3> = {
+    A: [0.52, 0.44, 1.0],
+    B: [0.52, 0.44, -1.9],
+    K1: [1.5, 1.3, -0.15],
+    K2: [1.52, 1.3, -2.15],
+    T1: [1.88, 1.02, -0.8],
+    T2: [1.9, 1.02, -2.35],
+  };
+  const WL: Record<string, Point3> = {};
+  for (const k of Object.keys(W)) WL[k] = [-W[k]![0], W[k]![1], W[k]![2]];
+  const wingFaces = [
+    ['A', 'K1', 'K2'],
+    ['A', 'K2', 'B'],
+    ['K1', 'T1', 'T2'],
+    ['K1', 'T2', 'K2'],
+  ] as const;
+  const wingMat = mat(new MeshLambertMaterial({ color: 0x2b3b52, side: DoubleSide }));
+  const wingR = new Mesh(poly(wingFaces, W), wingMat);
+  const wingL = new Mesh(poly(wingFaces, WL), wingMat);
+
+  // nacelles aux deux tiers de l'envergure
+  const podGeo = new CylinderGeometry(0.26, 0.22, 1.15, 8);
+  podGeo.rotateX(Math.PI / 2);
+  const podMat = mat(new MeshLambertMaterial({ color: 0x1d2836 }));
+  const pods = [-1.15, 1.15].map((x) => {
+    const m = new Mesh(podGeo, podMat);
+    m.position.set(x, 1.0, -1.7);
+    return m;
+  });
+
+  const glowMat = mat(new MeshBasicMaterial({ color: 0x8af4ff, transparent: true, opacity: 0.95 }));
+  const glowGeo = new CircleGeometry(0.23, 8);
+  const glows = [-1.15, 1.15].map((x) => {
+    const m = new Mesh(glowGeo, glowMat);
+    m.position.set(x, 1.0, -2.29);
+    m.rotation.y = Math.PI;
+    return m;
+  });
+
+  const canopy = new Mesh(
+    new BoxGeometry(0.44, 0.3, 1.05),
+    mat(new MeshLambertMaterial({ color: 0x0d1620 })),
+  );
+  canopy.position.set(0, 0.96, 0.75);
+  canopy.rotation.x = -0.12;
+
+  const spine = new Mesh(
+    new BoxGeometry(0.13, 0.06, 2.0),
+    mat(new MeshBasicMaterial({ color: 0x25e2ff })),
+  );
+  spine.position.set(0, 1.07, -0.9);
+
+  const strakeGeo = new BoxGeometry(0.09, 0.36, 0.72);
+  const strakeMat = mat(new MeshBasicMaterial({ color: 0xff2f9a }));
+  const strakes = [-1.51, 1.51].map((x) => {
+    const m = new Mesh(strakeGeo, strakeMat);
+    m.position.set(x, 1.46, -1.2);
+    m.rotation.z = x < 0 ? 0.16 : -0.16;
+    return m;
+  });
+
+  const g = new Group();
+  g.add(hull, wingL, wingR, canopy, spine, ...pods, ...glows, ...strakes);
+  return g;
 }

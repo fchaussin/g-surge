@@ -19,6 +19,8 @@ export interface ScoreBreakdown {
   total: number;
   wasBest: boolean;
   previousBest: number;
+  /** Le score du fantôme couru, s'il y en avait un. */
+  ghostScore?: number | null;
 }
 
 /** Délai entre deux lignes, et durée du comptage de chacune, en ms. */
@@ -86,6 +88,8 @@ export class ScoreScreen {
     if (hint) hint.textContent = 'coins raise it, walls halve it';
     const tag = document.getElementById('overTag');
     if (tag) tag.textContent = '';
+    const ghostTag = document.getElementById('overGhost');
+    if (ghostTag) ghostTag.textContent = '';
 
     for (const row of rows) {
       if (!row.el) continue;
@@ -125,13 +129,21 @@ export class ScoreScreen {
       });
 
       if (done < rows.length) requestAnimationFrame(tick);
-      else if (tag) {
-        tag.textContent =
-          breakdown.total < 50
-            ? ''
-            : breakdown.wasBest
-              ? 'NEW BEST'
-              : `best ${fmt(breakdown.previousBest)}`;
+      else {
+        if (tag) {
+          tag.textContent =
+            breakdown.total < 50
+              ? ''
+              : breakdown.wasBest
+                ? 'NEW BEST'
+                : `best ${fmt(breakdown.previousBest)}`;
+        }
+        const raced = breakdown.ghostScore;
+        if (ghostTag && raced !== undefined && raced !== null) {
+          const by = Math.round(breakdown.total - raced);
+          ghostTag.textContent =
+            by > 0 ? `GHOST BEATEN BY ${fmt(by)}` : `ghost ahead by ${fmt(-by)}`;
+        }
       }
     };
     requestAnimationFrame(tick);

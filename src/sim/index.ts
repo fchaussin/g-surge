@@ -41,10 +41,12 @@ export {
 export {
   MAX_SPANS,
   Recorder,
+  TraceCursor,
   outcomeOf,
   replay,
   validTrace,
   type Outcome,
   type Trace,
 } from './replay.js';
+export { STEER_QUANTUM, packTrace, quantiseSteer, unpackTrace } from './trace-bytes.js';
 export { Sim, type SimOptions } from './sim.js';
