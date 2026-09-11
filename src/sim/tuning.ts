@@ -106,6 +106,8 @@ export interface Tuning {
 
   /* Dégâts */
   hullImpact: number;
+  /** Plafond d'un choc, en points de coque. */
+  hullImpactMax: number;
   hullScrape: number;
   hullRegen: number;
   /** Coque perdue sur une réception hors piste. */
@@ -240,21 +242,28 @@ export const DEFAULTS: Readonly<Tuning> = {
   rollChance: 0.14,
   rollNodes: 44,
   stripeEvery: 2,
-  /* Réglés quatre fois le 11 septembre 2026. La première version, 2,0 / 15 /
-   * 1,7, jouait comme un simulateur ; la seconde, 1,2 / 7 / 4, ne laissait
-   * plus perdre ; la troisième, 1,6 / 11 / 1,5, non plus — pour mourir il
-   * fallait rester collé au mur, à l'arrêt, dix à vingt secondes. Mesuré,
-   * la coque était remplie par trois sources à la fois : 90 points par
-   * minute de régénération, une réparation de 40 tous les 4 km, et des chocs
-   * à 20 ou 30. Un choc se refaisait tout seul avant le suivant. Celle-ci
-   * fait de la coque un budget : un choc à 12 m/s coûte 26 points et met
-   * 100 s à se refaire, une réparation en rend 30 et vient tous les 8 km,
-   * un frottement coûte 11 par seconde contre 0,25 rendus. Quatre chocs en
-   * une minute sans réparation, et la course est perdue ; deux, et elle
-   * continue. Les dégâts retirent moins de vitesse et de direction qu'au
-   * départ, pour ne pas enfermer une coque abîmée dans une spirale. */
-  hullImpact: 2.2,
-  hullScrape: 11,
+  /* Réglés cinq fois le 11 septembre 2026. La première version, 2,0 / 15 /
+   * 1,7 pour le choc, le frottement et la régénération, jouait comme un
+   * simulateur ; la seconde, 1,2 / 7 / 4, ne laissait plus perdre ; la
+   * troisième, 1,6 / 11 / 1,5, non plus — pour mourir il fallait rester collé
+   * au mur, à l'arrêt, dix à vingt secondes : la coque était remplie par
+   * trois sources à la fois, 90 points par minute de régénération, une
+   * réparation de 40 tous les 4 km, et des chocs à 20 ou 30. La quatrième a
+   * fait de la coque un budget — régénération à 0,25, réparation de 30 tous
+   * les 8 km — mais a monté le choc à 2,2 avec un plafond de 42 hérité des
+   * réglages d'avant : un choc de travers coûtait la moitié de la barre en
+   * facile, contre vingt secondes de frottement pour la perdre entière, et
+   * ça n'était pas cohérent. La cinquième garde le budget et ramène le choc
+   * à l'échelle du frottement : en facile un choc vaut au plus trois
+   * secondes de frottement, `hullImpactMax` = 24 contre 8 par seconde, et
+   * 12 m/s en coûtent 17. Ce qui compte dans un choc est la vitesse
+   * latérale de fermeture, pas la vitesse de la course. Quatre à cinq chocs
+   * francs sans réparation, et la course est perdue. Les dégâts retirent
+   * moins de vitesse et de direction qu'au départ, pour ne pas enfermer une
+   * coque abîmée dans une spirale. */
+  hullImpact: 1.4,
+  hullImpactMax: 24,
+  hullScrape: 8,
   hullRegen: 0.25,
   badLandingHull: 12,
   damageSpeed: 0.22,
@@ -322,7 +331,8 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 38,
       speedRamp: 6000,
-      hullImpact: 2.6,
+      hullImpact: 2.0,
+      hullImpactMax: 34,
       hullRegen: 0.2,
       hullScrape: 14,
       multDecay: 0.14,
@@ -340,7 +350,8 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 46,
       speedRamp: 4000,
-      hullImpact: 3.0,
+      hullImpact: 2.6,
+      hullImpactMax: 42,
       hullRegen: 0.15,
       hullScrape: 18,
       multDecay: 0.2,

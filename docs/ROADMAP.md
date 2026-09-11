@@ -505,6 +505,10 @@ HUD and help references did, each in its own commit. What is left is play:
 - **1.14.1** — the third play's other answers: the prism stays as rare as it
   is, the cameras and the charge voice stay as they are; the fuel can loses
   its two bands and floats higher than the other pickups.
+- **1.15.0** — the fourth play: a sideways hit on Easy cost half the bar,
+  under a ceiling of 42 the first setting had left behind. The ceiling becomes
+  `hullImpactMax`, 24 / 34 / 42 per difficulty, a hit is at most three seconds
+  of scraping, the budget of 1.14.0 stays. Physics references moved.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

@@ -12,39 +12,42 @@ what was answered, newest first.
 
 ## Open — to be judged by playing
 
-### 1. Damage, fourth setting
+### 1. Damage, fifth setting
 
-Set on 11 September 2026 after the third play: "I never lose — you have to
-sit against the wall, stopped, ten to twenty seconds, you really have to want
-it". Measured, the hull was refilled from three sides — 90 points a minute of
-passive repair, a 40-point repair every 4 km, hits of 20 to 30 — so nothing
-accumulated. This setting makes the hull a budget, on every difficulty:
+Set on 11 September 2026 after the fourth play: "under 500 km/h I touch the
+edge and lose 50 % — that is not an easy mode, we are nowhere near *scrape
+the wall for 20 s to lose 100 %*; be coherent". Right: the fourth setting
+fixed the budget (passive repair, repair pickups) but left the hit under a
+ceiling of 42 that dated from the first set, so a sideways hit on Easy was
+half the bar. The fifth scales the hit to the scrape:
 
 | | Easy | Medium | Hard |
 |---|---|---|---|
-| `hullImpact` (hit at 12 m/s) | 2.2 (26) | 2.6 (31) | 3.0 (36) |
+| `hullImpact` (hit at 12 m/s) | 1.4 (17) | 2.0 (24) | 2.6 (31) |
+| `hullImpactMax`, the worst hit | 24 | 34 | 42 |
+| … in seconds of scraping | 3 s | 2.4 s | 2.3 s |
+| `hullScrape` per second | 8 | 14 | 18 |
 | `hullRegen` per second | 0.25 | 0.2 | 0.15 |
-| `fixChance` (one repair every) | 0.0015 (9 km) | 0.0012 (11 km) | 0.001 (13 km) |
-| `fixAmount` | 30 | 30 | 30 |
+| repair | +30 every 9 km | 11 km | 13 km |
 
-`hullScrape` 11 / 14 / 18 unchanged — parking against a wall already killed
-in ten seconds, that was never the problem. The invariant still holds by a
-wide margin: passive repair is far under a scrape. The sixty track references
-moved with `fixChance`, in their own commit.
+What a hit costs is the lateral closing speed into the wall — the same slam
+costs the same at 300 km/h and at 900 — capped at `hullImpactMax`; the run's
+speed is what the wall takes away, not the hull. On Easy: four to five clean
+hits with no repair lose the run, two do not; scraping alone takes 13 s.
 
-What to judge: on Easy, four hits in a minute with no repair should lose the
-run, two should not; a repair should feel like a find rather than a given. If
-it now bites too hard, `fixChance` back to 0.002 is the knob that changes the
-least about a single hit — the first play found the *hit* too harsh, not the
-budget. If it is still soft, `hullImpact` 2.2 → 2.6 on Easy.
+What to judge: does a hit now read as a slice of the bar rather than half of
+it, and does a careless minute still end the run? If the hit is still too
+sharp, `hullImpactMax` is the knob — 24 → 18 caps it at two seconds of
+scraping without touching the small hits. If it is soft, `hullImpact` 1.4 →
+1.8 first.
 
 The scripted pilot, which never aims for a repair (`npm run measure:ladder`):
 
 | difficulty | walls / 10 min | wrecks | alive |
 |---|---|---|---|
-| easy | 12 – 54 | 0 – 1 of 3 | 287 – 600 s |
-| medium | 3 – 46 | 2 – 3 of 3 | 33 – 600 s |
-| hard | 4 – 18 | 3 of 3 | 29 – 169 s |
+| easy | 12 – 29 | 0 of 3 | 600 s |
+| medium | 9 – 47 | 2 – 3 of 3 | 33 – 600 s |
+| hard | 5 – 22 | 3 of 3 | 28 – 167 s |
 
 ### 2. The climb thresholds and the super boost's length
 
@@ -95,6 +98,15 @@ Third play: Medium "to be seen later" — kept open.
   by commit, so any moment is a safe one.
 
 ## Log — answered, newest first
+
+### 11 September 2026, after the fourth play — 1.15.0
+
+- **Damage, a fifth time.** The fourth setting's hit was half the bar on
+  Easy; the ceiling of 42 dated from the first set. A per-difficulty ceiling,
+  `hullImpactMax` 24 / 34 / 42, the coefficient back to 1.4 / 2.0 / 2.6 and
+  Easy's scrape to 8, so a hit is at most three seconds of scraping. The
+  budget of the fourth setting stays. Entry 1 above; physics references
+  moved, in their own commit.
 
 ### 11 September 2026, after the third play — 1.14.0 and 1.14.1
 

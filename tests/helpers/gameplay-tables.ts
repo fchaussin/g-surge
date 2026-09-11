@@ -144,7 +144,7 @@ export function difficulties(): string {
   const cols = levels.map((d) => {
     const t = tuningFor(d);
     const corner = tightestCorner(t, t.speedMax);
-    const impact = clamp(t.hullImpact * TYPICAL_IMPACT, 2, 42);
+    const impact = clamp(t.hullImpact * TYPICAL_IMPACT, 2, t.hullImpactMax);
     return {
       radius: `${corner.radius.toFixed(0)} m`,
       load: `${corner.net.toFixed(1)} m/s²`,
@@ -152,6 +152,7 @@ export function difficulties(): string {
       share: `${Math.round((100 * corner.net) / t.gripLimit)} %`,
       ramp: `${(t.speedRamp / 1000).toFixed(0)} km`,
       impact: `${impact.toFixed(0)} pts`,
+      worst: `${t.hullImpactMax} pts, ${(t.hullImpactMax / t.hullScrape).toFixed(0)} s of scraping`,
       repair: `${(impact / t.hullRegen).toFixed(0)} s`,
       score: `×${DIFF[d].mul.toFixed(2)}`,
     };
@@ -169,6 +170,7 @@ export function difficulties(): string {
     row('Distance to top speed', (c) => c.ramp),
     row(`Impact at ${TYPICAL_IMPACT} m/s closing`, (c) => c.impact),
     row('Time to repair it', (c) => c.repair),
+    row('Worst hit, `hullImpactMax`', (c) => c.worst),
     row('Score coefficient', (c) => c.score),
   ].join('\n');
 }
@@ -212,7 +214,7 @@ export function damage(t: Tuning): string {
   return [
     '| Event | Cost |',
     '|---|---|',
-    `| Impact | \`hullImpact\` × lateral closing speed, clamped 2 to 42 |`,
+    `| Impact | \`hullImpact\` × lateral closing speed, 2 to \`hullImpactMax\` |`,
     `| Scraping | ${t.hullScrape} per second |`,
     `| Bad landing off track | ${t.badLandingHull} points, plus ${Math.round(t.badLanding * 100)} % of speed |`,
     `| Passive repair | ${t.hullRegen} per second |`,

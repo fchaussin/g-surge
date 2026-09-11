@@ -141,8 +141,9 @@ easy.
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
 | Share of grip that corner demands | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
-| Impact at 12 m/s closing | 26 pts | 31 pts | 36 pts |
-| Time to repair it | 106 s | 156 s | 240 s |
+| Impact at 12 m/s closing | 17 pts | 24 pts | 31 pts |
+| Time to repair it | 67 s | 120 s | 208 s |
+| Worst hit, `hullImpactMax` | 24 pts, 3 s of scraping | 34 pts, 2 s of scraping | 42 pts, 2 s of scraping |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
 
@@ -223,28 +224,31 @@ described under Scoring.
 
 ## Damage
 
-Tuned four times on 11 September 2026. The first set, 2.0 / 15 / 1.7 for
+Tuned five times on 11 September 2026. The first set, 2.0 / 15 / 1.7 for
 impact, scrape and passive repair, played like a simulator: the author found
 Easy near unplayable. The second, 1.2 / 7 / 4, made losing impossible — the
 hull healed faster than a scrape drained it, which is nonsense in a gauge. The
 third, 1.6 / 11 / 1.5, still did: the only way to lose was to sit against a
-wall, stopped, for ten to twenty seconds. Measured, the hull was being filled
+wall, stopped, for ten to twenty seconds, because the hull was being filled
 from three sides at once — 90 points a minute of passive repair, a 40-point
-repair every 4 km, against hits of 20 to 30 — so every hit had healed before
-the next. The fourth set makes the hull a budget. A hit at 12 m/s costs 26
-points on Easy and takes 106 s to heal, a repair returns 30 and comes every
-9 km, a scrape drains 11 a second against 0.25 returned: four hits in a minute
-with no repair lose the run, two do not. The scripted pilot, which never aims
-for a repair, finishes ten minutes on Easy unless it drives its most
-aggressive line, dies around the third minute on Medium and around the second
-on Hard. Damage takes less speed and steering away than it did at first, so a
-damaged hull is not locked into a spiral.
+repair every 4 km, against hits of 20 to 30. The fourth made the hull a budget
+— passive repair at 0.25, a 30-point repair every 9 km — but raised the hit to
+2.2 under a ceiling of 42 inherited from the earlier sets, so one sideways hit
+on Easy took half the bar where twenty seconds of scraping took all of it: not
+coherent. The fifth keeps the budget and scales the hit to the scrape. On Easy
+the worst hit is `hullImpactMax` = 24, three seconds of scraping at 8 a
+second, and a hit at 12 m/s costs 17; what a hit costs is the lateral closing
+speed, never the speed of the run. Four to five clean hits with no repair lose
+the run, two do not. The scripted pilot, which never aims for a repair,
+finishes ten minutes on Easy with six to fourteen hits, dies around the fourth
+minute on Medium and the second on Hard. Damage takes less speed and steering
+away than it did at first, so a damaged hull is not locked into a spiral.
 
 <!-- generated:damage -->
 | Event | Cost |
 |---|---|
-| Impact | `hullImpact` × lateral closing speed, clamped 2 to 42 |
-| Scraping | 11 per second |
+| Impact | `hullImpact` × lateral closing speed, 2 to `hullImpactMax` |
+| Scraping | 8 per second |
 | Bad landing off track | 12 points, plus 35 % of speed |
 | Passive repair | 0.25 per second |
 | Repair pickup | `fixAmount`, 30 points |

@@ -340,7 +340,7 @@ export function step(
         state.energy = Math.max(0, state.energy - T.wallDrain * dt);
         if (!state.contact) {
           // choc franc, une seule fois par contact
-          const hit = clamp(impact * T.hullImpact, 2, 42);
+          const hit = clamp(impact * T.hullImpact, 2, T.hullImpactMax);
           state.hull = Math.max(0, state.hull - hit);
           state.shake = Math.min(1, hit / 26);
           state.mult = 1 + (state.mult - 1) * T.multWallCut;
