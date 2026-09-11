@@ -73,9 +73,11 @@ Live at <https://g-surge.pages.dev/>, on Cloudflare Pages:
 - Build output directory: `public`
 - Node version: pinned by `.nvmrc`
 
-`static/_headers` is copied into the build and sets the cache policy:
+`static/_headers` is copied into the build and sets the cache policy: `/`,
 `index.html` and `sw.js` are never cached, icons are immutable. The service
-worker only registers over https, so it stays out of the way in development.
+worker only registers over https, so it stays out of the way in development,
+and `src/client/updates.ts` reloads an installed app when a new version takes
+control.
 
 ## Docs
 
@@ -86,14 +88,16 @@ worker only registers over https, so it stays out of the way in development.
 | `docs/TECH-DEBT.md` | Honest state of the codebase, measured |
 | `docs/ROADMAP.md` | What to do first, in order, without breaking things |
 | `docs/GAMEPLAY.md` | Scoring, difficulty, handling, and the constants that matter |
+| `docs/FX-PALETTE.md` | The sensory palette, and the G-SURGE specification in its §16 |
+| `docs/TODO.md` | Decisions waiting on the author, with options and a recommendation |
 
 ## Known constraints
 
 - three.js is pinned to r128 and bundled from npm. The code relies on r128
   behaviour, see `CLAUDE.md` before upgrading.
-- The leaderboard lives in `localStorage` under `gsurge.scores.v1`. A board
-  written under the previous name, `voidrunner.scores.v1`, is picked up once and
-  the old key removed. Private browsing falls back to memory for the session.
-- Settings are not persisted yet, and `static/icons/` does not exist, so the
-  installed app has no icon. Both are roadmap items.
+- The leaderboard lives in `localStorage` under `gsurge.scores.v2`, a key that tracks
+  the scoring rules rather than the release. Private browsing falls back to
+  memory for the session.
+- Settings are persisted under `gsurge.prefs.v1`; the advanced tuning sliders
+  are deliberately not.
 - `navigator.vibrate` does not exist on iOS; the haptics switch hides itself.

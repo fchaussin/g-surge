@@ -21,6 +21,7 @@
     "test:e2e:host": "playwright test",
     "docs:tuning": "UPDATE_DOCS=1 vitest run tests/gameplay-doc.test.ts",
     "docs:layout": "UPDATE_DOCS=1 vitest run tests/layout-doc.test.ts",
+    "measure:ladder": "MEASURE=1 vitest run tests/measure-ladder.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

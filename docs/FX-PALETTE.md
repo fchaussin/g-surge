@@ -646,6 +646,14 @@ La révision règle ça en faisant de la jauge l'échelle elle-même.
 - **Coût** : aucune référence figée de simulation, les traces ne contenant ni
   drift ni superboost ; les deux références visuelles du HUD, régénérées
   seules ; version 1.2.0.
+- **Mesuré** le même jour avec un pilote scripté (`npm run measure:ladder`,
+  borne basse : il ne vise pas les objets et touche des murs qu'un humain
+  éviterait) : par dix minutes, 6 à 7 superboosts gagnés pour 11 à 12 trouvés
+  et 3 G-SURGE en facile ; 4 à 5 gagnés, 12 à 14 trouvés, 1,4 G-SURGE en
+  moyen ; en difficile le pilote meurt en 90 à 110 s. La montée atteint son
+  sommet dans les trois difficultés — ce qui manque en difficile est la
+  survie, pas la portée. Les valeurs restent à rejuger en jouant, voir
+  `docs/TODO.md`.
 
 ### Ce qui reste ouvert
 

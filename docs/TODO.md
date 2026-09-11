@@ -13,10 +13,25 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
    dosed as 35 % and 29 % of their windows (`GAMEPLAY.md` recomputes them).
    All four are on the Advanced tab; the gauge shows the climb. What to judge:
    does a clean drift under boost reach the super boost often enough to feel
-   earnable, and rarely enough to still feel earned? Recommendation: play
-   five minutes per difficulty at the defaults before moving anything; if
-   the super boost is never earned on hard, lower `climbSup` first, not
-   `climbDecay`.
+   earnable, and rarely enough to still feel earned?
+
+   Measured with a scripted pilot — `npm run measure:ladder`, three seeds,
+   five minutes each, a lower bound since it never aims for a pickup and
+   hits walls a human would not:
+
+   | difficulty | earned / 10 min | found / 10 min | surges / 10 min | alive |
+   |---|---|---|---|---|
+   | easy | 6.2 – 6.7 | 11 – 12 | 3.3 | 300 s |
+   | medium | 3.5 – 4.9 | 12 – 14 | 1.4 | ~285 s |
+   | hard | 1.8 – 2.3 | ~7 | ~2 | 90 – 110 s, all three wrecked |
+
+   So the earned path exists and yields about one earned super boost for two
+   found on easy and medium, and a surge every three to seven minutes. On
+   hard the pilot dies before the numbers mean much. Recommendation: play
+   five minutes per difficulty at the defaults; if the super boost is never
+   earned on hard by a human either, lower `climbSup` first, not
+   `climbDecay` — the pilot reaches the top of a climb on every difficulty,
+   so reach is not the problem, walls are.
 
 2. **The drift camera.** `DRIFT_AIM` 4 m and `DRIFT_ROLL` 0.07 rad in
    `camera.ts`, eased over 0.3 s. Chosen small so the surge stays the top of
