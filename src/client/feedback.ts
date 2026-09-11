@@ -12,7 +12,7 @@
  * écrire déplacerait toutes les références figées ; la secousse du client est
  * un champ à part, et la caméra additionne les deux.
  */
-import { climbGoal, type SimEvent, type SimState, type Tuning } from '../sim/index.js';
+import { driftFill, type SimEvent, type SimState, type Tuning } from '../sim/index.js';
 import type { Audio } from './audio.js';
 import type { ChaseCamera } from './camera.js';
 import type { Haptics } from './haptics.js';
@@ -210,12 +210,12 @@ export class Feedback {
    * pas fixe.
    */
   update(frameDt: number, state: SimState, tuning: Tuning, playing: boolean): void {
-    // La lueur du drift, tenue tant qu'il dure et portée par la chaîne — donc
-    // elle dit aussi « j'y suis presque », ce qu'aucun autre élément ne dit.
-    // Écartée si un flash plus fort est en cours : un choc de mur prime.
-    const goal = climbGoal(state, tuning);
-    if (playing && state.drift && goal > 0 && this.halo <= DRIFT_HALO_HOLD) {
-      const ratio = Math.min(1, state.climb / goal);
+    // La lueur du drift, tenue tant qu'il dure et portée par ce que le drift
+    // remplit — la réserve en croisière, la montée en poussée — donc elle dit
+    // aussi « j'y suis presque », ce qu'aucun autre élément ne dit. Écartée si
+    // un flash plus fort est en cours : un choc de mur prime.
+    if (playing && state.drift && this.halo <= DRIFT_HALO_HOLD) {
+      const ratio = driftFill(state, tuning);
       // Scintillement irrégulier, pas une pulsation : le HUD pulse déjà à
       // période fixe, et copier ce rythme ferait lire la lueur comme de
       // l'interface posée sur la coque plutôt que comme de la friction. Même

@@ -95,6 +95,20 @@ export function climbGoal(state: SimState, tuning: Tuning): number {
   return state.boosting ? tuning.climbSup : 0;
 }
 
+/**
+ * Ce que le drift remplit en ce moment, de 0 à 1 : la réserve en croisière, la
+ * montée vers le barreau suivant en poussée, rien au sommet. La lueur de la
+ * coque et la voix de recharge lisent toutes deux cette valeur — une seule
+ * échelle, celle que la jauge dessine — plutôt que d'en tenir chacune la
+ * sienne.
+ */
+export function driftFill(state: SimState, tuning: Tuning): number {
+  const goal = climbGoal(state, tuning);
+  if (goal > 0) return Math.min(1, state.climb / goal);
+  if (state.surgeT > 0) return 1;
+  return Math.min(1, state.energy / 100);
+}
+
 export function createState(tuning: Tuning): SimState {
   const state = {} as SimState;
   resetState(state, tuning);

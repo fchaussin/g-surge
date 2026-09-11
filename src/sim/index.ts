@@ -3,6 +3,7 @@ export { Rng, type RngState } from './rng.js';
 export type { SimEvent } from './events.js';
 export {
   climbGoal,
+  driftFill,
   createState,
   resetState,
   type SimState,

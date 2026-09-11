@@ -6,7 +6,7 @@
  * bouge. Un calcul de couche faux ne serait donc vu par aucun autre test.
  */
 import { describe, expect, it } from 'vitest';
-import { Sim } from '../src/sim/index.js';
+import { driftFill, Sim } from '../src/sim/index.js';
 import { createLayers, ladderLayers } from '../src/client/ladder.js';
 
 function fresh(seed = 'ladder') {
@@ -72,5 +72,31 @@ describe('the ladder layers', () => {
     const sim = fresh();
     const out = createLayers();
     expect(ladderLayers(sim.state, sim.tuning, out)).toBe(out);
+  });
+});
+
+describe('what the drift fills', () => {
+  it('is the reserve at cruise, the climb in thrust, and full at the top', () => {
+    const sim = fresh();
+    sim.state.energy = 40;
+    expect(driftFill(sim.state, sim.tuning)).toBeCloseTo(0.4, 9);
+
+    sim.state.boosting = true;
+    sim.state.climb = sim.tuning.climbSup * 0.25;
+    expect(driftFill(sim.state, sim.tuning)).toBeCloseTo(0.25, 9);
+
+    sim.state.superT = 1;
+    sim.state.climb = sim.tuning.climbSurge * 0.5;
+    expect(driftFill(sim.state, sim.tuning)).toBeCloseTo(0.5, 9);
+
+    sim.state.surgeT = 1;
+    expect(driftFill(sim.state, sim.tuning)).toBe(1);
+  });
+
+  it('never exceeds one', () => {
+    const sim = fresh();
+    sim.state.boosting = true;
+    sim.state.climb = sim.tuning.climbSup * 3;
+    expect(driftFill(sim.state, sim.tuning)).toBe(1);
   });
 });

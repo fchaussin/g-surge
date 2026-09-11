@@ -10,8 +10,8 @@
 import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, Scene } from 'three';
 import {
   BACK,
-  climbGoal,
   DIFF,
+  driftFill,
   Sim,
   thrustTier,
   tuningFor,
@@ -365,16 +365,13 @@ function renderFrame(frameDt: number): void {
     if (el) el.textContent = String(Math.round(perf.fps));
   }
 
-  // Ce que le drift remplit en ce moment : la réserve en croisière, la montée
-  // vers le barreau suivant en poussée. Une seule échelle, celle de la jauge.
-  const goal = climbGoal(state, sim.tuning);
   audio.update(
     screens.isPlaying,
     state.speed,
     sim.tuning.speedMax,
     thrust,
     driftIntensity(state),
-    goal > 0 ? Math.min(1, state.climb / goal) : state.energy / 100,
+    driftFill(state, sim.tuning),
   );
 
   if (screens.isPlaying) {
