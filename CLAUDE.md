@@ -274,9 +274,12 @@ The first install is not an update and announces nothing.
 
 **The install invitation is a card in the menu, `install.ts`.** It carries a
 button where the browser fires `beforeinstallprompt`, the Share → Add to Home
-Screen hint on iOS, and nothing once installed or dismissed; the dismissal is a
-preference. There is no "launch the installed app" from a tab: no browser has
-an API for it.
+Screen hint on iOS, an "installed on this device, open it from your home
+screen" notice when the browser reports the app installed (Chrome, through
+`related_applications` in the manifest), and nothing once running installed or
+dismissed; the dismissal is a preference. There is no "launch the installed
+app" from a tab: no browser has an API for it, so the notice is the most that
+can honestly be offered.
 
 **The service worker's precache list and cache name are generated at build
 time**, by a plugin in `vite.config.ts` that rewrites two marked lines. The

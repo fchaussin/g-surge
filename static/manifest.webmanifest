@@ -11,6 +11,10 @@
   "background_color": "#05060a",
   "theme_color": "#05060a",
   "categories": ["games"],
+  "prefer_related_applications": false,
+  "related_applications": [
+    { "platform": "webapp", "url": "https://g-surge.w23.fr/manifest.webmanifest" }
+  ],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

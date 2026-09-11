@@ -101,6 +101,9 @@
   .install .lnk{display:block;margin:8px auto 0;font-size:10px;letter-spacing:.1em;
     color:var(--dim2);text-transform:uppercase}
   .install.manual .btn{display:none}
+  /* Installée : une information, pas une sollicitation — ni bouton, ni « not now ». */
+  .install.installed .lnk{display:none}
+  .install.installed{border-color:rgba(53,224,138,.4);background:rgba(53,224,138,.07)}
   /* La mise à jour prête : une barre fixe en haut, au-dessus des calques et
      sous rien, montrée hors partie seulement. Le rechargement est au joueur. */
   .update{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);
@@ -425,6 +428,13 @@
   .kb{position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);
     font-size:.9em;line-height:1.5;color:var(--dim2);text-align:right}
   @media (pointer:coarse){.kb{display:none}}
+  /* Tactile : la jauge de boost se cale en haut, sous la vitesse, plutôt
+     qu'au-dessus du pad où le pouce la couvrait encore. */
+  @media (pointer:coarse){
+    .bst{top:calc(env(safe-area-inset-top) + 68px);bottom:auto;height:38vh;max-height:260px}
+    .bstlbl{top:calc(env(safe-area-inset-top) + 68px);bottom:auto}
+    body.lefty .bst{left:16px}
+  }
   /* Un pointeur fin qui survole est un ordinateur : les pads tactiles n'y
      servent à rien et prennent la place de la jauge, qui descend et grandit. */
   @media (hover:hover) and (pointer:fine){

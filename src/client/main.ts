@@ -150,9 +150,11 @@ function showInstall(offer: InstallOffer): void {
   const text = document.getElementById('installText');
   if (card) {
     card.hidden = offer.kind === 'none';
-    card.classList.toggle('manual', offer.kind === 'manual');
+    card.classList.toggle('manual', offer.kind === 'manual' || offer.kind === 'installed');
+    card.classList.toggle('installed', offer.kind === 'installed');
   }
-  if (text && offer.kind === 'manual') text.textContent = offer.hint;
+  if (text && (offer.kind === 'manual' || offer.kind === 'installed'))
+    text.textContent = offer.hint;
   screens.buildNav();
 }
 const install = new InstallPrompt(prefs.values.installDismissed, showInstall);

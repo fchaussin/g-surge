@@ -10,7 +10,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Updates } from '../src/client/updates.js';
-import { InstallPrompt, IOS_HINT } from '../src/client/install.js';
+import { InstallPrompt, INSTALLED_HINT, IOS_HINT } from '../src/client/install.js';
 
 class Bus extends EventTarget {}
 
@@ -156,7 +156,7 @@ describe('the install invitation', () => {
     expect(install.offer).toEqual({ kind: 'manual', hint: IOS_HINT });
   });
 
-  it('stays silent once dismissed, once installed, and when already running installed', () => {
+  it('stays silent once dismissed and when already running installed; says so once installed from here', () => {
     const b = stubBrowser({ ios: true });
     const dismissedBefore = new InstallPrompt(true, () => undefined);
     expect(dismissedBefore.offer.kind).toBe('none');
@@ -173,13 +173,36 @@ describe('the install invitation', () => {
     const other = new InstallPrompt(false, () => undefined);
     fireBeforeInstall(c.win);
     c.win.dispatchEvent(new Event('appinstalled'));
-    expect(other.offer.kind).toBe('none');
+    expect(other.offer.kind).toBe('installed'); // installée depuis cette page : on le dit
 
     vi.unstubAllGlobals();
     stubBrowser({ ios: true });
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('standalone') }));
     const running = new InstallPrompt(false, () => undefined);
     expect(running.offer.kind).toBe('none');
+  });
+
+  it('says the app is installed elsewhere when the browser reports it, even if dismissed', async () => {
+    const b = stubBrowser();
+    (globalThis.navigator as unknown as Record<string, unknown>).getInstalledRelatedApps = () =>
+      Promise.resolve([{ platform: 'webapp' }]);
+    const kinds: string[] = [];
+    const install = new InstallPrompt(true, (o) => kinds.push(o.kind));
+    expect(install.offer.kind).toBe('none'); // fermée, et la réponse n'est pas encore là
+    await tick();
+    expect(install.offer).toEqual({ kind: 'installed', hint: INSTALLED_HINT });
+    expect(kinds).toEqual(['installed']);
+    // Une proposition qui arriverait ensuite ne l'emporte pas sur l'information.
+    fireBeforeInstall(b.win);
+    expect(install.offer.kind).toBe('installed');
+  });
+
+  it('turns the notice on right after an install from this page', () => {
+    const b = stubBrowser();
+    const install = new InstallPrompt(false, () => undefined);
+    fireBeforeInstall(b.win);
+    b.win.dispatchEvent(new Event('appinstalled'));
+    expect(install.offer.kind).toBe('installed');
   });
 
   it('prompting twice does not ask the browser twice', async () => {

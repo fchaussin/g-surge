@@ -33,7 +33,13 @@ export type InstallOffer =
   /** Un bouton qui ouvre la boîte du navigateur. */
   | { kind: 'prompt' }
   /** Un mode d'emploi, là où le navigateur n'offre pas de boîte. */
-  | { kind: 'manual'; hint: string };
+  | { kind: 'manual'; hint: string }
+  /**
+   * L'application est installée sur cet appareil, et la page tourne dans un
+   * onglet. Un message, pas un bouton : aucun navigateur ne laisse une page
+   * ouvrir une PWA installée.
+   */
+  | { kind: 'installed'; hint: string };
 
 /** Vrai si la page tourne déjà comme une application installée. */
 export function installed(): boolean {
@@ -51,11 +57,33 @@ export function isIos(): boolean {
 }
 
 export const IOS_HINT = 'On iPhone and iPad: tap Share, then Add to Home Screen.';
+export const INSTALLED_HINT =
+  'G-SURGE is installed on this device. Open it from your home screen or app list for full screen and offline play.';
+
+/**
+ * Demande au navigateur si cette application est déjà installée. Chrome sur
+ * Android et sur ordinateur répondent, par `related_applications` du
+ * manifeste ; les autres n'ont pas la fonction et la promesse rend faux.
+ */
+async function relatedInstalled(): Promise<boolean> {
+  const nav = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<Array<{ platform: string }>>;
+  };
+  if (typeof nav.getInstalledRelatedApps !== 'function') return false;
+  try {
+    const apps = await nav.getInstalledRelatedApps();
+    return apps.some((a) => a.platform === 'webapp');
+  } catch {
+    return false;
+  }
+}
 
 export class InstallPrompt {
   private pending: BeforeInstallPromptEvent | null = null;
   private dismissed: boolean;
   private done = false;
+  /** Installée ailleurs sur l'appareil : dite par `appinstalled` ou par le navigateur. */
+  private elsewhere = false;
 
   /**
    * @param dismissed la préférence : l'invitation a déjà été fermée.
@@ -75,13 +103,22 @@ export class InstallPrompt {
     });
     window.addEventListener('appinstalled', () => {
       this.pending = null;
-      this.done = true;
+      this.elsewhere = true;
+      this.onChange(this.offer);
+    });
+    void relatedInstalled().then((yes) => {
+      if (!yes) return;
+      this.elsewhere = true;
       this.onChange(this.offer);
     });
   }
 
   get offer(): InstallOffer {
-    if (this.done || this.dismissed) return { kind: 'none' };
+    if (this.done) return { kind: 'none' };
+    // Installée ailleurs : le dire passe avant la fermeture — c'est une
+    // information, pas une sollicitation — et avant une nouvelle proposition.
+    if (this.elsewhere) return { kind: 'installed', hint: INSTALLED_HINT };
+    if (this.dismissed) return { kind: 'none' };
     if (this.pending) return { kind: 'prompt' };
     if (isIos()) return { kind: 'manual', hint: IOS_HINT };
     return { kind: 'none' };
