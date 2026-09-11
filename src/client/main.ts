@@ -27,6 +27,7 @@ import { Fullscreen } from './fullscreen.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
 import { InputSource } from './input.js';
+import { InstallPrompt } from './install.js';
 import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
 import { Pickups } from './pickups.js';
@@ -41,6 +42,7 @@ import { Sky } from './sky.js';
 import { SurgeMeter } from './surge.js';
 import { Tips } from './tips.js';
 import { TrackMesh } from './track-mesh.js';
+import { Updates } from './updates.js';
 import { Viewport } from './viewport.js';
 
 const VOID = 0x05060a;
@@ -127,7 +129,21 @@ const screens = new Screens({
     // Les navigateurs ne laissent démarrer un AudioContext que sur un geste, et
     // chaque changement d'écran en est un.
     audio.resume();
+    // Une mise à jour qui attendait la fin de la partie recharge ici.
+    updates.settle();
   },
+});
+
+// Recharger ne coupe personne au menu ; en partie ou en pause, ça attend.
+const updates = new Updates(() => screens.mode === 'menu' || screens.mode === 'over');
+
+// Le bouton d'installation n'existe que là où le navigateur propose quelque
+// chose : il apparaît sur l'événement, disparaît après, et déplace ce qui est
+// navigable comme le fait le plein écran.
+const install = new InstallPrompt((available) => {
+  const button = document.getElementById('btnInstall');
+  if (button) button.style.display = available ? '' : 'none';
+  screens.buildNav();
 });
 
 const input = new InputSource({
@@ -407,6 +423,7 @@ on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());
+on('btnInstall', () => void install.prompt());
 
 // Les deux commandes disparaissent là où l'API n'existe pas, plutôt que de
 // rester là sans rien faire.
@@ -480,27 +497,11 @@ async function boot(): Promise<void> {
 
 void boot();
 
-/**
- * La coquille hors ligne.
- *
- * Seulement en https, ce qui laisse localhost tranquille : un service worker
- * qui met le bundle en cache pendant le développement est un rechargement
- * périmé qui attend son heure, et le bénéfice y est nul.
- *
- * L'enregistrement vivait dans le script de pied de page de l'ancienne page et
- * s'est perdu au portage du balisage — le fichier partait et rien ne
- * l'activait. Attrapé en le cherchant plutôt que par un test, ce qui est la
- * lacune.
- *
- * Les noms d'actifs hachés par le contenu rendent le chemin cache-first sûr par
- * construction : un fichier changé a une autre URL, il ne peut jamais être
- * servi périmé. La liste de précache est générée au build, voir vite.config.ts.
- */
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('sw.js').catch(() => undefined);
-  });
-}
+// La coquille hors ligne et ses mises à jour : voir updates.ts. L'enregistrement
+// vivait dans le script de pied de page de l'ancienne page et s'est perdu au
+// portage — le fichier partait et rien ne l'activait. Attrapé en le cherchant
+// plutôt que par un test, ce qui est la lacune.
+updates.register();
 
 /* ------------------------------------------------------------ mise au point -- */
 

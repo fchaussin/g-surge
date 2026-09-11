@@ -19,7 +19,7 @@ export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
  * ids this module looks up, and the test reconciles them with `index.html`.
  */
 export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
-  menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu'],
+  menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu', 'btnInstall'],
   help: ['btnCloseHelp'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
   over: ['btnAgain', 'btnOverMenu'],

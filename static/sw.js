@@ -58,7 +58,11 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(req);
+          // Par l'URL et non par la requête : une requête en mode navigate ne
+          // se reconstruit pas, et `no-cache` force la revalidation auprès du
+          // serveur — sans lui, une navigation pouvait être servie par le
+          // cache HTTP du navigateur et une mise à jour rester invisible.
+          const fresh = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
           const cache = await caches.open(VERSION);
           cache.put('./index.html', fresh.clone());
           return fresh;

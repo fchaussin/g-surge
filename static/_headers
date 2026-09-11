@@ -6,6 +6,10 @@
 /sw.js
   Cache-Control: no-cache
 
+# La navigation demande `/`, pas `/index.html` : les deux doivent l'être.
+/
+  Cache-Control: no-cache
+
 /index.html
   Cache-Control: no-cache
 

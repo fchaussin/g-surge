@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 10 | ~1 800 |
-| `src/client/` | 27 | ~5 500 |
+| `src/client/` | 29 | ~5 600 |
 | `index.html` | 1 | ~700 |
 <!-- /generated:layout -->
 
@@ -180,6 +180,8 @@ which is what makes the step runnable outside a page.
 | `scores.ts`, `score-screen.ts`, `tips.ts` | Leaderboard and prompts |
 | `performance.ts` | Refresh detection and automatic quality |
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
+| `updates.ts` | The service worker's registration, and the reload when a new version takes control |
+| `install.ts` | The install button, shown only where the browser offers `beforeinstallprompt` |
 
 **The two clocks never mix.** `simulate` only ever receives the fixed step;
 `render` only ever the real frame delta. Camera lag, smoke, thrust and every
