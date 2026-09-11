@@ -15,7 +15,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
-import { DEFAULTS, HZ } from '../../src/sim/index.js';
+import { coreDigest } from '../../scripts/core-digest.mjs';
+import { DEFAULTS, HZ, outcomeOf, replay, type SimState, type Trace } from '../../src/sim/index.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const load = (name: string): unknown =>
@@ -91,6 +92,41 @@ test.describe('the shipped bundle', () => {
         [diff, REFERENCE_SCRIPT] as const,
       );
       expect(got).toEqual(expected);
+    });
+  }
+
+  test('is stamped with the digest of the core it was built from', async ({ page }) => {
+    expect(await page.evaluate(() => window.__gsNext.core)).toBe(coreDigest());
+  });
+
+  /**
+   * La preuve de bout en bout du rejeu : une partie jouée dans Chromium, sa
+   * trace relevée telle que le client l'enverrait, rejouée ici dans Node par
+   * `replay()` — la même issue au bit près. C'est ce qu'un serveur ferait.
+   */
+  for (const diff of ['easy', 'medium', 'hard'] as const) {
+    test(`records a ${diff} run that Node replays to the same outcome`, async ({ page }) => {
+      const got = await page.evaluate(
+        ([d, script]) => {
+          const out = window.__gsNext.trace({
+            seed: 'recorded',
+            diff: d as 'easy' | 'medium' | 'hard',
+            steps: 7200,
+            script: script as Array<{
+              from: number;
+              steer: number;
+              brake: boolean;
+              boost: boolean;
+            }>,
+          }) as { ran: number };
+          return { ran: out.ran, trace: window.__gsNext.record(), state: window.__gsNext.state() };
+        },
+        [diff, REFERENCE_SCRIPT] as const,
+      );
+      const trace = got.trace as Trace;
+      expect(trace.steps).toBe(got.ran);
+      expect(trace.from.length).toBe(REFERENCE_SCRIPT.length);
+      expect(replay(trace)).toEqual(outcomeOf(got.state as SimState, got.ran));
     });
   }
 

@@ -6,6 +6,7 @@
 interface GsNextDebug {
   seed(): string;
   revision: string;
+  core: string;
   fixedStep(): number;
   state(): { travel: number; dist: number; lat: number; speed: number; hop: number; yaw: number };
   renderScale(): number;
@@ -27,6 +28,7 @@ interface GsNextDebug {
     every?: number;
     script?: Array<{ from: number; steer?: number; brake?: boolean; boost?: boolean }>;
   }): unknown;
+  record(): unknown;
 }
 
 declare global {

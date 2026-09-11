@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { coreDigest } from './scripts/core-digest.mjs';
 
 /**
  * Écrit la liste de précache du service worker au moment du build.
@@ -129,12 +130,39 @@ function buildStamp(): Plugin {
 }
 
 /**
+ * Estampille le condensé du noyau dans `src/client/core.ts`.
+ *
+ * La clé qu'une trace porte pour être rejouée par le bon noyau — voir
+ * docs/NETWORK.md. Le remplacement vérifie, comme les deux autres : un
+ * marqueur absent fait échouer le build, et un test de bout en bout compare
+ * ce que le bundle annonce à ce que l'arbre contient.
+ */
+function coreStamp(): Plugin {
+  return {
+    name: 'gs-core-digest',
+    // Avant esbuild, qui retire les commentaires — et donc le marqueur.
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.endsWith('/src/client/core.ts')) return null;
+      const marker = /\/\* core:digest \*\/[^\n]*/;
+      if (!marker.test(code)) {
+        throw new Error('core digest: marker "core:digest" not found in src/client/core.ts');
+      }
+      return code.replace(
+        marker,
+        `/* core:digest */ export const CORE_DIGEST = '${coreDigest()}';`,
+      );
+    },
+  };
+}
+
+/**
  * `publicDir` pointe sur `static/` : le défaut de Vite, `public/`, est ici le
  * dossier de sortie, et du temps de l'ancien jeu il contenait `engine.js`,
  * `game.js` et leur `index.html`, que la migration retirait précisément.
  */
 export default defineConfig({
-  plugins: [buildStamp(), serviceWorkerAssets()],
+  plugins: [buildStamp(), coreStamp(), serviceWorkerAssets()],
   publicDir: 'static',
   build: {
     // `public/` et non `dist/`, pour que le projet Cloudflare Pages garde son

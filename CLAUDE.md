@@ -290,6 +290,10 @@ cache name is the digest of the list, so there is no version to remember to
 bump — but the markers must survive: the plugin fails the build if they stop
 matching, which is deliberate.
 
+A third, `gs-core-digest`, stamps the digest of `src/sim/` into
+`src/client/core.ts` the same way — the key a run's trace carries so a server
+replays it with the core that produced it, `docs/NETWORK.md`.
+
 A second plugin, `gs-build-stamp`, writes the build's identity into the splash
 the same way and with the same assertion. It is the package version plus the
 commit — from `CF_PAGES_COMMIT_SHA` on Pages, from git locally, `DEV` when

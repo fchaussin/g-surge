@@ -23,6 +23,7 @@ import {
   type Trace,
   type Tuning,
 } from '../sim/index.js';
+import { CORE_DIGEST } from './core.js';
 import type { Loop } from './loop.js';
 import type { Screens } from './screens.js';
 import type { Sky } from './sky.js';
@@ -48,6 +49,8 @@ export interface TraceOptions {
 export interface DebugSurface {
   seed(): string;
   revision: string;
+  /** Le condensé du noyau estampillé au build ; `DEV` hors build. */
+  core: string;
   fixedStep(): number;
   state(): Readonly<SimState>;
   renderScale(): number;
@@ -155,6 +158,7 @@ export function installDebugSurface(deps: DebugDeps): void {
   window.__gsNext = {
     seed: () => sim.seed,
     revision: REVISION,
+    core: CORE_DIGEST,
     fixedStep: () => loop.fixedStep,
     state: () => sim.state,
     renderScale: () => viewport.renderScale,

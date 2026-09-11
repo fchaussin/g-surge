@@ -77,18 +77,23 @@ offline mode pays that and nothing else. `sim.trace()` freezes the run;
 before spending a replay. `tests/replay.test.ts` proves the round trip, the
 JSON wire, the compactness, and that a tampered trace scores differently.
 
-`window.__gsNext.record()` exposes the live trace to the browser suite, for
-the cross-engine proof to come: a run recorded in Chromium, replayed in Node,
-same outcome.
+`window.__gsNext.record()` exposes the live trace to the browser suite, and
+`bundle.spec.ts` holds the cross-engine proof: a run recorded in Chromium,
+replayed in Node by `replay()`, the same outcome on the three difficulties.
+That is what a server does, done once in CI on every push.
 
 ## Versioning the core, not the game
 
 The server must replay with exactly the core that produced the trace. The
 package version moves on visual touches too, so it is the wrong key. The
-trace will carry a **digest of `src/sim/`** computed at build time — the same
-mechanism as the service worker's cache name in `vite.config.ts`, a marked
-line rewritten by a plugin, the build failing if the marker is gone. The
-server keeps the few digests it can replay and refuses the rest; a retune
+key is the **digest of `src/sim/`**, `scripts/core-digest.mjs`: twelve hex
+of a SHA-256 over the core's files, stamped into `src/client/core.ts` at
+build by `vite.config.ts` — a marked line rewritten by a plugin, the build
+failing if the marker is gone, the same mechanism as the service worker's
+cache name. `tests/core-digest.test.ts` proves it moves with a byte of the
+core and with nothing else; the browser suite checks the bundle announces
+the digest of the tree it was built from. The submission will carry it; the
+server keeps the few digests it can replay and refuses the rest. A retune
 that moves a physics fixture changes the digest and starts a new board
 epoch, which is what `scores.ts`'s key suffix already does locally.
 
@@ -176,9 +181,10 @@ three-minute run in about sixty milliseconds.
 ## Order of work
 
 1. ~~The trace and its replay in the core, tested~~ — done.
-2. The core digest at build time, in the trace.
-3. The browser-to-Node proof: `record()` in the e2e suite, replayed in
-   Node against the same outcome.
+2. ~~The core digest at build time~~ — done, `CORE_DIGEST`.
+3. ~~The browser-to-Node proof~~ — done: `bundle.spec.ts` records a run in
+   Chromium through `record()` and Node's `replay()` reaches the same
+   outcome, on the three difficulties.
 4. Phase 1 against a Worker, on the weekly board, with the ticket.
 5. Ghosts, from stored traces — first as a local feature, replaying one's
    own best run against the live ship.

@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 11 | ~2 400 |
-| `src/client/` | 31 | ~6 700 |
+| `src/client/` | 32 | ~6 800 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
 
@@ -193,6 +193,7 @@ which is what makes the step runnable outside a page.
 | `scores.ts`, `score-screen.ts`, `tips.ts` | Leaderboard and prompts |
 | `performance.ts` | Refresh detection and automatic quality |
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
+| `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |
 
@@ -277,7 +278,7 @@ draws — the same list a run start uses, plus the sky.
 | | |
 |---|---|
 | `seed()`, `mode()`, `state()`, `clock()`, `fixedStep()`, `defaults()` | current run |
-| `revision`, `renderScale()` | the three.js revision and the live render scale |
+| `revision`, `core`, `renderScale()` | the three.js revision, the core digest and the live render scale |
 | `tuning()` | the **live** tuning object — mutations apply on the next step |
 | `nodes()`, `items()` | the ring buffers and live pickups |
 | `setSkyDetail(high)`, `setSkyVisible(visible)` | what the quality governor would do, by hand |
