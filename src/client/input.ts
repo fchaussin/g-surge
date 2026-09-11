@@ -1,22 +1,23 @@
 /**
- * Turns devices into an `Input`.
+ * Transforme les périphériques en un `Input`.
  *
- * The simulation is never allowed to read a keyboard or a pointer: it takes
- * `{ steer, brake, boost }` and nothing else. That single rule is what makes a
- * recorded run replayable, and what would let a server validate one. Every
- * device added here has to end at the same three fields.
+ * La simulation n'a jamais le droit de lire un clavier ou un pointeur : elle
+ * prend `{ steer, brake, boost }` et rien d'autre. Cette seule règle est ce qui
+ * rend une partie enregistrée rejouable, et ce qui permettrait à un serveur
+ * d'en valider une. Chaque périphérique ajouté ici doit aboutir aux mêmes
+ * trois champs.
  *
- * `KeyQ` and `KeyZ` are not typos: with `code` the physical key is what
- * matters, so those are the AZERTY positions of `A` and `W`. Both layouts get
- * the same hand shape.
+ * `KeyQ` et `KeyZ` ne sont pas des coquilles : avec `code` c'est la touche
+ * physique qui compte, donc ce sont les positions AZERTY de `A` et `W`. Les
+ * deux dispositions ont la même forme de main.
  *
- * Steering is negated on the way out. The camera looks down `+Z`, so world
- * `+X` appears on the left of the screen; pushing the stick right has to move
- * the ship towards `-X`.
+ * La direction est inversée en sortie. La caméra regarde vers `+Z`, donc le
+ * `+X` du monde apparaît à gauche de l'écran ; pousser le manche à droite doit
+ * emmener le vaisseau vers `-X`.
  */
 import type { Input } from '../sim/index.js';
 
-/** Physical keys, by `KeyboardEvent.code` so the layout does not matter. */
+/** Touches physiques, par `KeyboardEvent.code`, pour que la disposition n'importe pas. */
 const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
   ArrowLeft: 'left',
   KeyA: 'left',
@@ -32,32 +33,33 @@ const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
 };
 
 /**
- * Full throw of the stick, in pixels, along its one axis.
+ * Débattement complet du manche, en pixels, sur son unique axe.
  *
- * The stick is horizontal only. The game has no vertical input — brake and
- * boost are pads — so a knob free to wander in two dimensions was reading a
- * diagonal thumb as a weaker turn than the player meant, and drawing a circle
- * that promised an axis nothing listened to. The diagonal is not carelessness:
- * through corners, corkscrews and the ship's own lateral offset, a thumb tends
- * to align itself with the ship's axis on screen rather than the stick's, and
- * that lean has to count as a full turn. The pill in the stylesheet is
- * `2 × STICK_RADIUS` plus the knob's own width.
+ * Le manche est horizontal seulement. Le jeu n'a aucune entrée verticale —
+ * frein et boost sont des pads — donc une molette libre en deux dimensions
+ * lisait un pouce en diagonale comme un virage plus faible que voulu, et
+ * dessinait un cercle promettant un axe que rien n'écoutait. La diagonale
+ * n'est pas de la négligence : à travers virages, vrilles et décalage latéral
+ * du vaisseau, un pouce tend à s'aligner sur l'axe du vaisseau à l'écran plutôt
+ * que sur celui du manche, et cette inclinaison doit compter pour un virage
+ * plein. La pilule de la feuille de style fait `2 × STICK_RADIUS` plus la
+ * largeur de la molette.
  */
 const STICK_RADIUS = 42;
-/** Below this the stick reads as centred; the rest is rescaled to keep 1 at full throw. */
+/** Sous ce seuil le manche se lit centré ; le reste est remis à l'échelle pour garder 1 à fond. */
 const STICK_DEADZONE = 0.07;
 
 export interface InputOptions {
-  /** Input is only collected while this returns true. */
+  /** L'entrée n'est collectée que tant que ceci rend vrai. */
   isPlaying: () => boolean;
-  /** Short haptic feedback on a pad press. */
+  /** Bref retour haptique sur une pression de pad. */
   buzz?: (pattern: number | number[]) => void;
-  /** Whether the boost pad has anything to give, for the feedback strength. */
+  /** Si le pad de boost a quelque chose à donner, pour la force du retour. */
   canBoost?: () => boolean;
 }
 
 export class InputSource {
-  /** Reused: read it every step, never hold on to it. */
+  /** Réutilisé : à lire à chaque pas, jamais à conserver. */
   readonly value: Input = { steer: 0, brake: false, boost: false };
 
   private readonly keys = { left: false, right: false, brake: false, boost: false };
@@ -73,7 +75,7 @@ export class InputSource {
     this.bindPads();
   }
 
-  /** Recomputes `value` from the current device state. */
+  /** Recalcule `value` depuis l'état courant des périphériques. */
   sample(): Input {
     const kb = (this.keys.left ? 1 : 0) - (this.keys.right ? 1 : 0);
     this.value.steer = kb !== 0 ? kb : this.stickX;
@@ -82,7 +84,7 @@ export class InputSource {
     return this.value;
   }
 
-  /** Drops everything held. Called when a run ends or the screen changes. */
+  /** Lâche tout ce qui est tenu. Appelé à la fin d'une partie ou au changement d'écran. */
   release(): void {
     this.keys.left = this.keys.right = this.keys.brake = this.keys.boost = false;
     this.pads.brake = this.pads.boost = false;
@@ -90,7 +92,7 @@ export class InputSource {
     for (const el of document.querySelectorAll('.pad.act')) el.classList.remove('act');
   }
 
-  /** True while a physical key is held, for the screens layer to know. */
+  /** Vrai tant qu'une touche physique est tenue, pour que la couche des écrans le sache. */
   isKeyHeld(code: string): boolean {
     return KEYMAP[code] !== undefined;
   }
@@ -103,12 +105,12 @@ export class InputSource {
         e.preventDefault();
       }
     });
-    // Released unconditionally: a key let go while paused must not stay stuck.
+    // Relâché sans condition : une touche lâchée en pause ne doit pas rester collée.
     window.addEventListener('keyup', (e) => {
       const k = KEYMAP[e.code];
       if (k) this.keys[k] = false;
     });
-    // A tab switch never delivers keyup, so anything held would latch.
+    // Un changement d'onglet ne livre jamais keyup, donc tout ce qui est tenu resterait bloqué.
     window.addEventListener('blur', () => this.release());
   }
 
@@ -118,8 +120,8 @@ export class InputSource {
     if (!zone || !stick) return;
 
     const move = (e: PointerEvent) => {
-      // One axis: the vertical component is dropped, not projected, so a thumb
-      // that slides up or down while turning keeps the full turn it asked for.
+      // Un axe : la composante verticale est ignorée, pas projetée, pour qu'un
+      // pouce qui glisse vers le haut ou le bas en tournant garde tout son virage.
       const dx = Math.max(-STICK_RADIUS, Math.min(STICK_RADIUS, e.clientX - this.stickCx));
       const knob = stick.firstElementChild as HTMLElement | null;
       if (knob) knob.style.transform = `translateX(${dx.toFixed(1)}px)`;
@@ -176,8 +178,8 @@ export class InputSource {
         el.classList.add('act');
         el.setPointerCapture(e.pointerId);
         e.preventDefault();
-        // A weaker pulse when boost has nothing left: the hand learns it
-        // faster than the gauge is read.
+        // Une impulsion plus faible quand le boost n'a plus rien : la main
+        // l'apprend plus vite que la jauge ne se lit.
         if (key === 'boost') this.options.buzz?.(this.options.canBoost?.() ? 26 : 6);
         else this.options.buzz?.(14);
       };

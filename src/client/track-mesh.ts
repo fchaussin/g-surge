@@ -1,19 +1,20 @@
 /**
- * The track itself: five ribbons and the gantries that punctuate it.
+ * La piste elle-même : cinq rubans et les portiques qui la ponctuent.
  *
- * Ribbons are `BufferGeometry` whose positions are rewritten every frame,
- * `COUNT × 2` vertices each — road, two edges, two skirts. Nothing is
- * allocated here after construction; the loop writes into the typed arrays it
- * already owns.
+ * Les rubans sont des `BufferGeometry` dont les positions sont réécrites à
+ * chaque frame, `COUNT × 2` sommets chacun — route, deux bords, deux jupes.
+ * Rien n'est alloué ici après la construction ; la boucle écrit dans les
+ * tableaux typés qu'elle possède déjà.
  *
- * The road carries a procedural canvas texture whose V coordinate is driven by
- * the absolute segment id, so the chevrons are attached to the track and
- * scroll with it rather than sliding along it.
+ * La route porte une texture canvas procédurale dont la coordonnée V est
+ * pilotée par l'identifiant absolu du segment, si bien que les chevrons sont
+ * attachés à la piste et défilent avec elle au lieu de glisser dessus.
  *
- * The trap to respect: **chevron period must stay above twice the per-frame
- * travel.** At 335 m/s and 60 fps that is 11.2 m, hence `stripeEvery: 2` for a
- * 24 m period. Below it the markings alias and the track appears to decompose,
- * which reads as a frame rate problem and is not one.
+ * Le piège à respecter : **la période des chevrons doit rester au-dessus du
+ * double du parcours par frame.** À 409 m/s — le super boost, le vrai plafond
+ * — et 60 fps, c'est 13,6 m, d'où `stripeEvery: 2` pour une période de 24 m.
+ * En dessous les marquages aliasent et la piste semble se décomposer, ce qui se
+ * lit comme un problème de cadence et n'en est pas un.
  */
 import {
   BoxGeometry,
@@ -38,12 +39,12 @@ const NEON_A = new Color(0x25e2ff);
 const NEON_B = new Color(0x0b4a63);
 const HOT = new Color(0xff2f9a);
 
-/** Width of the neon lip either side of the road, and how far the skirt drops. */
+/** Largeur de la lèvre néon de chaque côté de la route, et chute de la jupe. */
 const LIP = 1.4;
 const DROP = 3.2;
 
 const GANTRY_COUNT = 14;
-/** Gantries and hot lip stripes both land on this multiple of the segment id. */
+/** Portiques et bandes chaudes de la lèvre tombent tous deux sur ce multiple de l'identifiant. */
 const GANTRY_EVERY = 12;
 
 function setPair(
@@ -76,10 +77,11 @@ function setColorPair(a: ArrayLike<number> & { [i: number]: number }, i: number,
 }
 
 /**
- * One transverse stripe per repeat, plus the centre chevron and the kerbs.
+ * Une bande transversale par répétition, plus le chevron central et les
+ * bordures.
  *
- * The map can only darken, so the vertex colours underneath are deliberately
- * lighter than the intended result.
+ * La texture ne peut qu'assombrir, donc les couleurs de sommet en dessous sont
+ * délibérément plus claires que le résultat voulu.
  */
 function roadTexture(renderer: WebGLRenderer): Texture {
   const S = 128;
@@ -91,7 +93,7 @@ function roadTexture(renderer: WebGLRenderer): Texture {
   g.fillStyle = '#4a4a4a';
   g.fillRect(0, 0, S, S);
 
-  // chevron pointing towards the front of the circuit
+  // chevron pointé vers l'avant du circuit
   g.lineCap = 'butt';
   g.lineJoin = 'miter';
   g.strokeStyle = '#8a8a8a';
@@ -173,7 +175,7 @@ export class TrackMesh {
     this.buildGantries();
   }
 
-  /** Rewrites every ribbon vertex from the integrated path. Once per frame. */
+  /** Réécrit chaque sommet de ruban depuis le chemin intégré. Une fois par frame. */
   update(track: Track, stripeEvery: number): void {
     const { px, py, pz, pyaw, nb, nid } = track;
 
@@ -219,7 +221,7 @@ export class TrackMesh {
       );
       setColorPair(rc, i, id % 8 < 4 ? ROAD_A : ROAD_B);
 
-      // V driven by the absolute segment id, so the markings ride the track
+      // V piloté par l'identifiant absolu du segment : les marquages suivent la piste
       const v = id * inv;
       const o4 = i * 4;
       ru[o4] = 0;
@@ -295,7 +297,7 @@ export class TrackMesh {
     }
   }
 
-  /** Pooled: the same fourteen groups are moved, never created or destroyed. */
+  /** En réservoir : les mêmes quatorze groupes sont déplacés, jamais créés ni détruits. */
   private updateGantries(track: Track): void {
     const { px, py, pz, pyaw, nb, nid } = track;
     let n = 0;

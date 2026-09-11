@@ -1,18 +1,19 @@
 /**
- * The chase camera.
+ * La caméra de poursuite.
  *
- * It rides the track rather than the ship: both its position and its aim come
- * from `sample`, offset laterally by a fraction of the ship's own offset. That
- * is what keeps a corner readable — the camera leads into it instead of being
- * dragged sideways.
+ * Elle suit la piste plutôt que le vaisseau : sa position comme sa visée
+ * viennent de `sample`, décalées latéralement d'une fraction du décalage du
+ * vaisseau lui-même. C'est ce qui garde un virage lisible — la caméra y entre
+ * en tête au lieu d'être traînée de côté.
  *
- * Two details worth keeping:
+ * Deux détails à garder :
  *
- * - **Roll is partial in a corner and total in a corkscrew.** Following the
- *   bank completely in every turn is nauseating; ignoring it entirely makes a
- *   corkscrew unreadable. The blend crosses over around 0.5 rad.
- * - **Lag is in frame time, not simulation time.** It is a display smoothing,
- *   so it takes the real frame delta like every other easing here.
+ * - **Le roulis est partiel dans un virage et total dans une vrille.** Suivre
+ *   le dévers complètement à chaque virage donne la nausée ; l'ignorer tout à
+ *   fait rend une vrille illisible. Le mélange bascule autour de 0,5 rad.
+ * - **Le retard est en temps de frame, pas de simulation.** C'est un
+ *   amortissement d'affichage, donc il prend le vrai delta de frame comme tout
+ *   autre lissage ici.
  */
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 import {
@@ -25,62 +26,66 @@ import {
 } from '../sim/index.js';
 import { driftIntensity, driftSide } from './drift.js';
 
-/** Fraction of the ship's lateral offset applied behind and ahead. */
+/** Fraction du décalage latéral du vaisseau appliquée derrière et devant. */
 const OFFSET_BEHIND = 0.55;
 const OFFSET_AHEAD = 0.25;
 
-/** Bank below which the camera only partly follows, and the width of the blend. */
+/** Dévers sous lequel la caméra ne suit qu'en partie, et largeur du mélange. */
 const FOLLOW_FROM = 0.5;
 const FOLLOW_SPAN = 0.7;
 
 /**
- * Field of view, its convergence, and the positional lag, by thrust tier.
+ * Champ de vision, sa convergence, et le retard de position, par barreau de
+ * poussée.
  *
- * Index 1 holds exactly what a boost used to get — `+7` degrees, converging at
- * 6, no change to the lag — so a boost looks today as it looked yesterday and
- * only the super boost is new. That is also what keeps the frozen scene
- * captures out of this: they are attract-mode frames, where the tier is 0.
+ * L'indice 1 tient exactement ce qu'un boost recevait — `+7` degrés, convergence
+ * à 6, pas de changement du retard — donc un boost a aujourd'hui l'air d'hier
+ * et seul le super boost est neuf. C'est aussi ce qui tient les captures de
+ * scène figées à l'écart : ce sont des frames du mode attraction, où le
+ * barreau vaut 0.
  *
- * The kick at index 2 is deliberately more than double, and the lag lets go:
- * a super boost should read as a catapult rather than a stronger push, and a
- * camera that stays glued reads as a stronger push. See docs/FX-PALETTE.md §15.
+ * Le coup à l'indice 2 fait délibérément plus du double, et le retard lâche :
+ * un super boost doit se lire comme une catapulte plutôt qu'une poussée plus
+ * forte, et une caméra qui reste collée se lit comme une poussée plus forte.
+ * Voir docs/FX-PALETTE.md §15.
  */
 const FOV_KICK = [0, 7, 18, 26] as const;
 const FOV_EASE = [3, 6, 11, 14] as const;
 const LAG_SCALE = [1, 1, 0.55, 0.4] as const;
 
 /**
- * Catch-up multiplier applied to the lag after a drift, and how long it lasts.
+ * Multiplicateur de rattrapage appliqué au retard après un drift, et sa durée.
  *
- * During a slide the ship's lateral offset moves faster than the camera
- * follows, so the frame trails behind it. Recovering that at the usual lag
- * would take the best part of a second, and read as sluggishness at exactly
- * the moment control comes back.
+ * Pendant une glisse le décalage latéral du vaisseau bouge plus vite que la
+ * caméra ne suit, donc le cadre traîne derrière. Le rattraper au retard
+ * habituel prendrait près d'une seconde, et se lirait comme de la mollesse au
+ * moment précis où le contrôle revient.
  */
 const SNAP_GAIN = 2.4;
 const SNAP_TIME = 0.32;
 
 /**
- * What a drift does to the camera: the aim swings towards the side the ship
- * is sliding to, and the horizon rolls the same way, both lagging the slide.
+ * Ce qu'un drift fait à la caméra : la visée glisse vers le côté où le vaisseau
+ * part, et l'horizon roule dans le même sens, tous deux en retard sur la glisse.
  *
- * The palette's CAM_DRIFT_YAW and CAM_DRIFT_ROLL. Until now the camera read
- * neither `slip` nor `drift`, so a slide was told by the hull's yaw and the
- * spray alone and the frame itself stayed rigid. Both effects read the one
- * shared scale, `driftIntensity`, and its measured side; both are small, in
- * metres of aim offset and radians of roll, because the surge sits above and a
- * camera that swings hard on every drift would eat the rung above it.
+ * Les CAM_DRIFT_YAW et CAM_DRIFT_ROLL de la palette. Jusque-là la caméra ne
+ * lisait ni `slip` ni `drift`, donc une glisse n'était dite que par le lacet de
+ * la coque et la gerbe, et le cadre lui-même restait rigide. Les deux effets
+ * lisent la seule échelle partagée, `driftIntensity`, et son côté mesuré ; les
+ * deux sont petits, en mètres de décalage de visée et en radians de roulis,
+ * parce que le surge est au-dessus et qu'une caméra qui balance fort à chaque
+ * drift mangerait le barreau du dessus.
  *
- * Eased in frame time, like the positional lag — the lag is the point, a
- * camera that snaps with the slide reads as being bolted to the hull. Zero
- * outside a drift, hence zero in every attract-mode capture.
+ * Amorti en temps de frame, comme le retard de position — le retard est le
+ * but, une caméra qui claque avec la glisse se lit boulonnée à la coque. Nul
+ * hors drift, donc nul dans toute capture du mode attraction.
  */
 const DRIFT_AIM = 4.0;
 const DRIFT_ROLL = 0.07;
 const DRIFT_EASE = 3.5;
 
 export class ChaseCamera {
-  /* Reused every frame. See the no-allocation rule in CLAUDE.md. */
+  /* Réutilisés à chaque frame. Voir la règle sans allocation de CLAUDE.md. */
   private readonly behind = trackPoint();
   private readonly ahead = trackPoint();
   private readonly want = new Vector3();
@@ -89,9 +94,9 @@ export class ChaseCamera {
 
   private fov: number;
   private placed = false;
-  /** Eased, so it has to be dropped for a capture. See `reset`. */
+  /** Amorti, donc à remettre à zéro pour une capture. Voir `reset`. */
   private snap = 0;
-  /** The slide as the camera currently feels it, −1 to 1, eased. Reset too. */
+  /** La glisse telle que la caméra la sent, −1 à 1, amortie. Remise à zéro aussi. */
   private drift = 0;
 
   constructor(
@@ -102,14 +107,15 @@ export class ChaseCamera {
   }
 
   /**
-   * Drops everything the camera accumulates: the positional lag, and the field
-   * of view, which eases over several seconds towards the current speed.
+   * Abandonne tout ce que la caméra accumule : le retard de position, et le
+   * champ de vision, qui converge sur plusieurs secondes vers la vitesse
+   * courante.
    *
-   * Forgetting the field of view is not cosmetic. It leaves the projection at
-   * whatever the frames before the reset had reached, which is however many
-   * the page took to load — enough to move every star and every gantry in a
-   * captured frame while the simulation is bit-identical. That is exactly how
-   * it was found.
+   * Oublier le champ de vision n'est pas cosmétique. Cela laisse la projection
+   * là où les frames d'avant la remise à zéro l'avaient portée, c'est-à-dire
+   * autant de frames que la page a mis à charger — assez pour déplacer chaque
+   * étoile et chaque portique d'une frame capturée alors que la simulation est
+   * identique au bit. C'est exactement ainsi que ça a été trouvé.
    */
   reset(tuning: Tuning): void {
     this.placed = false;
@@ -118,16 +124,17 @@ export class ChaseCamera {
     this.drift = 0;
   }
 
-  /** Called on `driftEnd`: the camera recentres instead of drifting back. */
+  /** Appelé sur `driftEnd` : la caméra se recentre au lieu de revenir en dérivant. */
   driftExitSnap(): void {
     this.snap = 1;
   }
 
   /**
-   * @param shake the simulation's own shake plus whatever the client adds for
-   *   an impact. Applied as positional noise, which is why it is passed rather
-   *   than read: the jitter is presentation and must not reach the simulation,
-   *   and the client's share must not be written back into `state.shake`.
+   * @param shake la secousse de la simulation plus ce que le client ajoute pour
+   *   un impact. Appliquée en bruit de position, d'où le passage en paramètre
+   *   plutôt qu'une lecture : le tremblement est de la présentation et ne doit
+   *   pas atteindre la simulation, et la part du client ne doit pas être
+   *   réécrite dans `state.shake`.
    */
   update(state: SimState, track: Track, tuning: Tuning, frameDt: number, shake: number): void {
     const tier = thrustTier(state);
@@ -158,20 +165,21 @@ export class ChaseCamera {
       this.camera.position.y += (Math.random() - 0.5) * a;
     }
 
-    // The slide, as the camera feels it: signed, eased, zero outside a drift.
+    // La glisse, telle que la caméra la sent : signée, amortie, nulle hors drift.
     const slide = driftIntensity(state) * driftSide(state);
     this.drift += (slide - this.drift) * Math.min(1, frameDt * DRIFT_EASE);
 
-    // Wrapped back into [-pi, pi]: bank is unbounded, a corkscrew adds turns.
+    // Ramené dans [-pi, pi] : le dévers n'est pas borné, une vrille ajoute des tours.
     const bank = Math.atan2(Math.sin(behind.bank), Math.cos(behind.bank));
     const follow = MathUtils.clamp((Math.abs(bank) - FOLLOW_FROM) / FOLLOW_SPAN, 0, 1);
-    // The drift rolls the horizon the way a bank towards the slide side would:
-    // a positive bank pushes the ship towards −lat, so the sign is inverted.
+    // Le drift roule l'horizon comme le ferait un dévers vers le côté de la
+    // glisse : un dévers positif pousse le vaisseau vers −lat, d'où le signe
+    // inversé.
     const roll = bank * (tuning.camRoll + (1 - tuning.camRoll) * follow) - this.drift * DRIFT_ROLL;
     this.camera.up.set(Math.sin(roll), Math.cos(roll), 0);
 
-    // The aim swings along the track's lateral axis, in lat space like the
-    // offsets above, towards where the ship is actually going.
+    // La visée glisse le long de l'axe latéral de la piste, en espace lat comme
+    // les décalages au-dessus, vers là où le vaisseau va vraiment.
     const aim = offAhead + this.drift * DRIFT_AIM;
     this.target.set(
       ahead.x + ahead.rx * aim + ahead.ux * tuning.lookHeight,
@@ -183,7 +191,7 @@ export class ChaseCamera {
     this.updateFov(state, tuning, frameDt, tier);
   }
 
-  /** Widens with speed, by tier under thrust, and a little against a wall. */
+  /** S'élargit avec la vitesse, par barreau en poussée, et un peu contre un mur. */
   private updateFov(state: SimState, tuning: Tuning, frameDt: number, tier: ThrustTier): void {
     const wanted =
       tuning.fovBase +
@@ -196,22 +204,22 @@ export class ChaseCamera {
   }
 }
 
-/** The aspect every field of view in the tuning was chosen on. */
+/** Le rapport d'écran sur lequel chaque champ de vision de l'accord a été choisi. */
 export const REF_ASPECT = 16 / 9;
 
 /**
- * The vertical field of view to use on a screen wider than 16:9.
+ * Le champ de vision vertical à employer sur un écran plus large que 16:9.
  *
- * three.js takes a vertical angle and lets the width follow the aspect, so a
- * phone in landscape — 19.5:9, 20:9 — was simply shown more world on each
- * side, and the ship, whose size on screen is set by that angle, came out the
- * same height as on a monitor a hundred times larger. On a small screen that
- * reads as a ship too far away. Holding the *horizontal* field constant
- * instead means a wider screen zooms in rather than widening: the ship grows
- * by the ratio of the aspects, 17 % at 19.5:9.
+ * three.js prend un angle vertical et laisse la largeur suivre le rapport
+ * d'écran, donc un téléphone en paysage — 19,5:9, 20:9 — voyait simplement plus
+ * de monde de chaque côté, et le vaisseau, dont la taille à l'écran est fixée
+ * par cet angle, sortait de la même hauteur que sur un moniteur cent fois plus
+ * grand. Sur un petit écran ça se lit comme un vaisseau trop loin. Tenir le
+ * champ *horizontal* constant fait qu'un écran plus large zoome au lieu de
+ * s'élargir : le vaisseau grandit du rapport des aspects, 17 % en 19,5:9.
  *
- * Nothing happens at 16:9 or narrower, which is where every frozen scene
- * reference is taken, and why none of them moves.
+ * Rien ne se passe à 16:9 ou plus étroit, là où chaque référence de scène
+ * figée est prise, et c'est pourquoi aucune ne bouge.
  */
 export function fitAspect(vertical: number, aspect: number): number {
   if (aspect <= REF_ASPECT) return vertical;

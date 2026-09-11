@@ -1,48 +1,51 @@
 /**
- * Refresh detection and automatic quality. Nothing else.
+ * Détection du rafraîchissement et qualité automatique. Rien d'autre.
  *
- * The game renders at whatever rate the display gives `requestAnimationFrame`
- * — there is no frame rate target and no throttle, by decision. An earlier
- * version carried both, plus a picker in the settings; the machinery existed
- * to spend less battery on purpose, nobody had asked for that, and its
- * integer-ratio subtleties had already produced the project's canonical
- * timing bug once. What the player wants is the device's best, and the way to
- * deliver that is to adapt the rendering cost, not the schedule.
+ * Le jeu rend à la cadence que l'écran donne à `requestAnimationFrame` — il
+ * n'y a ni cible de cadence ni bridage, par décision. Une version antérieure
+ * portait les deux, plus un sélecteur dans les réglages ; la machinerie
+ * existait pour dépenser moins de batterie à dessein, personne ne l'avait
+ * demandé, et ses subtilités de rapport entier avaient déjà produit une fois le
+ * bug de cadence canonique du projet. Ce que le joueur veut est le meilleur de
+ * l'appareil, et la façon de le livrer est d'adapter le coût du rendu, pas le
+ * calendrier.
  *
- * Detection stays because adaptive quality needs a yardstick: "is the game
- * holding what this display can do". Two traps live on, both paid for:
+ * La détection reste parce que la qualité adaptative a besoin d'un étalon :
+ * « le jeu tient-il ce que cet écran peut faire ». Deux pièges survivent, tous
+ * deux payés :
  *
- * - **Detection takes a median, not a mean.** A single long frame during
- *   startup would drag a mean far enough to snap to the wrong rate.
- * - **Automatic quality never switches the background off**, and needs several
- *   consecutive bad measurements. A single dip used to kill the game's visual
- *   signature outright.
+ * - **La détection prend une médiane, pas une moyenne.** Une seule frame longue
+ *   au démarrage tirerait une moyenne assez loin pour caler sur la mauvaise
+ *   cadence.
+ * - **La qualité automatique ne coupe jamais le fond**, et exige plusieurs
+ *   mauvaises mesures consécutives. Une seule baisse tuait autrefois la
+ *   signature visuelle du jeu d'un coup.
  */
 
-/** Rates the detector recognises. The measurement snaps to the nearest. */
+/** Les cadences que le détecteur reconnaît. La mesure cale sur la plus proche. */
 const KNOWN_RATES = [60, 75, 90, 120, 144, 165, 240] as const;
 
-/** Frames measured before the refresh rate is decided. */
+/** Frames mesurées avant que la cadence soit décidée. */
 const SAMPLES = 90;
 
-/** Consecutive one-second windows in the same direction before acting. */
+/** Fenêtres d'une seconde consécutives dans le même sens avant d'agir. */
 const WINDOWS = 3;
 
 export interface PerformanceOptions {
-  /** True while a run is on: quality only adapts during play. */
+  /** Vrai pendant une partie : la qualité ne s'adapte qu'en jeu. */
   isPlaying: () => boolean;
-  /** Current background detail, and how to change it. */
+  /** Détail du fond courant, et comment le changer. */
   getSkyDetail: () => boolean;
   setSkyDetail: (high: boolean) => void;
-  /** Current render scale, and how to change it. */
+  /** Échelle de rendu courante, et comment la changer. */
   getRenderScale: () => number;
   setRenderScale: (value: number) => void;
 }
 
 export class PerformanceGovernor {
-  /** Zero until detection completes. */
+  /** Zéro jusqu'à la fin de la détection. */
   refreshHz = 0;
-  /** Last measured frames per second. */
+  /** Dernières images par seconde mesurées. */
   fps = 60;
 
   private readonly samples: number[] = [];
@@ -55,20 +58,20 @@ export class PerformanceGovernor {
 
   constructor(private readonly options: PerformanceOptions) {}
 
-  /** Forces a fresh measurement, for when the display or window has moved. */
+  /** Force une nouvelle mesure, quand l'écran ou la fenêtre a bougé. */
   redetect(): void {
     this.refreshHz = 0;
     this.samples.length = 0;
   }
 
-  /** Feeds the detector. Call once per frame with the real delta. */
+  /** Alimente le détecteur. À appeler une fois par frame avec le vrai delta. */
   detect(frameDt: number): void {
     if (this.refreshHz || frameDt <= 0 || frameDt > 0.2) return;
     this.samples.push(frameDt);
     if (this.samples.length < SAMPLES) return;
 
-    // Median, not mean: a single long frame during startup would drag a mean
-    // far enough to snap to the wrong rate.
+    // Médiane, pas moyenne : une seule frame longue au démarrage tirerait une
+    // moyenne assez loin pour caler sur la mauvaise cadence.
     const sorted = this.samples.slice().sort((a, b) => a - b);
     const raw = 1 / sorted[Math.floor(sorted.length / 2)]!;
     this.refreshHz = KNOWN_RATES.reduce(
@@ -77,7 +80,7 @@ export class PerformanceGovernor {
     );
   }
 
-  /** One-second window. Measures, then adapts quality if it has to. */
+  /** Fenêtre d'une seconde. Mesure, puis adapte la qualité s'il le faut. */
   update(frameDt: number): void {
     this.frames++;
     this.elapsed += frameDt;
@@ -87,8 +90,8 @@ export class PerformanceGovernor {
     this.frames = 0;
     this.elapsed = 0;
 
-    // Running well above the detected rate means the detection was wrong,
-    // usually because the window moved to another display.
+    // Tourner bien au-dessus de la cadence détectée veut dire que la détection
+    // était fausse, d'ordinaire parce que la fenêtre a changé d'écran.
     if (this.refreshHz && this.fps > this.refreshHz * 1.2) {
       this.redetect();
     }
@@ -99,15 +102,15 @@ export class PerformanceGovernor {
       return;
     }
     this.runSeconds++;
-    // The first seconds are shader compilation, not a verdict on the machine.
+    // Les premières secondes sont de la compilation de shaders, pas un verdict sur la machine.
     if (this.runSeconds < 4) return;
     if (this.hold > 0) {
       this.hold--;
       return;
     }
 
-    // The yardstick is the display itself: the game is doing its job when it
-    // holds what the device can show.
+    // L'étalon est l'écran lui-même : le jeu fait son travail quand il tient
+    // ce que l'appareil peut montrer.
     const reachable = this.refreshHz || 60;
     if (this.fps < reachable * 0.78) {
       this.bad++;
@@ -128,7 +131,7 @@ export class PerformanceGovernor {
     }
   }
 
-  /** Detail first, resolution second: losing the sky is the bigger loss. */
+  /** Le détail d'abord, la résolution ensuite : perdre le ciel est la plus grosse perte. */
   private stepDown(): void {
     if (this.options.getSkyDetail()) {
       this.options.setSkyDetail(false);
@@ -142,7 +145,7 @@ export class PerformanceGovernor {
     }
   }
 
-  /** Recovered in the reverse order, and more slowly than it went down. */
+  /** Récupéré dans l'ordre inverse, et plus lentement que ça n'est descendu. */
   private stepUp(): void {
     const scale = this.options.getRenderScale();
     if (scale < 1) {
