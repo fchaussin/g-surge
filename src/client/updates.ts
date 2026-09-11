@@ -15,8 +15,7 @@
  * nouveau worker prend le contrôle, la page garde son ancien bundle en mémoire
  * et rien ne le lui dit. D'où deux gestes : redemander une vérification chaque
  * fois que la page redevient visible, et recharger quand le contrôleur change
- * — tout de suite si aucune partie n'est en cours, sinon au prochain retour au
- * menu, par `settle()`.
+ * — tout de suite au menu, sinon au prochain retour au menu, par `settle()`.
  *
  * Le premier contrôle n'est pas une mise à jour. À la première visite le
  * worker s'installe, réclame la page, `controllerchange` part, et recharger là
@@ -28,7 +27,7 @@ export class Updates {
   /** Une nouvelle version contrôle la page, et le bundle chargé est l'ancien. */
   private pending = false;
 
-  /** @param canReload vrai quand recharger ne coupe personne : au menu, pas en partie. */
+  /** @param canReload vrai quand recharger ne coupe personne : au menu, et là seulement. */
   constructor(private readonly canReload: () => boolean) {}
 
   register(): void {

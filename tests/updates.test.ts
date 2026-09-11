@@ -72,7 +72,7 @@ describe('the update path', () => {
     expect(b.reload).toHaveBeenCalledTimes(1);
   });
 
-  it('waits for the run to end, then reloads once on settle', () => {
+  it('waits for the return to the menu, then reloads once on settle', () => {
     let playing = true;
     const b = stubBrowser({ controller: {} });
     const updates = new Updates(() => !playing);

@@ -267,8 +267,9 @@ Live at <https://g-surge.pages.dev/>, on Cloudflare Pages: build command
 alone.** The worker takes control as soon as it is installed, but a page that
 stays open for days never re-navigates and would keep its old bundle; the
 client re-checks `sw.js` whenever it becomes visible again and reloads when a
-new worker takes control — at once in the menu, otherwise at the end of the
-run. The first install is not an update and does not reload.
+new worker takes control — at once in the menu, otherwise at the next return
+to it, never on the score screen. The first install is not an update and does
+not reload.
 
 **The service worker's precache list and cache name are generated at build
 time**, by a plugin in `vite.config.ts` that rewrites two marked lines. The

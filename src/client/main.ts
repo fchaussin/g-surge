@@ -134,8 +134,10 @@ const screens = new Screens({
   },
 });
 
-// Recharger ne coupe personne au menu ; en partie ou en pause, ça attend.
-const updates = new Updates(() => screens.mode === 'menu' || screens.mode === 'over');
+// Recharger ne coupe personne au menu. Partout ailleurs ça attend : en partie
+// et en pause bien sûr, mais aussi sur l'écran de fin, où le joueur lit son
+// score — le tableau l'a déjà, recharger là ne perdrait rien sauf la lecture.
+const updates = new Updates(() => screens.mode === 'menu');
 
 // Le bouton d'installation n'existe que là où le navigateur propose quelque
 // chose : il apparaît sur l'événement, disparaît après, et déplace ce qui est
