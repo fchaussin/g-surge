@@ -72,10 +72,11 @@ export class Screens {
       document.getElementById(layer)?.classList.toggle('on', layer === mode);
     }
     document.getElementById('hud')?.classList.toggle('on', mode === 'run');
-    // The mute button would sit on top of both of these.
-    document
-      .getElementById('btnMute')
-      ?.classList.toggle('hide', mode === 'settings' || mode === 'help');
+    // The mute button would sit on top of both of these; and during a run it
+    // steps right, so the pause button gets the corner.
+    const mute = document.getElementById('btnMute');
+    mute?.classList.toggle('hide', mode === 'settings' || mode === 'help');
+    mute?.classList.toggle('run', mode === 'run');
 
     this.buildNav();
     this.options.onChange?.(mode, previous);

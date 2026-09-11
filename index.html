@@ -233,7 +233,10 @@
   .fps.on{display:flex}
   .fps b{color:var(--neon);font-weight:700;margin-right:4px}
 
-  .pausebtn{position:absolute;left:62px;top:calc(env(safe-area-inset-top) + 16px);
+  /* La pause tout à gauche, le coin le plus accessible ; le son se décale à sa
+     droite pendant la partie, et reprend le coin sur les autres écrans. */
+  .mutebtn.run{left:62px}
+  .pausebtn{position:absolute;left:16px;top:calc(env(safe-area-inset-top) + 16px);
     width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:rgba(8,20,28,.5);
     backdrop-filter:blur(8px);color:var(--neon);pointer-events:auto;
     display:flex;align-items:center;justify-content:center}
