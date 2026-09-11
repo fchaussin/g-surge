@@ -219,10 +219,11 @@ being aimed at: the hull bar is a *length* first, its hue second, and it pulses
 under 22; the thrust rung is a stacked height on the gauge, a pitch register in
 the charge voice, a plume length on the ship and a speed on the readout, with
 colour as one channel among five; difficulty is three labelled radio buttons.
-What is still colour alone is the coin — which rung it pays for is told by its
-hue and by nothing else before it is taken — and the multiplier's colour, which
-repeats the rung the gauge already shows. Both are minor, and a shape per coin
-tier is the obvious fix if it ever matters.
+What is still colour alone is the multiplier's colour, which repeats the rung
+the gauge already shows. The coin is no longer: it grows 16 % per rung with its
+hue (`coinScale` in `pickups.ts`), so which rung it pays for is told by size as
+well as colour before it is taken. Both are minor, and a shape per coin tier
+remains the obvious next step if it ever matters.
 
 The keyboard navigation is custom and hijacks Tab; that stands.
 
