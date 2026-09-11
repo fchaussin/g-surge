@@ -22,12 +22,14 @@ some release moment nobody schedules.
 
 | Level | What landed | Example |
 |---|---|---|
-| patch | a fix, a refactor, a visual or audio touch that does not change how the game plays | splitting `main.ts`; the HUD coming loose in a surge |
-| minor | a new feature, or a rebalance — any commit that regenerates a `physics-*.json` fixture is at least a minor | the G-SURGE; `supFactor` 1.08 → 1.22 |
+| patch | a fix, a refactor, a visual or audio touch that does not change how the game plays — and a retune that corrects a value found wrong in play, even when a `physics-*.json` fixture moves with it | splitting `main.ts`; the HUD coming loose in a surge; the dry tank capping the cruise |
+| minor | a new feature, or a rebalance that changes the design rather than corrects a value | the G-SURGE; `supFactor` 1.08 → 1.22 |
 | major | a break — leaderboard or preference format, controls, a removed feature | a new scoring key that abandons the old board |
 
 A rebalance is not a break, in this repository's reading of semver: the player
-keeps everything, the numbers under them moved.
+keeps everything, the numbers under them moved. And a retune is not a feature:
+the author's word for the 1.15.x series was "fixes, not features", and the
+version says so — the rule above was reworded on 11 September 2026 to match.
 
 ## How
 

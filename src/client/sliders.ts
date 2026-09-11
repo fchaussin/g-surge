@@ -161,12 +161,12 @@ export const SLIDERS: readonly SliderSpec[] = [
     hint: 'Odds per 12 m segment of a can, past the opening stretch. Difficulty lowers it.',
   },
   {
-    key: 'fuelDryFactor',
-    label: 'Dry cruise factor',
-    min: 0.3,
-    max: 1,
-    step: 0.05,
-    hint: 'Cruise speed multiplier on an empty tank. At 1 running dry only takes the boost away.',
+    key: 'fuelDrySpeed',
+    label: 'Dry cruise speed',
+    min: 20,
+    max: 258,
+    step: 2,
+    hint: 'Ceiling on the cruise speed, in m/s, while the tank is empty. 56 is about 200 km/h; 258 is no ceiling.',
   },
   {
     key: 'supTime',

@@ -78,8 +78,9 @@ Medium 1 / 5 / 10, cans every 2.4 km; Hard 1.5 / 6 / 12 with 2 during a
 surge, cans every 4 km. The pilot, which never aims for a can, is dry 0 % of
 the time on Easy, 21 – 28 % on Medium, 34 – 53 % on Hard. If Medium feels
 starved, raise `fuelCanChance` there first — 0.005 → 0.007 halves the gap
-between cans — before touching the burn rates. `fuelDryFactor` is at 1: a
-cruise penalty while dry exists as a key and does nothing until moved.
+between cans — before touching the burn rates. Dry, the cruise now falls to
+`fuelDrySpeed`, 56 m/s — 200 km/h — since 1.15.3; that makes a can matter on
+every difficulty, so Medium's starvation may read differently now.
 Third play: Medium "to be seen later" — kept open.
 
 ## Asked for, and not possible as asked
@@ -98,6 +99,15 @@ Third play: Medium "to be seen later" — kept open.
   by commit, so any moment is a safe one.
 
 ## Log — answered, newest first
+
+### 11 September 2026, the dry tank — 1.15.3
+
+- **"Dry, no boost is right, but the speed must not stay that high: it
+  should fall to around 200 km/h."** The factor at 1 becomes a ceiling,
+  `fuelDrySpeed` 56 m/s, applied last so damage cannot lower it further, and
+  the same anywhere on the ramp where a factor would not have been. The fall
+  runs at `speedGain`: 900 km/h to 200 in about eight seconds. On the
+  Advanced tab.
 
 ### 11 September 2026, the shield's presentation — 1.15.2
 

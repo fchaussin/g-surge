@@ -65,7 +65,7 @@ drains and uncovers the one below.
 **Fuel.** The thin red bar under the hull is the tank. Boosting burns it,
 a super boost burns it faster, and on Medium and Hard even cruising sips at it.
 Red cans refill it, a G-SURGE fills it to the brim, and running dry takes
-the boost away without stopping you.
+the boost away and drops you to about 200 km/h until the next can.
 
 **Damage.** The green bar along the top is your hull. Impacts cost in
 proportion to how hard you hit, scraping along a wall drains it, landing off

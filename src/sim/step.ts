@@ -155,8 +155,10 @@ export function step(
     }
     if (brake) target *= T.brakeFactor;
     target *= 1 - dmg * T.damageSpeed;
-    // À sec, la croisière peut être pénalisée ; à 1 la clé ne fait rien.
-    if (state.fuel <= 0 && !topped) target *= T.fuelDryFactor;
+    // À sec, la croisière est plafonnée : la vitesse redescend vers
+    // `fuelDrySpeed` au rythme de `speedGain`. En dernier, pour que ce soit un
+    // plafond franc et non une fraction de ce que les dégâts ont laissé.
+    if (state.fuel <= 0 && !topped) target = Math.min(target, T.fuelDrySpeed);
   }
   state.speed += (target - state.speed) * Math.min(1, dt * gain);
 

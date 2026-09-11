@@ -514,6 +514,10 @@ HUD and help references did, each in its own commit. What is left is play:
   the hull, Tesla-coil arcs inside a rainbow fresnel bubble, a low beating hum
   with a crackle, and the side rails flowing rainbow around the ship, all
   driven by one eased intensity in `shield.ts`. Class A: nothing frozen moved.
+- **1.15.3** — an empty tank now drops the cruise to `fuelDrySpeed`, 200 km/h,
+  instead of leaving it at 900: the factor of 1.9.0 becomes a ceiling. A fix
+  to a value found wrong in play, hence a patch; no trace runs dry, so no
+  reference moved.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

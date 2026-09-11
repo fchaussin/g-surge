@@ -85,8 +85,8 @@ export interface Tuning {
   fuelCanChance: number;
   /** Points rendus par bidon. */
   fuelCan: number;
-  /** Facteur sur la vitesse de croisière à sec : 1 n'en change rien. */
-  fuelDryFactor: number;
+  /** Vitesse de croisière plafonnée à sec, en m/s : le moteur tousse, il ne s'arrête pas. */
+  fuelDrySpeed: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -221,15 +221,19 @@ export const DEFAULTS: Readonly<Tuning> = {
    * durant 3,8 s en brûle 11, un super boost de 5 s en brûle 30, le surge est
    * gratuit et remplit. Un bidon tous les 1,5 km environ. Moyen et difficile
    * surchargent tout cela dans DIFF. À sec : plus de boost ni de super boost,
-   * la croisière continue — décidé le 11 septembre 2026 ; la pénalité de
-   * croisière existe en clé, à 1 elle ne fait rien. À rejuger en jouant. */
+   * et la croisière retombe vers 200 km/h — décidé le 11 septembre 2026, en
+   * deux temps : d'abord un facteur laissé à 1, puis, en jouant, un plafond,
+   * parce qu'une croisière à 900 km/h sans carburant n'avait aucun sens. Un
+   * plafond et non un facteur, pour que la vitesse à sec soit la même partout
+   * sur la rampe — un facteur aurait donné 54 km/h au départ et 200 à la fin.
+   * À rejuger en jouant. */
   fuelCruise: 0,
   fuelBoost: 3,
   fuelSup: 6,
   fuelSurge: 0,
   fuelCanChance: 0.008,
   fuelCan: 35,
-  fuelDryFactor: 1,
+  fuelDrySpeed: 56,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,

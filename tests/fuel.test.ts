@@ -87,17 +87,20 @@ describe('fuel', () => {
     expect(ev.filter((e) => e.type === 'fuelEmpty')).toHaveLength(1);
   });
 
-  it('leaves the cruise alone when dry, unless the dry factor says otherwise', () => {
+  it('caps the cruise at fuelDrySpeed when dry, and lets it back up once refilled', () => {
     const sim = fresh();
     sim.state.dist = 20000;
+    sim.state.speed = sim.tuning.speedMax;
     sim.state.fuel = 0;
-    // La vitesse converge à speedGain = 0,42/s : quinze secondes pour l'atteindre.
+    // La vitesse converge à speedGain = 0,42/s : quinze secondes pour s'y poser.
+    run(sim, 15);
+    expect(sim.state.speed).toBeCloseTo(sim.tuning.fuelDrySpeed, 0);
+    expect(sim.state.speed * 3.6).toBeGreaterThan(180);
+    expect(sim.state.speed * 3.6).toBeLessThan(220);
+
+    sim.state.fuel = 50;
     run(sim, 15);
     expect(sim.state.speed).toBeCloseTo(sim.tuning.speedMax, 0);
-
-    sim.tuning.fuelDryFactor = 0.8;
-    run(sim, 15);
-    expect(sim.state.speed).toBeCloseTo(sim.tuning.speedMax * 0.8, 0);
   });
 
   it('is refilled by a can, capped at 100, and told how much it got', () => {
