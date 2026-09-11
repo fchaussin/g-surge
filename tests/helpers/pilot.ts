@@ -40,6 +40,9 @@ export interface PilotStats {
   tierSeconds: [number, number, number, number];
   /** La plus haute fraction d'un barreau atteinte par la montée, 0 à 1. */
   climbPeak: number;
+  /** Secondes passées à sec, et plus haut combo atteint. */
+  drySeconds: number;
+  comboPeak: number;
 }
 
 function steerFor(sim: Sim, side: 1 | -1, aggressiveness: number): number {
@@ -69,6 +72,8 @@ function drive(sim: Sim, seconds: number, side: 1 | -1, aggressiveness: number):
     driftSeconds: 0,
     tierSeconds: [0, 0, 0, 0],
     climbPeak: 0,
+    drySeconds: 0,
+    comboPeak: 0,
   };
   const input = { steer: 0, brake: false, boost: false };
   const steps = Math.round(seconds / DT);
@@ -88,6 +93,8 @@ function drive(sim: Sim, seconds: number, side: 1 | -1, aggressiveness: number):
     st.tierSeconds[thrustTier(sim.state)] += DT;
     const goal = climbGoal(sim.state, sim.tuning);
     if (goal > 0) st.climbPeak = Math.max(st.climbPeak, sim.state.climb / goal);
+    if (sim.state.fuel <= 0) st.drySeconds += DT;
+    st.comboPeak = Math.max(st.comboPeak, sim.state.combo);
     if (sim.state.wrecked) {
       st.wrecked = true;
       break;

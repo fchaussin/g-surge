@@ -449,6 +449,31 @@ which is running.
   and the documents stay English, the bundle's hashed name unchanged through
   every batch.
 
+### Step 9 — the four gameplay suggestions of 11 September — done
+
+`GAMEPLAY-FEATURES-SUGGESTIONS_26-09-11.md` arrived with four features in
+priority order: fuel, invincibility with wall riding, near miss, perfect drift.
+They landed in the reverse order, least constraining first, because that order
+was measured rather than assumed:
+
+- **Perfect Drift, 1.6.0** — class B. Chained clean drifts count; from the
+  third each pays score and speeds the climb; a wall or an expired window drops
+  it. No reference moved.
+- **Near Miss, 1.7.0** — class B, and the one that had to be checked: the
+  reference pilot reaches the wall. A pass pays only if it leaves the band with
+  no contact, and `sim-parity` now asserts the reference pilot never does.
+- **Invincibility and wall riding, 1.8.0** — the frozen track references record
+  the item list, so any new pickup in `items` would move them. New pickups
+  live in `track.extras`, their own stream, past `extrasFrom`, beyond the
+  traces. The original list stays exactly the legacy's.
+- **Fuel, 1.9.0** — the one design gap in the document, an empty tank, was put
+  to the author and answered: boost and super boost unavailable, cruise
+  continues, a dry-cruise factor at 1 for later. Cans are extras too.
+
+Nothing in the frozen simulation references moved for any of the four; the
+HUD and help references did, each in its own commit. What is left is play:
+`TODO.md` carries the values and the pilot's measurements.
+
 **Total: five to eight days**, of which one is paper and one is a decision.
 
 ## What this roadmap does not cover

@@ -24,6 +24,8 @@ describe.skipIf(!process.env.MEASURE)('the ladder, as a scripted pilot climbs it
         let seconds = 0;
         let peak = 0;
         let wrecks = 0;
+        let dry = 0;
+        let comboPeak = 0;
         const tiers = [0, 0, 0, 0];
         for (const seed of SEEDS) {
           const s = runPilot({ seed, difficulty, seconds: SECONDS, aggressiveness });
@@ -35,6 +37,8 @@ describe.skipIf(!process.env.MEASURE)('the ladder, as a scripted pilot climbs it
           seconds += s.seconds;
           peak = Math.max(peak, s.climbPeak);
           if (s.wrecked) wrecks++;
+          dry += s.drySeconds;
+          comboPeak = Math.max(comboPeak, s.comboPeak);
           for (let t = 0; t < 4; t++) tiers[t]! += s.tierSeconds[t]!;
         }
         const per10 = (n: number) => ((n * 600) / seconds).toFixed(1);
@@ -43,7 +47,7 @@ describe.skipIf(!process.env.MEASURE)('the ladder, as a scripted pilot climbs it
         rows.push(
           `| ${difficulty} | ${aggressiveness} | ${per10(earned)} | ${per10(found)} | ${per10(surges)} | ` +
             `${per10(walls)} | ${pct(drift)} | ${pct(tiers[1]!)} / ${pct(tiers[2]!)} / ${pct(tiers[3]!)} | ` +
-            `${(peak * 100).toFixed(0)}% | ${wrecks}/${SEEDS.length} | ${alive} s |`,
+            `${(peak * 100).toFixed(0)}% | ${wrecks}/${SEEDS.length} | ${alive} s | ${pct(dry)} | ${comboPeak} |`,
         );
       }
     }
@@ -51,8 +55,8 @@ describe.skipIf(!process.env.MEASURE)('the ladder, as a scripted pilot climbs it
       [
         '',
         `Per ten minutes of driving, ${SEEDS.length} seeds × ${SECONDS} s each (or until wrecked):`,
-        '| difficulty | aggr. | earned | found | surges | walls | drift | tier 1/2/3 | climb peak | wrecks | alive |',
-        '|---|---|---|---|---|---|---|---|---|---|---|',
+        '| difficulty | aggr. | earned | found | surges | walls | drift | tier 1/2/3 | climb peak | wrecks | alive | dry | combo |',
+        '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
         ...rows,
         '',
       ].join('\n'),

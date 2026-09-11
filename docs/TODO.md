@@ -104,6 +104,15 @@ carries the one design gap below and the other three carry none.
     runs dry inside a frozen trace and so the tank is a rhythm, not a wall.
     Three of them on the Advanced tab; the rest through `__gsNext.tuning()`.
 
+    Measured with the scripted pilot (`npm run measure:ladder`), which never
+    aims for a can and so is a lower bound: dry 0 % of the time on Easy, 21
+    to 28 % on Medium, 34 to 53 % on Hard. A human who steers for cans will
+    do better, but if Medium feels starved in play, raise `fuelCanChance`
+    there first — 0.005 to 0.007 halves the gap between cans — before
+    touching the burn rates. The same run shows the Perfect Drift doing its
+    job: surges per ten minutes on Easy went from 3.3 to 6.7 with the combo
+    speeding the climb.
+
 13. **The invincibility item.** Defaulted: 6 s, violet, and a push of 8 % of
     the speed per second of contact, which settles a fifth above the target
     speed; a landing beyond the edge is harmless too while it lasts. All three
