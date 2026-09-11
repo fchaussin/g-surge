@@ -197,7 +197,7 @@ export class ChaseCamera {
 }
 
 /** The aspect every field of view in the tuning was chosen on. */
-const REF_ASPECT = 16 / 9;
+export const REF_ASPECT = 16 / 9;
 
 /**
  * The vertical field of view to use on a screen wider than 16:9.
@@ -213,7 +213,7 @@ const REF_ASPECT = 16 / 9;
  * Nothing happens at 16:9 or narrower, which is where every frozen scene
  * reference is taken, and why none of them moves.
  */
-function fitAspect(vertical: number, aspect: number): number {
+export function fitAspect(vertical: number, aspect: number): number {
   if (aspect <= REF_ASPECT) return vertical;
   const half = Math.tan(MathUtils.degToRad(vertical) / 2) * (REF_ASPECT / aspect);
   return MathUtils.radToDeg(2 * Math.atan(half));

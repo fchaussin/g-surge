@@ -93,7 +93,10 @@ Still missing:
   the browser, never in isolation. Narrowed on 11 September 2026: the gauge's
   layer arithmetic left `hud.ts` for `ladder.ts`, a pure function with its own
   tests, and `settings.ts` and `screens.ts` export their id tables to
-  `tests/dom-ids`. What the DOM writes themselves do is still browser-only.
+  `tests/dom-ids`. `feedback.ts` runs against counting doubles, the camera's
+  aspect fit and the preferences' sanitiser are exported to be tested as the
+  pure functions they are. What the DOM writes themselves do is still
+  browser-only.
 
 A known resolution limit, measured: swapping the two lateral terms of `step` — a
 pure floating point reassociation — shifts `latVel` by about 4e-16 over 1800

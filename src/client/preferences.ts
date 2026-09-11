@@ -47,7 +47,8 @@ const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean'
 const number = (v: unknown, fallback: number, min: number, max: number): number =>
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fallback;
 
-function sanitise(raw: unknown): Preferences {
+/** Exported for its tests alone: storage is untrusted input, and this is the gate. */
+export function sanitise(raw: unknown): Preferences {
   const d = DEFAULT_PREFERENCES;
   if (typeof raw !== 'object' || raw === null) return { ...d };
   const r = raw as Record<string, unknown>;
