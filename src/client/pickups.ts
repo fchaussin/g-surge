@@ -49,10 +49,11 @@ const OTHER_POOL = 6;
 /** Les objets flottent à cette hauteur au-dessus de la route. */
 const HOVER = 2.0;
 /**
- * Le bidon, plus haut que les autres : debout il touchait presque la route
- * et se lisait comme un obstacle. Troisième partie, 11 septembre 2026.
+ * Le bidon, un peu plus haut que les autres : debout à 2 m il touchait
+ * presque la route et se lisait comme un obstacle. 3,6 m, essayé d'abord,
+ * flottait trop ; 2,8 est le milieu, jugé en jouant le 11 septembre 2026.
  */
-const CAN_HOVER = 3.6;
+const CAN_HOVER = 2.8;
 
 /**
  * Le violet de l'invincibilité, pour ce qui n'est pas le prisme lui-même : le

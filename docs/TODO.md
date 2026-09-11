@@ -99,6 +99,12 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 11 September 2026, after the fifth play — 1.15.1
+
+- **"Not bad"** on the fifth damage setting — entry 1 stays open only for a
+  later fine touch. **The can, a little lower**: 3.6 m floated too high,
+  2.8 m is the middle between that and the 2 m of the other pickups.
+
 ### 11 September 2026, after the fourth play — 1.15.0
 
 - **Damage, a fifth time.** The fourth setting's hit was half the bar on

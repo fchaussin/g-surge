@@ -509,6 +509,7 @@ HUD and help references did, each in its own commit. What is left is play:
   under a ceiling of 42 the first setting had left behind. The ceiling becomes
   `hullImpactMax`, 24 / 34 / 42 per difficulty, a hit is at most three seconds
   of scraping, the budget of 1.14.0 stays. Physics references moved.
+- **1.15.1** — "not bad"; the can comes down from 3.6 m to 2.8 m.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
