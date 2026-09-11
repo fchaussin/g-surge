@@ -386,7 +386,11 @@ first install; the worker's navigation fetch asks for `cache: 'no-cache'`, so
 the browser's HTTP cache cannot answer for the server; and `_headers` covers
 `/`, which is what a navigation requests, not `/index.html`. None of it is
 checkable in the end-to-end suite, which runs over http where the worker does
-not register — that gap is the one this item still has.
+not register. The page's side is covered since by `tests/updates.test.ts`
+against stubbed browser globals — no reload on the first install, a reload on
+a later controller change, deferred while a run is on, the re-check on
+visibility — and the install prompt beside it. The worker's own fetch logic is
+the part still tested by deployment alone.
 
 ## 19. Documents that state figures nothing checks
 
