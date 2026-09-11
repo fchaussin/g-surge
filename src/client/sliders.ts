@@ -1,9 +1,11 @@
 /**
  * The tuning panel.
  *
- * Seventy values drive this game and thirty-two of them are exposed here. The
- * rest are reachable from the console through the debug surface; that gap is
- * debt 11, not a design choice.
+ * Most of the values that drive this game are exposed here; the rest are
+ * reachable from the console through the debug surface. The count is in
+ * TECH-DEBT §11, generated rather than typed — this header once said
+ * "seventy and thirty-two" while the tree said otherwise. The gap is debt 11,
+ * not a design choice.
  *
  * Generated from a table rather than written as markup: adding a value should
  * be one line, and every row then behaves the same way — label, live readout,

@@ -11,7 +11,10 @@ some release moment nobody schedules.
   before pushing. A bundle change that leaves the version where it was is a
   mistake to fix before `git push`.
 - **Documentation, tests and tooling alone do not bump.** They change nothing
-  the player receives.
+  the player receives. Nor does a comment-only edit in `src/`: when in doubt,
+  `npm run build` before and after and compare the hashed name under
+  `public/assets/` — the same name is the same bundle, measured rather than
+  assumed.
 - **Several changes pushed together share one bump**, at the highest level any
   of them warrants.
 

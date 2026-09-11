@@ -15,6 +15,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SLIDERS } from '../../src/client/sliders.js';
+import { DEFAULTS } from '../../src/sim/index.js';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -97,10 +99,28 @@ export function render(name: string, document: string, blocks: Record<string, st
   return out;
 }
 
+/**
+ * The table of `TECH-DEBT.md` §11: how much of the tuning the panel exposes.
+ *
+ * Three documents carried three different pairs of figures for this — 69 and
+ * 40, 70 and 32 — and the tree agreed with none of them.
+ */
+export function coverage(): string {
+  const keys = Object.keys(DEFAULTS).length;
+  const exposed = new Set(SLIDERS.map((s) => s.key)).size;
+  return [
+    '| | |',
+    '|---|---|',
+    `| Keys in \`DEFAULTS\` | ${keys} |`,
+    `| Exposed as sliders | ${exposed} |`,
+    `| Reachable only through \`__gsNext.tuning()\` | ${keys - exposed} |`,
+  ].join('\n');
+}
+
 /** The generated blocks of each document, by file name. */
 export function documents(): Record<string, Record<string, string>> {
   return {
     'ARCHITECTURE.md': { layout: layout() },
-    'TECH-DEBT.md': { oversize: oversize() },
+    'TECH-DEBT.md': { oversize: oversize(), coverage: coverage() },
   };
 }
