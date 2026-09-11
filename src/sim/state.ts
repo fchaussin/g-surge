@@ -31,8 +31,12 @@ export interface SimState {
   drift: boolean;
   /** Durée du drift en cours, en secondes. Lue par personne dans la physique. */
   driftHeld: number;
-  /** Drift cumulé, en secondes. Se vide hors drift, s'annule contre un mur. */
-  chain: number;
+  /**
+   * La montée : drift propre cumulé vers le barreau suivant, en mètres. Ne
+   * compte qu'en poussée — en boost vers le super boost, en super boost vers le
+   * G-SURGE — se vide hors drift, s'annule contre un mur.
+   */
+  climb: number;
   /** Temps restant de G-SURGE, en secondes. */
   surgeT: number;
 
@@ -76,6 +80,21 @@ export function thrustTier(state: SimState): ThrustTier {
   return state.boosting ? 1 : 0;
 }
 
+/**
+ * Les mètres de drift que le barreau courant demande pour passer au suivant,
+ * ou zéro s'il n'y a rien à gravir : en croisière le barreau se gagne par la
+ * réserve, pas par la montée, et au sommet il n'y a plus rien au-dessus.
+ *
+ * C'est la seule échelle que la jauge et la lueur de drift doivent lire, pour
+ * la raison que `drift.ts` donne pour `SLIP_CEILING` : deux effets qui
+ * normaliseraient différemment se contrediraient à l'écran.
+ */
+export function climbGoal(state: SimState, tuning: Tuning): number {
+  if (state.surgeT > 0) return 0;
+  if (state.superT > 0) return tuning.climbSurge;
+  return state.boosting ? tuning.climbSup : 0;
+}
+
 export function createState(tuning: Tuning): SimState {
   const state = {} as SimState;
   resetState(state, tuning);
@@ -98,7 +117,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.slip = 0;
   state.drift = false;
   state.driftHeld = 0;
-  state.chain = 0;
+  state.climb = 0;
   state.surgeT = 0;
 
   state.air = false;

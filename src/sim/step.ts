@@ -173,7 +173,7 @@ export function step(
         state.shake = 0.8;
         state.scrape = 0.4;
         state.mult = 1 + (state.mult - 1) * T.multWallCut;
-        state.chain = 0;
+        state.climb = 0;
         out.push({ type: 'badLanding' });
       }
     }
@@ -205,20 +205,33 @@ export function step(
   }
   if (state.drift) state.driftHeld += dt;
 
-  // La chaîne : du drift cumulé, qui se vide lentement hors drift. Elle ne
-  // rétroagit sur rien — aucune ligne de physique ne la lit — donc elle n'est
-  // pas dans la trace et ne déplace aucune référence.
-  if (state.drift && !attract) state.chain += dt;
-  else if (state.chain > 0) state.chain = Math.max(0, state.chain - T.chainDecay * dt);
-  // Le G-SURGE exige un super boost en cours. La chaîne dit « tu conduis bien
-  // là, maintenant » ; le ramassage porte la rareté, et il la porte mieux :
-  // mesuré, on en ramasse 10 / 12 / 11 par dix minutes selon la difficulté,
-  // là où tout le reste s'effondre en difficile. C'est aussi ce qui rend le
-  // déclenchement lisible — sans précondition visible, l'état partait tout seul.
-  if (!attract && state.surgeT <= 0 && state.superT > 0 && state.chain >= T.surgeHold) {
-    state.chain = 0;
-    state.surgeT = T.surgeTime;
-    out.push({ type: 'surgeStart' });
+  // La montée : du drift propre cumulé en mètres vers le barreau suivant. Elle
+  // ne compte qu'en poussée, puisque l'échelle se gravit barreau par barreau —
+  // en boost vers le super boost, en super boost vers le G-SURGE — et jamais
+  // au sommet. Hors drift elle redescend, un mur l'annule. Elle ne rétroagit
+  // sur aucune ligne de physique, donc elle n'est pas dans la trace et ne
+  // déplace aucune référence.
+  const climbing = state.drift && !attract && state.boosting && state.surgeT <= 0;
+  if (climbing) state.climb += d;
+  else if (state.climb > 0) state.climb = Math.max(0, state.climb - T.climbDecay * dt);
+  if (!attract && state.surgeT <= 0) {
+    if (state.superT > 0) {
+      // Le G-SURGE exige un super boost en cours : sans précondition visible,
+      // l'état partait tout seul. Depuis que la jauge montre la montée, la
+      // précondition se voit.
+      if (state.climb >= T.climbSurge) {
+        state.climb = 0;
+        state.surgeT = T.surgeTime;
+        out.push({ type: 'surgeStart' });
+      }
+    } else if (state.boosting && state.climb >= T.climbSup) {
+      // Le super boost mérité vaut le super boost trouvé : même durée, même
+      // réserve pleine, pour que la jauge lise pareil dans les deux cas.
+      state.climb = 0;
+      state.superT = T.supTime;
+      state.energy = 100;
+      out.push({ type: 'supEarned' });
+    }
   }
 
   let grip = state.drift ? T.gripDrift : T.gripHold;
@@ -240,8 +253,8 @@ export function step(
     if (Math.sign(state.latVel) === Math.sign(state.lat)) {
       state.latVel = -state.latVel * T.wallBounce;
       if (!attract && !state.air) {
-        // Un mur casse la chaîne : elle récompense la propreté, pas l'obstination.
-        state.chain = 0;
+        // Un mur casse la montée : elle récompense la propreté, pas l'obstination.
+        state.climb = 0;
         state.speed -= state.speed * T.wallPenalty * dt * 6;
         state.energy = Math.max(0, state.energy - T.wallDrain * dt);
         if (!state.contact) {
@@ -297,8 +310,8 @@ export function step(
         state.surgeT = Math.min(T.surgeTime * 2, state.surgeT + T.surgeTime);
       } else if (state.superT > 0) {
         // Deux super boosts qui se chevauchent — mesuré une fois par dix
-        // minutes. C'est déjà un exploit, la chaîne n'est pas demandée.
-        state.chain = 0;
+        // minutes. C'est déjà un exploit, la montée n'est pas demandée.
+        state.climb = 0;
         state.surgeT = T.surgeTime;
         out.push({ type: 'surgeStart' });
       } else {

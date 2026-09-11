@@ -166,6 +166,10 @@ export class Audio {
           else if (e.kind === 'fix') this.fix();
           else this.superBoost();
           break;
+        case 'supEarned':
+          // Found or earned, the same rung: the same sound.
+          this.superBoost();
+          break;
         case 'supEnd':
           this.superRelease();
           break;

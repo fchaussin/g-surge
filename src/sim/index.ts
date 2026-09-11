@@ -1,7 +1,14 @@
 export { Clock, DT, HZ, MAX_FRAME, MAX_STEPS } from './clock.js';
 export { Rng, type RngState } from './rng.js';
 export type { SimEvent } from './events.js';
-export { createState, resetState, type SimState, thrustTier, type ThrustTier } from './state.js';
+export {
+  climbGoal,
+  createState,
+  resetState,
+  type SimState,
+  thrustTier,
+  type ThrustTier,
+} from './state.js';
 export { COIN_GAIN, step, type Input } from './step.js';
 export {
   BACK,

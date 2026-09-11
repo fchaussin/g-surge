@@ -32,6 +32,11 @@ export type SimEvent =
   /** Super boost ramassé. Le ramassage est l'activation : il n'y a pas de stock. */
   | { readonly type: 'pickup'; readonly kind: 'sup' }
   /**
+   * Super boost gagné : la montée a abouti sous un boost. Même barreau que le
+   * ramassage, l'autre chemin pour y arriver — trouvé ou mérité.
+   */
+  | { readonly type: 'supEarned' }
+  /**
    * Fin du super boost, au pas où `superT` atteint zéro.
    *
    * C'est le seul instant de la branche que le client ne peut pas retrouver

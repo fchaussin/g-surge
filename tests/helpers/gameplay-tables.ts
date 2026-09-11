@@ -68,17 +68,22 @@ const yawMax = (t: Tuning, speed: number) =>
   clamp((t.yawBase * t.yawSpeedRef) / Math.max(40, speed), t.yawMin, t.yawBase);
 
 export function speedTiers(t: Tuning): string {
+  const boostSpeed = t.speedMax * t.boostFactor;
+  const topSpeed = boostSpeed * t.supFactor;
+  // La fenêtre du barreau 1 est ce qu'une réserve pleine dure en boost ; celle
+  // du barreau 2 est la durée du super boost. Les deux sont exprimées en
+  // mètres à la vitesse du barreau, pour comparer à la montée demandée.
+  const boostWindow = 100 / t.boostDrain;
+  const boostReach = boostSpeed * boostWindow;
+  const supReach = topSpeed * t.supTime;
+  const pct = (part: number, whole: number) => `${Math.round((part / whole) * 100)} %`;
   const rows = [
     ['0', 'cruising', 'bronze', COIN_GAIN[0]],
-    ['1', 'under boost', 'gold', COIN_GAIN[1]],
-    ['2', 'under a super boost', 'white', COIN_GAIN[2]],
-    ['3', 'in a G-SURGE', 'warm white', COIN_GAIN[3]],
+    ['1', 'holding boost, reserve above `boostMin`', 'gold', COIN_GAIN[1]],
+    ['2', `a pickup, or ${t.climbSup} m of clean drift under boost`, 'white', COIN_GAIN[2]],
+    ['3', `${t.climbSurge} m of clean drift under a super boost`, 'warm white', COIN_GAIN[3]],
   ] as const;
-  const speeds = [
-    kmh(t.speedMax),
-    kmh(t.speedMax * t.boostFactor),
-    kmh(t.speedMax * t.boostFactor * t.supFactor),
-  ];
+  const speeds = [kmh(t.speedMax), kmh(boostSpeed), kmh(topSpeed)];
   return [
     '| Tier | Reached by | Coin colour | Multiplier gain |',
     '|---|---|---|---|',
@@ -88,6 +93,19 @@ export function speedTiers(t: Tuning): string {
       `The tier is the thrust rung, not a speed threshold. Top speeds are ` +
         `${speeds[0]} km/h cruising, ${speeds[1]} under boost and ${speeds[2]} under a ` +
         'super boost, which the surge matches without exceeding.',
+    ),
+    '',
+    wrap(
+      'The ladder is climbed rung by rung, and the climb is measured in metres of ' +
+        'drift with nothing touched — a wall empties it, and off drift it drains at ' +
+        `${t.climbDecay} m/s. Whether a rung is reachable is a matter of the window ` +
+        `it is climbed in: ${t.climbSup} m is ${pct(t.climbSup, boostReach)} of the ` +
+        `${boostReach.toFixed(0)} m a full reserve covers under boost ` +
+        `(${boostWindow.toFixed(1)} s at ${t.boostDrain} points per second, before ` +
+        `drifting refills it), and ${t.climbSurge} m is ` +
+        `${pct(t.climbSurge, supReach)} of the ${supReach.toFixed(0)} m a ` +
+        `${t.supTime} s super boost covers. Earned or found, a super boost lasts the ` +
+        'same and pins a full reserve, so the gauge reads the same either way.',
     ),
     '',
     wrap(

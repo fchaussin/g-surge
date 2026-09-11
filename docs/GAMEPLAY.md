@@ -39,13 +39,21 @@ wrong for exactly that reason.
 | Tier | Reached by | Coin colour | Multiplier gain |
 |---|---|---|---|
 | 0 | cruising | bronze | +0.13 |
-| 1 | under boost | gold | +0.3 |
-| 2 | under a super boost | white | +0.55 |
-| 3 | in a G-SURGE | warm white | +1.35 |
+| 1 | holding boost, reserve above `boostMin` | gold | +0.3 |
+| 2 | a pickup, or 450 m of clean drift under boost | white | +0.55 |
+| 3 | 600 m of clean drift under a super boost | warm white | +1.35 |
 
 The tier is the thrust rung, not a speed threshold. Top speeds are 929 km/h
 cruising, 1207 under boost and 1473 under a super boost, which the surge
 matches without exceeding.
+
+The ladder is climbed rung by rung, and the climb is measured in metres of
+drift with nothing touched — a wall empties it, and off drift it drains at 100
+m/s. Whether a rung is reachable is a matter of the window it is climbed in:
+450 m is 35 % of the 1290 m a full reserve covers under boost (3.8 s at 26
+points per second, before drifting refills it), and 600 m is 29 % of the 2046 m
+a 5 s super boost covers. Earned or found, a super boost lasts the same and
+pins a full reserve, so the gauge reads the same either way.
 
 Cruising and boost climb with the speed ramp over the opening of a run. A super
 boost does not: it reaches its own ceiling from the first metre, because

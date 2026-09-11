@@ -1,10 +1,10 @@
 /**
- * La chaîne de drift et le G-SURGE.
+ * La montée et le G-SURGE.
  *
- * Rien ici n'est couvert par les références figées : `chain` et `surgeT` ne
- * sont pas dans la trace, et aucune de ses trois exécutions ne dérive — ce que
- * `sim-parity` vérifie explicitement depuis l'ajout de cet état. C'est donc le
- * seul filet de cette mécanique.
+ * Rien ici n'est couvert par les références figées : `climb`, `superT` et
+ * `surgeT` ne sont pas dans la trace, et aucune de ses trois exécutions ne
+ * dérive — ce que `sim-parity` vérifie explicitement depuis l'ajout de cet
+ * état. C'est donc le seul filet de cette mécanique.
  */
 import { describe, expect, it } from 'vitest';
 import { BACK, HALF, ITEM_SUP, Sim } from '../src/sim/index.js';
@@ -12,6 +12,7 @@ import { SurgeMeter } from '../src/client/surge.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
+const BOOSTING = { steer: 0, brake: false, boost: true };
 
 /**
  * Tient un drift sans passer par le pilotage, qui n'est pas le sujet.
@@ -21,120 +22,183 @@ const NEUTRAL = { steer: 0, brake: false, boost: false };
  * les appuis encaissent, donc lever `state.drift` à la main ne survit pas au
  * pas suivant. Ici le nez pointe loin et la trajectoire ne suit pas, ce qui est
  * la définition d'un drift.
+ *
+ * `boost` tient le bouton ; `sup` maintient un super boost en cours.
  */
 function holdDrift(
   sim: Sim,
   seconds: number,
-  opts: { attract?: boolean; sup?: boolean } = {},
-): number {
+  opts: { attract?: boolean; sup?: boolean; boost?: boolean } = {},
+): { surges: number; supers: number } {
   const attract = opts.attract ?? false;
-  let fires = 0;
+  const fired = { surges: 0, supers: 0 };
   for (let i = 0; i < seconds * 720; i++) {
     if (opts.sup) sim.state.superT = sim.tuning.supTime;
     sim.state.yaw = 0.5;
     sim.state.latVel = -30;
     sim.state.lat = 0;
-    sim.step(NEUTRAL, DT, attract);
-    for (const e of sim.events) if (e.type === 'surgeStart') fires++;
+    sim.step(opts.boost ? BOOSTING : NEUTRAL, DT, attract);
+    for (const e of sim.events) {
+      if (e.type === 'surgeStart') fired.surges++;
+      if (e.type === 'supEarned') fired.supers++;
+    }
   }
-  return fires;
+  return fired;
 }
 
-describe('the drift chain', () => {
-  it('accumulates while drifting and drains when it stops', () => {
-    const sim = new Sim({ seed: 'chain' });
-    sim.reset('chain');
-    sim.tuning.surgeHold = 99; // hors de portée : on observe la chaîne seule
+/** Une simulation dont aucun barreau n'est atteignable : on observe la montée seule. */
+function unreachable(seed: string): Sim {
+  const sim = new Sim({ seed });
+  sim.reset(seed);
+  sim.tuning.climbSup = 1e9;
+  sim.tuning.climbSurge = 1e9;
+  return sim;
+}
 
-    holdDrift(sim, 0.5);
+describe('the climb', () => {
+  it('counts the metres drifted under boost, and drains when the drift stops', () => {
+    const sim = unreachable('climb');
+
+    holdDrift(sim, 1, { boost: true });
     // La prémisse de l'aide, rendue explicite : le pas a bien décroché.
     expect(sim.state.drift).toBe(true);
-    expect(sim.state.chain).toBeCloseTo(0.5, 2);
+    expect(sim.state.boosting).toBe(true);
+    // Drift et boost dès le premier pas : la montée est la distance parcourue.
+    expect(sim.state.climb).toBeCloseTo(sim.state.dist, 6);
+    expect(sim.state.climb).toBeGreaterThan(60);
 
-    const held = sim.state.chain;
-    for (let i = 0; i < 720; i++) {
+    // Un quart de seconde hors drift : assez pour mesurer la pente, pas assez
+    // pour toucher le fond — à la vitesse de départ, une seconde de drift ne
+    // fait que 80 m et la descente en efface 100 par seconde.
+    const held = sim.state.climb;
+    for (let i = 0; i < 180; i++) {
       sim.state.yaw = 0;
       sim.state.latVel = 0;
       sim.step(NEUTRAL, DT, false);
     }
-    expect(sim.state.chain).toBeCloseTo(held - sim.tuning.chainDecay, 2);
+    expect(sim.state.climb).toBeCloseTo(held - sim.tuning.climbDecay * 0.25, 3);
+  });
+
+  it('does not climb at cruise: the ladder is taken rung by rung', () => {
+    const sim = unreachable('climb');
+    holdDrift(sim, 1);
+    expect(sim.state.drift).toBe(true);
+    expect(sim.state.boosting).toBe(false);
+    expect(sim.state.climb).toBe(0);
   });
 
   it('is cut by a wall, because it rewards cleanliness and not persistence', () => {
-    const sim = new Sim({ seed: 'chain' });
-    sim.reset('chain');
-    sim.tuning.surgeHold = 99;
-    holdDrift(sim, 0.5);
-    expect(sim.state.chain).toBeGreaterThan(0.4);
+    const sim = unreachable('climb');
+    holdDrift(sim, 0.5, { boost: true });
+    expect(sim.state.climb).toBeGreaterThan(30);
 
     sim.state.lat = HALF; // contre la paroi
     sim.state.latVel = 8;
-    sim.step(NEUTRAL, DT, false);
-    expect(sim.state.chain).toBe(0);
+    sim.step(BOOSTING, DT, false);
+    expect(sim.state.climb).toBe(0);
   });
 
   it('never accumulates in the attract loop', () => {
-    const sim = new Sim({ seed: 'chain' });
-    sim.reset('chain');
-    holdDrift(sim, 3, { attract: true, sup: true });
+    const sim = unreachable('climb');
+    holdDrift(sim, 3, { attract: true, sup: true, boost: true });
     expect(sim.state.drift).toBe(true);
-    expect(sim.state.chain).toBe(0);
+    expect(sim.state.climb).toBe(0);
     expect(sim.state.surgeT).toBe(0);
   });
 });
 
-describe('the surge', () => {
-  it('does not fire on the chain alone, however long the drift is held', () => {
-    const sim = new Sim({ seed: 'surge' });
-    sim.reset('surge');
-    // Dix fois le seuil, sans super boost : la porte est le ramassage, et la
-    // chaîne ne dit que « bien conduit », pas « maintenant ».
-    const fires = holdDrift(sim, sim.tuning.surgeHold * 10);
-    expect(fires).toBe(0);
-    expect(sim.state.chain).toBeGreaterThan(sim.tuning.surgeHold);
-  });
-
-  it('fires once when the chain lands under a super boost, and empties it', () => {
-    const sim = new Sim({ seed: 'surge' });
-    sim.reset('surge');
+describe('earning the super boost', () => {
+  it('fires once when the climb lands under boost, refills the reserve, and empties the climb', () => {
+    const sim = new Sim({ seed: 'earn' });
+    sim.reset('earn');
+    sim.state.energy = 60;
     let fires = 0;
-    let chainAtFire = -1;
+    let climbAtFire = -1;
+    let energyAtFire = -1;
 
-    for (let i = 0; i < (sim.tuning.surgeHold + 0.2) * 720; i++) {
-      sim.state.superT = sim.tuning.supTime;
+    // Bien plus que nécessaire : sans le verrou du barreau, il repartirait.
+    for (let i = 0; i < 12 * 720 && sim.state.superT === 0; i++) {
       sim.state.yaw = 0.5;
       sim.state.latVel = -30;
       sim.state.lat = 0;
-      sim.step(NEUTRAL, DT, false);
+      sim.step(BOOSTING, DT, false);
       for (const e of sim.events) {
-        if (e.type === 'surgeStart') {
+        if (e.type === 'supEarned') {
           fires++;
-          // Relevé à l'instant du déclenchement : le drift continue derrière,
-          // donc la chaîne se remet aussitôt à monter. La vider est un fait du
-          // pas où elle aboutit, pas un état durable.
-          chainAtFire = sim.state.chain;
+          climbAtFire = sim.state.climb;
+          energyAtFire = sim.state.energy;
         }
       }
     }
 
     expect(fires).toBe(1);
-    expect(chainAtFire).toBe(0);
-    expect(sim.state.surgeT).toBeGreaterThan(0);
+    expect(climbAtFire).toBe(0);
+    expect(energyAtFire).toBe(100);
+    expect(sim.state.superT).toBeCloseTo(sim.tuning.supTime, 2);
+  });
+
+  it('is the only thing a climb at rung one can open: never a surge', () => {
+    const sim = new Sim({ seed: 'earn' });
+    sim.reset('earn');
+    sim.tuning.climbSup = 1e9; // le super boost hors de portée, la montée monte
+    // Huit secondes : la rampe de vitesse part de 70 m/s, il en faut autant
+    // pour dépasser ce que le G-SURGE demanderait, et le montrer inatteint.
+    const fired = holdDrift(sim, 8, { boost: true });
+    expect(fired.supers).toBe(0);
+    expect(fired.surges).toBe(0);
+    expect(sim.state.climb).toBeGreaterThan(sim.tuning.climbSurge);
+  });
+});
+
+describe('the surge', () => {
+  it('fires once when the climb lands under a super boost, and empties it', () => {
+    const sim = new Sim({ seed: 'surge' });
+    sim.reset('surge');
+    let fires = 0;
+    let climbAtFire = -1;
+
+    // Jusqu'au déclenchement, avec une marge large : l'état dure cinq secondes
+    // et continuer au-delà le verrait finir avant qu'on le lise.
+    let climbBefore = 0;
+    for (let i = 0; i < 8 * 720 && fires === 0; i++) {
+      sim.state.superT = sim.tuning.supTime;
+      sim.state.yaw = 0.5;
+      sim.state.latVel = -30;
+      sim.state.lat = 0;
+      climbBefore = sim.state.climb;
+      sim.step(NEUTRAL, DT, false);
+      for (const e of sim.events) {
+        if (e.type === 'surgeStart') {
+          fires++;
+          // Relevé à l'instant du déclenchement : le drift continue derrière,
+          // mais au sommet la montée ne compte plus. La vider est un fait du
+          // pas où elle aboutit.
+          climbAtFire = sim.state.climb;
+        }
+      }
+    }
+
+    expect(fires).toBe(1);
+    expect(climbAtFire).toBe(0);
+    // Le pas précédent était encore sous le seuil : c'est bien la montée qui a ouvert.
+    expect(climbBefore).toBeLessThan(sim.tuning.climbSurge);
+    expect(climbBefore).toBeGreaterThan(sim.tuning.climbSurge * 0.9);
+    expect(sim.state.surgeT).toBeCloseTo(sim.tuning.surgeTime, 2);
   });
 
   it('cannot re-enter while it is running, however long the drift is held', () => {
     const sim = new Sim({ seed: 'surge' });
     sim.reset('surge');
+    sim.tuning.climbSurge = 1; // atteint au premier pas de drift
     // Bien plus long que le seuil : sans le verrou, il repartirait en boucle.
-    const fires = holdDrift(sim, sim.tuning.surgeTime - 0.5, { sup: true });
-    expect(fires).toBe(1);
+    const fired = holdDrift(sim, sim.tuning.surgeTime - 0.5, { sup: true });
+    expect(fired.surges).toBe(1);
+    expect(sim.state.climb).toBe(0);
   });
 
   it('ends once, at the step where its counter reaches zero', () => {
-    const sim = new Sim({ seed: 'surge' });
-    sim.reset('surge');
+    const sim = unreachable('surge');
     sim.state.surgeT = sim.tuning.surgeTime;
-    sim.tuning.surgeHold = 99;
 
     let ends = 0;
     for (let i = 0; i < (sim.tuning.surgeTime + 1) * 720; i++) {
@@ -150,7 +214,7 @@ describe('the surge', () => {
     sim.reset('surge');
     sim.state.surgeT = sim.tuning.surgeTime;
     sim.state.energy = 60;
-    for (let i = 0; i < 720; i++) sim.step({ steer: 0, brake: false, boost: true }, DT, false);
+    for (let i = 0; i < 720; i++) sim.step(BOOSTING, DT, false);
     expect(sim.state.energy).toBe(60);
   });
 });
@@ -176,7 +240,7 @@ describe('a second super boost', () => {
     const sim = new Sim({ seed: 'double' });
     sim.reset('double');
     sim.state.superT = sim.tuning.supTime;
-    sim.state.chain = 0; // aucune chaîne : le doublé se suffit à lui-même
+    sim.state.climb = 0; // aucune montée : le doublé se suffit à lui-même
     dropSup(sim);
 
     sim.step(NEUTRAL, DT, false);

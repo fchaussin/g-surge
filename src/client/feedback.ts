@@ -12,7 +12,7 @@
  * écrire déplacerait toutes les références figées ; la secousse du client est
  * un champ à part, et la caméra additionne les deux.
  */
-import type { SimEvent, SimState, Tuning } from '../sim/index.js';
+import { climbGoal, type SimEvent, type SimState, type Tuning } from '../sim/index.js';
 import type { Audio } from './audio.js';
 import type { ChaseCamera } from './camera.js';
 import type { Haptics } from './haptics.js';
@@ -116,6 +116,14 @@ export class Feedback {
     this.haloPower = power;
   }
 
+  /** L'entrée en super boost : le seul instant où l'onde de choc peut partir. */
+  private superBoost(): void {
+    this.deps.hud.showPop('SUPER BOOST', '#ff2f9a');
+    this.flash(0xff2f9a, 1.8);
+    this.fxShake = 1;
+    this.deps.haptics.buzz([30, 30, 70, 40, 120]);
+  }
+
   /** Les événements d'un pas, drainés une fois. */
   consume(events: readonly SimEvent[]): void {
     const { audio, haptics, hud, camera } = this.deps;
@@ -148,13 +156,12 @@ export class Feedback {
             this.flash(0x35e08a);
             haptics.buzz([22, 40, 22]);
           } else {
-            hud.showPop('SUPER BOOST', '#ff2f9a');
-            // Le ramassage est l'activation : c'est le seul instant où l'onde de
-            // choc peut partir, et elle n'a donc besoin d'aucun événement neuf.
-            this.flash(0xff2f9a, 1.8);
-            this.fxShake = 1;
-            haptics.buzz([30, 30, 70, 40, 120]);
+            this.superBoost();
           }
+          break;
+        case 'supEarned':
+          // Trouvé ou mérité, c'est le même barreau : même onde de choc.
+          this.superBoost();
           break;
         case 'driftStart':
           // Espacé : la bascule est rare — dix entrées par minute au plus,
@@ -206,8 +213,9 @@ export class Feedback {
     // La lueur du drift, tenue tant qu'il dure et portée par la chaîne — donc
     // elle dit aussi « j'y suis presque », ce qu'aucun autre élément ne dit.
     // Écartée si un flash plus fort est en cours : un choc de mur prime.
-    if (playing && state.drift && this.halo <= DRIFT_HALO_HOLD) {
-      const ratio = Math.min(1, state.chain / tuning.surgeHold);
+    const goal = climbGoal(state, tuning);
+    if (playing && state.drift && goal > 0 && this.halo <= DRIFT_HALO_HOLD) {
+      const ratio = Math.min(1, state.climb / goal);
       // Scintillement irrégulier, pas une pulsation : le HUD pulse déjà à
       // période fixe, et copier ce rythme ferait lire la lueur comme de
       // l'interface posée sur la coque plutôt que comme de la friction. Même

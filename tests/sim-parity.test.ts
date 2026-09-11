@@ -180,7 +180,7 @@ describe('parité du noyau avec le jeu', () => {
         sim.step(held, 1 / 120, false);
 
         expect(sim.state.drift, `${diff} a décroché au pas ${i}`).toBe(false);
-        expect(sim.state.chain).toBe(0);
+        expect(sim.state.climb).toBe(0);
         expect(sim.state.surgeT).toBe(0);
       }
     }

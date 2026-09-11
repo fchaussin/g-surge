@@ -31,8 +31,12 @@ export interface Tuning {
   gripLimit: number;
   driftExit: number;
   driftCharge: number;
-  chainDecay: number;
-  surgeHold: number;
+  /** Mètres de drift propre pour passer du boost au super boost. */
+  climbSup: number;
+  /** Mètres de drift propre pour passer du super boost au G-SURGE. */
+  climbSurge: number;
+  /** Vitesse, en m/s, à laquelle la montée redescend hors drift. */
+  climbDecay: number;
   surgeTime: number;
   centri: number;
   bankAssist: number;
@@ -121,8 +125,13 @@ export const DEFAULTS: Readonly<Tuning> = {
   gripLimit: 34,
   driftExit: 12,
   driftCharge: 17,
-  chainDecay: 0.25,
-  surgeHold: 0.45,
+  /* La montée se mesure en mètres pour que la jauge la montre, mais elle se
+   * dose en fraction de la fenêtre : 450 m valent un tiers de ce qu'une réserve
+   * pleine parcourt en boost, 600 m moins d'un tiers d'un super boost de 5 s.
+   * GAMEPLAY.md recalcule ces fractions. À rejuger en jouant. */
+  climbSup: 450,
+  climbSurge: 600,
+  climbDecay: 100,
   surgeTime: 5,
   centri: 0.085,
   bankAssist: 0.3,
@@ -143,7 +152,9 @@ export const DEFAULTS: Readonly<Tuning> = {
   fixChance: 0.003,
   fixAmount: 40,
   supChance: 0.0024,
-  supTime: 2.6,
+  /* 2,6 s tant que le super boost n'était qu'un ramassage ; 5 s depuis qu'il
+   * est un barreau dans lequel on drifte pour monter au suivant. */
+  supTime: 5,
   supFactor: 1.22,
   pickRadius: 3.6,
   haloTime: 0.45,
