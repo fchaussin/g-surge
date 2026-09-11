@@ -205,14 +205,6 @@ traces at ~50 KB compressed leave room for ~100 000 ghosts in the free 5 GB.
 
 ## Order of work
 
-1. ~~The trace and its replay in the core, tested~~ — done.
-2. ~~The core digest at build time~~ — done, `CORE_DIGEST`.
-3. ~~The browser-to-Node proof~~ — done: `bundle.spec.ts` records a run in
-   Chromium through `record()` and Node's `replay()` reaches the same
-   outcome, on the three difficulties.
-4. Phase 1 against a Worker, on the weekly board, with the ticket.
-5. Ghosts, from stored traces — first as a local feature, replaying one's
-   own best run against the live ship.
-6. Phase 2, the node source and the streamed track.
-7. Identity and the global board.
-8. Phase 3.
+`MULTIPLAYER-ROADMAP.md`: nine milestones, M0 to M8, what each delivers,
+what proves it, what it needs from the author. M0 — the trace, its replay,
+the core digest and the browser-to-Node proof — is done.
