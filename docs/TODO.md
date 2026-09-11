@@ -100,6 +100,19 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the streamed track's seam — 1.16.1
+
+- **"Tracks generated progressively by the server and served in chunks,
+  with enough buffer to fail and retry requests before the join."** Yes —
+  it was phase 2 of `NETWORK.md`, unsized; now sized (3 km chunks, two to
+  three ahead, 15 to 22 s to retry at the ceiling) and moved before the
+  weekly board so ranked runs stream from day one. The core half is built:
+  `generator.ts` — the generator out of `Track` behind a `NodeSource`, and
+  a queue addressed by segment id that makes retries and duplicates no-ops.
+  The frozen references pass through it under a deliberately ragged network.
+  The cost estimate moved: ~1 500 free daily players with the streamed
+  track, not 8 000 — the chunk requests are what the free plan counts.
+
 ### 12 September 2026, the ghost — 1.16.0
 
 - **"Go"** on the multiplayer roadmap, M1 first. Built: the best run of each

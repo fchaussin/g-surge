@@ -135,13 +135,33 @@ come and the local ones when they do not.
 
 ### Phase 2 — the streamed track
 
-`Track.nextNode()` becomes a **node source**: the seeded generator offline,
-a queue fed by the network online. The node is the same four numbers either
-way — `k`, `g`, `b`, `id` — plus the items the segment carries, so the core
-is bit-identical whichever fills the queue. The server generates from a seed
-it never sends and serves nodes ahead of `cursor` with the same lookahead
-the ring buffer holds, `COUNT` segments. A client that runs out of nodes has
-lost the connection: the run ends as unranked, it does not stall.
+`Track` takes its nodes from a **`NodeSource`** (`generator.ts`): the seeded
+generator offline, a queue fed by the network online. The node is the same
+four numbers either way — `k`, `g`, `b`, `id` — plus the items the segment
+carries, so the core is bit-identical whichever fills the queue; the frozen
+references pass through a queue fed in ragged chunks, `streamed-track.test.ts`.
+
+**Chunks are addressed by absolute segment id and are idempotent.** The
+server generates from a seed it never sends; `GET /track/:ticket/:from` answers
+`N` nodes from segment `from`, and the same range always answers the same
+bytes. `QueuedNodes.feed` keeps only what extends the queue, so a retried
+request, a late duplicate or an overlapping range does nothing — the join is
+seamless by construction, and retrying is free.
+
+**The buffer is sized for failed requests, not for the screen.** The screen
+shows 120 segments ahead, 1 440 m — 3.5 s at the 409 m/s ceiling. A chunk is
+256 segments, 3 km; the client asks for the next one whenever fewer than two
+chunks remain, so it holds between 6 and 9 km ahead: 15 to 22 s at the
+ceiling, 25 to 35 s at cruise. That is room for three or four failed attempts
+with a 4 s timeout each before the queue is dry — and dry ends the run
+unranked with a notice, never a stall: `Track.dry` continues straight on the
+last node so the simulation keeps its invariants while the client stops it.
+The first chunk comes with the ticket, so a ranked run starts at once.
+
+The honest cost of that buffer: a bot sees 6 to 9 km ahead instead of the
+player's 1.4. Still bounded, still real time, still one run per ticket — and
+the horizon is a constant that can be tightened once the network's real
+failure rate is measured, not a design limit.
 
 This is also what multiplayer needs: one track, generated once, served to
 every player in a room.
@@ -192,7 +212,7 @@ in a room sends input chunks at 4 Hz.
 
 | | free plan | binding limit | ceiling |
 |---|---|---|---|
-| Ranked boards | 100 k Worker requests, 100 k object requests, 100 k D1 writes, 5 M D1 reads a day; 5 GB storage | Worker requests, ~12 a player a day | **~8 000 active players a day** |
+| Ranked boards | 100 k Worker requests, 100 k object requests, 100 k D1 writes, 5 M D1 reads a day; 5 GB storage | Worker requests: ~2 a run plus one per 3 km chunk of streamed track — ~12 a run, ~60 a player a day | **~1 500 active players a day** with the streamed track; ~8 000 on a sent seed |
 | Live rooms | 13 000 GB-s of object duration a day (a room-hour is 450 GB-s at the 128 MB billed); WebSocket messages billed 20 to 1 request | messages, ~720 requests a player-hour at 4 Hz | **~350–400 players a day**, four to a room, twenty minutes each |
 
 The paid plan is $5 a month and includes 400 000 GB-s — about 900

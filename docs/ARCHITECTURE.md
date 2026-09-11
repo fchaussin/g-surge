@@ -16,7 +16,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 12 | ~2 600 |
+| `src/sim/` | 13 | ~2 800 |
 | `src/client/` | 34 | ~7 100 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
@@ -69,7 +69,8 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `rng.ts` | Seeded sfc32, serialisable, separate streams |
 | `clock.ts` | The fixed-step accumulator and the reasoning behind 720 Hz |
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
-| `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt`; `items` as the frozen references know them, and `extras` — the invincibility rings and the fuel cans, added since, on their own stream, past `extrasFrom` |
+| `track.ts` | Ring buffers, `buildPath`, `sample`, `gradeAt`; `items` as the frozen references know them, and `extras` — the invincibility rings and the fuel cans, added since, on their own stream, past `extrasFrom`. Takes its nodes from a `NodeSource`; `dry` when the source ran out |
+| `generator.ts` | The `NodeSource` seam: `SeededNodes`, the generator — geometry a function of seed, difficulty and segment id — and `QueuedNodes`, a queue fed in chunks addressed by segment id, for the streamed track of `NETWORK.md` |
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
 | `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `ride`, `rideEnd`, `fuelEmpty`, `wreck` |
 | `step.ts` | One physics step |

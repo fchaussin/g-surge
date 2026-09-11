@@ -49,4 +49,5 @@ export {
   type Trace,
 } from './replay.js';
 export { STEER_QUANTUM, packTrace, quantiseSteer, unpackTrace } from './trace-bytes.js';
+export { QueuedNodes, SeededNodes, type Node, type NodeSource } from './generator.js';
 export { Sim, type SimOptions } from './sim.js';

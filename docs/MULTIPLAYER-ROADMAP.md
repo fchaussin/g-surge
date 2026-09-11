@@ -33,16 +33,20 @@ and what could go wrong. No dates; the order is the commitment, as with
 | M0 | The trace and its replay | nothing | — | primitive — **done** |
 | M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 — **done**, 1.16.0 |
 | M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing |
-| M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 |
+| M5 | The streamed track | nothing, if done right | — | phase 2 — the core seam is **done**, 1.16.1 |
+| M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 on the streamed track |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
-| M5 | The streamed track | nothing, if done right | — | phase 2 |
 | M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers |
 | M7 | Rooms | racing others live on the same track | room size; how a race ends | phase 3 |
 | M8 | Hardening | nothing, or that it keeps working | budget ceiling and alerts | — |
 
-M1 and M2 are independent and can run in either order. M3 needs both. M5
-needs M3. M6 needs M4 and M5. M7 needs M5, and M6 if rooms are ranked. M8
-runs alongside from M3 on.
+M1 and M2 are independent and can run in either order. M5's core half — the
+node source — needs neither and is done; its server half needs M2. M3 needs
+M2 and M5: ranked runs stream their track from day one rather than start on
+a sent seed and retrofit — decided on 12 September 2026, when the author
+asked for tracks served in chunks with enough buffer to retry a failed
+request before the join. M6 needs M3 and M4. M7 needs M5, and M6 if rooms
+are ranked. M8 runs alongside from M3 on.
 
 ## M0 — The trace and its replay — done
 
@@ -201,32 +205,39 @@ further than a player.
 
 **Deliverables.**
 
-- `Track` takes a **node source**. Today `nextNode()` draws from the seeded
-  generator; it becomes one implementation of a source, and a second is a
-  queue filled by the network. The node is the same four numbers — `k`,
-  `g`, `b`, `id` — plus the segment's items, whichever source fills it, so
-  the core is bit-identical either way. The seeded source stays the default
-  and the offline path never sees the other.
-- The object generates from a seed it keeps and serves nodes ahead of the
-  client's reported `cursor`, `COUNT` segments — 130 nodes, 1 560 m — over a
-  WebSocket opened at ticket time. A client that runs dry has lost the
-  connection: the run ends unranked with a notice, it never stalls.
+- ~~`Track` takes a **node source**~~ — done, 1.16.1: `generator.ts` holds
+  `SeededNodes`, the generator moved out of `Track` unchanged, and
+  `QueuedNodes`, a queue fed in chunks addressed by absolute segment id that
+  keeps only what extends it — retries, duplicates and overlaps are no-ops.
+  The node carries its items, so `spawnItems` already runs on whichever side
+  generates. `Track.dry` goes straight on the last node when the queue is
+  empty, so the simulation keeps its invariants while the client ends the
+  run. The offline path never sees the queue.
+- The object generates from a seed it keeps; `GET /track/:ticket/:from`
+  serves 256-segment chunks — 3 km — idempotently. The client keeps two to
+  three chunks ahead, 6 to 9 km, and refetches below two: 15 to 22 s at the
+  ceiling to retry a failed request before the join. The first chunk comes
+  with the ticket. HTTP, not a WebSocket: retryable, cacheable per ticket,
+  and one request per 3 km fits the free plan; the socket waits for rooms.
+- The client: a `QueuedNodes` attached to `sim.track` for a ranked run, a
+  fetch loop driven by `queue.ahead`, and the unranked ending with a notice
+  when `track.dry` is seen.
 - The trace of a streamed run carries the ticket, not the seed; the object
   replays against its own generator.
 
-**Proof.** The frozen track fixtures replayed through the queue source, fed
-node by node from the seeded generator on the other side of a pipe, equal
-the fixtures — the seam changes nothing. A run played against the local
-server with the seed withheld replays on the server to the client's claim.
-A throttled connection in Playwright ends the run cleanly, unranked, with no
-frame over budget. The scene captures do not move.
+**Proof.** ~~The frozen track fixtures replayed through the queue source~~ —
+done, `streamed-track.test.ts`: sixty seeds and the three physics
+references through a queue fed in ragged chunks with lost requests, late
+duplicates and overlaps, bit-identical; and the dry queue ending straight.
+Still to prove with the server: a run played against the local server with
+the seed withheld replays on the server to the client's claim; a throttled
+connection in Playwright ends the run cleanly, unranked, with no frame over
+budget. The scene captures do not move.
 
-**Risks.** Latency: 120 nodes ahead of the ship at 409 m/s is 3.5 s of margin,
-which any connection meets, but a stalled tab does not — the run must end
-rather than resume with a gap. The item lists (`items`, `extras`) travel
-with the nodes; their spawn draws move server-side, the client's `spawnItems`
-becomes a consumer. This is the one milestone that touches `track.ts`, and
-it does so behind an interface the fixtures pin on both sides.
+**Risks.** A stalled tab longer than the buffer ends the run — right, and
+said on screen. The buffer gives a bot 6 to 9 km of lookahead against the
+player's 1.4; a constant to tighten once the real failure rate is measured,
+`NETWORK.md`.
 
 **Version.** Patch if invisible, as intended; minor if the ranked mode's
 behaviour on a lost connection counts as a feature.

@@ -1,21 +1,18 @@
 /**
- * Génération de piste, en flux.
+ * La piste, en flux.
  *
  * Quatre tampons circulaires parallèles de `COUNT` entrées, une par segment de
- * `SEG` mètres. `push()` les décale d'un cran et fabrique un nœud neuf, ce qui
- * arrive chaque fois que le vaisseau parcourt `SEG`. `BACK` segments sont
- * conservés derrière le vaisseau.
+ * `SEG` mètres. `push()` les décale d'un cran et prend un nœud neuf à la
+ * source, ce qui arrive chaque fois que le vaisseau parcourt `SEG`. `BACK`
+ * segments sont conservés derrière le vaisseau.
  *
- * La géométrie est une fonction de la seule graine, de la difficulté et de
- * l'identifiant de segment. Rien n'y dépend de la partie en cours, ce qui rend
- * une piste rejouable, partageable, et vérifiable par un serveur.
- *
- * Ce ne fut pas toujours le cas : le générateur lisait la vitesse réelle du
- * joueur pour borner courbure et pente, si bien que deux pilotages différents
- * sur une même graine produisaient deux tracés. Voir `nominalSpeed`.
+ * D'où vient le nœud est l'affaire de la source, `generator.ts` : le
+ * générateur semé hors ligne, une file remplie par le réseau en partie
+ * classée. La piste ne fait pas la différence, et c'est ce qui garantit que
+ * le noyau joue au bit près la même chose dans les deux cas.
  */
-import { Rng } from './rng.js';
-import { atan, cos, sin } from './trig.js';
+import { SeededNodes, type Node, type NodeSource } from './generator.js';
+import { cos, sin } from './trig.js';
 import type { Tuning } from './tuning.js';
 
 export const COUNT = 130;
@@ -71,21 +68,6 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-interface GenState {
-  k: number;
-  kTarget: number;
-  kLeft: number;
-  g: number;
-  gTarget: number;
-  gLeft: number;
-  gLerp: number;
-  crest: boolean;
-  roll: number;
-  rollDir: number;
-  rollPhase: number;
-  id: number;
-}
-
 export class Track {
   /** Courbure, rad/m. */
   readonly nk = new Float32Array(COUNT);
@@ -115,91 +97,90 @@ export class Track {
   readonly pz = new Float32Array(COUNT);
   readonly pyaw = new Float32Array(COUNT);
 
-  private readonly gen: GenState = {
-    k: 0,
-    kTarget: 0,
-    kLeft: 0,
-    g: 0,
-    gTarget: 0,
-    gLeft: 0,
-    gLerp: 0.09,
-    crest: false,
-    roll: 0,
-    rollDir: 1,
-    rollPhase: 0,
-    id: 0,
-  };
-
-  private readonly coinRun = { left: 0, lat: 0, drift: 0 };
-  private trackRng: Rng;
-  private itemRng: Rng;
-  private extraRng: Rng;
+  private source: NodeSource;
+  /**
+   * Vrai dès que la source n'a plus rien donné. La piste continue alors tout
+   * droit sur le dernier nœud pour que la simulation garde ses invariants, et
+   * c'est au client d'arrêter la partie : ce qui suit ne correspond à aucune
+   * piste, et un serveur ne le validerait pas.
+   */
+  dry = false;
+  private readonly last: Node = { k: 0, g: 0, b: 0, id: 0, items: [], extras: [] };
 
   constructor(
     private tuning: Tuning,
     seed: string,
   ) {
-    this.trackRng = Rng.fromSeed(seed, 'track');
-    this.itemRng = Rng.fromSeed(seed, 'items');
-    this.extraRng = Rng.fromSeed(seed, 'extras');
-    this.seed(seed);
+    this.source = new SeededNodes(tuning, seed);
+    this.attach(this.source);
   }
 
-  /** Le réglage change avec la difficulté ; la piste le relit à chaque nœud. */
+  /** Le réglage change avec la difficulté ; le générateur le relit à chaque nœud. */
   setTuning(tuning: Tuning): void {
     this.tuning = tuning;
+    this.source.setTuning(tuning);
   }
 
   /** Repart d'une piste neuve. Une même graine régénère exactement la même. */
   seed(seed: string): void {
-    this.trackRng = Rng.fromSeed(seed, 'track');
-    this.itemRng = Rng.fromSeed(seed, 'items');
-    this.extraRng = Rng.fromSeed(seed, 'extras');
+    this.attach(new SeededNodes(this.tuning, seed));
+  }
 
-    const g = this.gen;
-    g.k = g.kTarget = g.g = g.gTarget = 0;
-    g.kLeft = 26;
-    g.gLeft = 30;
-    g.gLerp = 0.09;
-    g.crest = false;
-    g.roll = 0;
-    g.rollPhase = 0;
-    g.id = 0;
-
+  /**
+   * Repart sur une autre source — la file du réseau en partie classée. Les
+   * `COUNT` premiers nœuds sont pris tout de suite ; une file qui ne les a
+   * pas encore est sèche avant de commencer.
+   */
+  attach(source: NodeSource): void {
+    this.source = source;
+    this.dry = false;
     this.items = [];
     this.extras = [];
-    this.coinRun.left = 0;
-
     for (let i = 0; i < COUNT; i++) {
-      const n = this.nextNode();
+      const n = this.take();
       this.nk[i] = n.k;
       this.ng[i] = n.g;
       this.nb[i] = n.b;
       this.nid[i] = n.id;
-      // pas d'objet sur les premiers segments : ils sont déjà derrière ou sous
-      // le vaisseau au premier rendu
-      if (i > BACK + 6) {
-        this.spawnItems(n.id);
-        this.spawnExtras(n.id);
-      }
+      this.collect(n);
     }
   }
 
-  /** Décale les tampons d'un cran et fabrique le nœud suivant. */
+  /** Le nœud suivant, ou le dernier prolongé tout droit si la source est sèche. */
+  private take(): Node {
+    const n = this.source.next();
+    const l = this.last;
+    if (n === null) {
+      this.dry = true;
+      l.id++;
+      return l;
+    }
+    l.k = n.k;
+    l.g = n.g;
+    l.b = n.b;
+    l.id = n.id;
+    return n;
+  }
+
+  private collect(n: Node): void {
+    for (const it of n.items) this.items.push(it);
+    for (const it of n.extras) this.extras.push(it);
+  }
+
+  /** Décale les tampons d'un cran et prend le nœud suivant. */
   push(): void {
     this.nk.copyWithin(0, 1);
     this.ng.copyWithin(0, 1);
     this.nb.copyWithin(0, 1);
     this.nid.copyWithin(0, 1);
 
-    const n = this.nextNode();
+    const n = this.take();
     this.nk[COUNT - 1] = n.k;
     this.ng[COUNT - 1] = n.g;
     this.nb[COUNT - 1] = n.b;
     this.nid[COUNT - 1] = n.id;
 
-    this.spawnItems(n.id);
-    this.spawnExtras(n.id);
+    this.collect(n);
     const oldest = this.nid[0]!;
     if (this.items.length && this.items[0]!.id < oldest - 2) {
       this.items = this.items.filter((it) => it.id >= oldest - 2);
@@ -305,162 +286,5 @@ export class Track {
     const t = f - i;
     const a = this.ng[i]!;
     return a + (this.ng[i + 1]! - a) * t;
-  }
-
-  /**
-   * Vitesse de référence pour dimensionner un segment.
-   *
-   * C'est le profil d'accélération du jeu évalué à la distance du segment, et
-   * non la vitesse réelle du joueur. La différence est tout l'objet de cette
-   * fonction : la seconde dépend de ce que fait le pilote, la première ne
-   * dépend que de l'endroit où l'on est sur la piste.
-   *
-   * Conséquence de conception assumée : le boost ne fait plus s'élargir les
-   * virages devant soi. Franchir un virage à 1,3 fois la vitesse pour laquelle
-   * il a été tracé multiplie la charge latérale par 1,69 — le boost coûte
-   * désormais quelque chose dans les courbes, au lieu d'être gratuit.
-   */
-  private nominalSpeed(id: number): number {
-    const T = this.tuning;
-    const ramp = Math.min(1, (id * SEG) / T.speedRamp);
-    return T.speedStart + (T.speedMax - T.speedStart) * ramp;
-  }
-
-  private nextNode(): { k: number; g: number; b: number; id: number } {
-    const T = this.tuning;
-    const gen = this.gen;
-    const rng = this.trackRng;
-
-    const speed = this.nominalSpeed(gen.id);
-    const v2 = Math.max(3600, speed * speed);
-    // courbure maximale telle que la charge latérale reste constante quelle que
-    // soit la vitesse : le rayon de virage croît avec le carré de la vitesse
-    const kMax = clamp(T.curveLoad / (v2 * T.centri), T.curveMin, T.curveMax);
-
-    // L'ouverture : `openingStraight` mètres droits et plats devant le vaisseau,
-    // qui est à BACK segments du premier nœud. Les virages viennent ensuite,
-    // les vrilles à partir de `rollFrom` — une piste qui s'apprend avant de
-    // se retourner.
-    const ahead = (gen.id - BACK) * SEG;
-    const opening = ahead < T.openingStraight;
-    if (opening) {
-      gen.kTarget = 0;
-      gen.kLeft = 1;
-      gen.gTarget = 0;
-      gen.gLeft = 1;
-      gen.crest = false;
-    }
-
-    if (gen.kLeft <= 0) {
-      if (ahead >= T.rollFrom && rng.chance(T.rollChance)) {
-        gen.roll = Math.round(T.rollNodes);
-        gen.rollDir = rng.sign();
-        gen.kTarget = 0;
-        gen.kLeft = gen.roll + 10; // piste droite pendant la vrille
-      } else {
-        gen.kTarget = rng.chance(0.2) ? 0 : rng.range(0.35, 1) * kMax * rng.sign();
-        gen.kLeft = 10 + rng.int(26);
-      }
-    }
-    gen.kLeft--;
-    gen.k += (clamp(gen.kTarget, -kMax, kMax) - gen.k) * 0.11;
-
-    // pente : bosses douces, plus des tremplins suivis d'une bascule franche
-    const gMax = T.climbRate / Math.max(60, speed);
-    if (gen.gLeft <= 0) {
-      if (gen.crest) {
-        gen.gTarget = -gMax * rng.range(0.75, 1);
-        gen.gLerp = 0.55;
-        gen.gLeft = 4 + rng.int(3);
-        gen.crest = false;
-      } else if (gen.roll <= 0 && rng.chance(0.26)) {
-        gen.gTarget = gMax * rng.range(0.75, 1);
-        gen.gLerp = 0.3;
-        gen.gLeft = 6 + rng.int(4);
-        gen.crest = true;
-      } else {
-        gen.gTarget = (rng.next() - 0.5) * 1.4 * gMax;
-        gen.gLerp = 0.09;
-        gen.gLeft = 12 + rng.int(26);
-      }
-    }
-    gen.gLeft--;
-    gen.g += (gen.gTarget - gen.g) * gen.gLerp;
-
-    // dévers : angle d'équilibre de la charge latérale, plus la vrille en cours
-    const load = gen.k * v2 * T.centri;
-    let b = clamp(-atan(load / 9.81) * T.bankScale, -1.25, 1.25);
-    if (gen.roll > 0) {
-      gen.rollPhase += gen.rollDir * ((Math.PI * 2) / Math.max(6, Math.round(T.rollNodes)));
-      gen.roll--;
-    }
-    b += gen.rollPhase;
-
-    return { k: gen.k, g: gen.g, b, id: gen.id++ };
-  }
-
-  /**
-   * Les objets de la liste à part. Un tirage par segment sur leur propre flux,
-   * donc rien ici ne déplace un objet de `items` ; et rien avant `extrasFrom`,
-   * qui est au-delà des traces figées — la piste s'ouvre d'abord.
-   */
-  private spawnExtras(id: number): void {
-    const T = this.tuning;
-    if (id * SEG < T.extrasFrom) return;
-    const rng = this.extraRng;
-    const r = rng.next();
-    if (r < T.rideChance) {
-      this.extras.push({
-        id,
-        lat: rng.centered(HALF - 3.5),
-        type: ITEM_RIDE,
-        done: false,
-        taken: false,
-      });
-    } else if (r < T.rideChance + T.fuelCanChance) {
-      this.extras.push({
-        id,
-        lat: rng.centered(HALF - 3.5),
-        type: ITEM_FUEL,
-        done: false,
-        taken: false,
-      });
-    }
-  }
-
-  private spawnItems(id: number): void {
-    const T = this.tuning;
-    const run = this.coinRun;
-    const rng = this.itemRng;
-
-    if (run.left > 0) {
-      run.left--;
-      run.lat = clamp(run.lat + run.drift, -(HALF - 3), HALF - 3);
-      this.items.push({ id, lat: run.lat, type: ITEM_COIN, done: false, taken: false });
-      return;
-    }
-
-    const r = rng.next();
-    if (r < T.supChance) {
-      this.items.push({
-        id,
-        lat: rng.centered(HALF - 3.5),
-        type: ITEM_SUP,
-        done: false,
-        taken: false,
-      });
-    } else if (r < T.supChance + T.fixChance) {
-      this.items.push({
-        id,
-        lat: rng.centered(HALF - 3.5),
-        type: ITEM_FIX,
-        done: false,
-        taken: false,
-      });
-    } else if (r < T.supChance + T.fixChance + T.coinChance) {
-      run.left = 5 + rng.int(6);
-      run.lat = rng.centered(HALF - 4);
-      run.drift = rng.centered(0.8);
-    }
   }
 }
