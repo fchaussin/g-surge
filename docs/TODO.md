@@ -129,6 +129,20 @@ carries the one design gap below and the other three carry none.
   install half. Chrome on Android shows its own "open in app" affordance in the
   address bar, which is the closest that exists.
 
+## Retuned on a first play, to be judged again
+
+15. **Damage.** Halved on 11 September 2026 after the author found Easy near
+    unplayable: `hullImpact` 1.2 / 1.6 / 2.2, `hullScrape` 7 / 10 / 14,
+    `hullRegen` 4 / 2.8 / 1.8, `badLandingHull` 12, `damageSpeed` 0.22,
+    `damageSteer` 0.2. The scripted pilot now survives five minutes on Easy
+    and Medium and about 195 s on Hard. If Easy still bites, `hullRegen` is
+    the knob that changes the feel most for the least: it decides how long a
+    mistake is remembered.
+
+16. **The compact camera.** Below 520 px of height the camera sits at 70 % of
+    `camDist`, 85 % of height and look-ahead. Judged on a Pixel 9 in landscape
+    — say if it is still far, or now too close; both are one constant.
+
 ## Housekeeping
 
 7. **Pushing.** I push only when asked. The versioning rule is respected

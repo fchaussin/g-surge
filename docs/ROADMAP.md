@@ -474,6 +474,21 @@ Nothing in the frozen simulation references moved for any of the four; the
 HUD and help references did, each in its own commit. What is left is play:
 `TODO.md` carries the values and the pilot's measurements.
 
+### After a first play — the same day
+
+- **1.10.0** — the game was tuned like a simulator and played like one.
+  Damage retuned for an arcade: hits cost 40 % less, scrapes half, the hull
+  heals two and a half times faster; and the track opens on 200 m of straight
+  with no corkscrew before 5 km. **The frozen simulation references moved for
+  the first time since the port**, on purpose and in their own commit: the
+  migration's proof is closed, and the references now pin the game as designed.
+- **1.11.0** — a camera a third closer on screens under 520 px high (a phone
+  in landscape), a desktop HUD without touch pads, labelled bars, tips that
+  speak to the device in hand.
+- **1.12.0** — the menu says when the app is already installed on the device;
+  the mobile boost gauge anchors to the top, away from the thumbs.
+- The root README speaks to the player; `docs/README.md` to the developer.
+
 **Total: five to eight days**, of which one is paper and one is a decision.
 
 ## What this roadmap does not cover
