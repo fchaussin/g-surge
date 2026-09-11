@@ -60,7 +60,8 @@ There were none. There is now a net:
   doubles, the camera's aspect fit and the preferences' sanitiser — every
   presentation module that can be reached without a browser; and two that
   read the tree as text — the documents' counts and the element ids shared
-  with `index.html`.
+  with `index.html`; and the service worker, evaluated as a file against fake
+  caches.
 
 Formerly listed as missing, and closed since:
 
@@ -389,8 +390,16 @@ checkable in the end-to-end suite, which runs over http where the worker does
 not register. The page's side is covered since by `tests/updates.test.ts`
 against stubbed browser globals — no reload on the first install, a reload on
 a later controller change, deferred while a run is on, the re-check on
-visibility — and the install prompt beside it. The worker's own fetch logic is
-the part still tested by deployment alone.
+visibility — and the install prompt beside it. The worker's own logic is
+covered by `tests/sw.test.ts`, which evaluates `static/sw.js` as it is against
+fake `caches` and `fetch` and sends it the three events a browser would:
+per-asset precache that survives a missing file, activation that drops the
+other caches, a navigation that bypasses the HTTP cache and falls back to the
+cached shell offline, cache-first assets that ignore the query string, no
+caching of a failed response. Validated by mutation — dropping `no-cache`,
+caching a failed response and switching to `addAll` each bring down a named
+test. What deployment alone still proves is the build plugin's two rewritten
+lines, which the unit test reads in their development form.
 
 ## 19. Documents that state figures nothing checks
 
