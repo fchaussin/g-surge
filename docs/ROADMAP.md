@@ -378,10 +378,42 @@ once with the animation in the stylesheet, not a transform rewritten every
 frame, and `prefers-reduced-motion` takes the movement out on its own while
 leaving the fade, which is legibility rather than motion.
 
-**Step 7 is complete.** What remains for the surge is judgement rather than
+**Step 7 is complete.** What remained for the surge was judgement rather than
 work: the value of `surgeHold`, and whether the blur layer stays on by default
-or sits behind a frame budget. Both are named at the end of §16 and both want
-playing rather than measuring.
+or sits behind a frame budget. The first was dissolved by step 8 rather than
+decided; the second is still named at the end of §16 and still wants playing.
+
+### Step 8 — the ladder is climbed, and the gauge is the ladder — done
+
+Not in the plan either; it came from asking what it would take to arbitrate
+`surgeHold`, and the answer was that nothing on screen showed what the
+threshold measured. The chain — seconds of drift, spent on the surge alone —
+became the climb: metres of clean drift towards the next rung, whichever it
+is. Under boost, `climbSup` metres earn a super boost; under a super boost,
+`climbSurge` metres open the surge. It counts only in thrust, because a ladder
+is taken rung by rung, never at the top, and a wall empties it as before. A
+super boost lasts five seconds now instead of 2.6, since it is a window to
+drift in rather than a pickup that happens to you; found or earned, it pins a
+full reserve and reads the same.
+
+The thresholds are metres so the gauge can show them, and are dosed as
+fractions of their window: `GAMEPLAY.md` computes that 450 m is 35 % of what a
+full reserve covers under boost and 600 m is 29 % of a five-second super boost.
+Both, with `climbDecay` and `supTime`, are on the Advanced tab.
+
+The boost gauge became the ladder itself: three stacked layers in the coin
+colours — gold for the reserve, white for the climb to a super boost and then
+its countdown, warm white for the climb to the surge and then its own — each
+drawn over the one below from the bottom up, and taken down in the order it
+was built when a rung ends. The layer the drift is raising pulses. Both gauges
+are thicker, because at 5 and 7 px they vanished into the frame's edge.
+
+Class C in name, and still no frozen reference moved: the traces hold no drift
+and no super boost. The HUD's two visual references moved, in a commit of
+their own. Version 1.2.0 — a rebalance, not a break.
+
+What remains is what the gauge now makes judgeable: the three climb values and
+`supTime`, by playing, with the bar in view.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

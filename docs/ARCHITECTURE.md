@@ -134,14 +134,19 @@ Grip breaks when the demanded lateral acceleration exceeds `gripLimit`, which
 starts a drift: grip drops, the ship slides wide while still pointing into the
 corner, and the boost reserve refills fast.
 
-A drift held builds `state.chain`, which drains when the drift ends and is cut
-by a wall. The chain is the gate of the surge — `G_SURGE`, the state the game
-is named after: when it passes `surgeHold` while a super boost is running, the
-super boost escalates into `surgeTime` seconds at the **same** top speed. The
-surge gains no speed, because the engine's audio ratio is already near its
-ceiling; it gains duration and a sensory world that goes down rather than up.
-Specified in `FX-PALETTE.md` §16. It costs no frozen reference by construction:
-the traces contain no drift, and `sim-parity` asserts that they never will.
+The thrust ladder has four rungs — cruise, boost, super boost, surge — and is
+climbed rung by rung. Boost is bought: the reserve, refilled by drifting, spent
+by holding the button. The two rungs above are climbed: `state.climb` counts
+metres of drift with nothing touched, only while in thrust, drains at
+`climbDecay` off drift and is emptied by a wall. Under boost, `climbSup` metres
+earn a super boost — the pickup still grants one outright. Under a super
+boost, `climbSurge` metres open the surge, `G_SURGE`, the state the game is
+named after. Both last `supTime` and `surgeTime`, five seconds each, at the
+**same** top speed: the surge gains no speed, because the engine's audio ratio
+is already near its ceiling; it gains a sensory world that goes down rather
+than up. The boost gauge is that ladder, one stacked layer per rung. Specified
+in `FX-PALETTE.md` §16. None of it costs a frozen reference: the traces contain
+no drift and no super boost, and `sim-parity` asserts the first.
 
 Airborne state is triggered physically: when the track falls away faster than
 `airThresh × g`, the ship keeps its vertical velocity and the gap opens.

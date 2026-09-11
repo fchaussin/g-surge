@@ -52,9 +52,10 @@ qu'un document a porté un chiffre faux pendant des mois.
 - **`DRIFT_CHARGE` et la réserve de boost sont la même variable**, `state.energy`,
   de 0 à 100. La recharge de drift vaut `driftCharge` = 17 points/s, à comparer à
   `boostRecharge` = 10. Deux concepts dans la palette, un seul champ dans le code.
-- **Le superboost est implémenté**, ramassé sur la piste (`supChance`), d'une
-  durée `supTime` = 2,6 s. **Il est différencié depuis l'étape 1** : le palier
-  de poussée, `thrustTier()` dans `src/client/thrust.ts`, est lu par la caméra,
+- **Le superboost est implémenté**, ramassé sur la piste (`supChance`) ou
+  mérité par `climbSup` mètres de drift sous boost, d'une durée `supTime` = 5 s
+  (2,6 s jusqu'au 11 septembre 2026). **Il est différencié depuis l'étape 1** :
+  le palier de poussée, `thrustTier()` dans `src/sim/state.ts`, est lu par la caméra,
   le ciel, l'audio et le vaisseau, là où chacun relisait `state.boosting`. Ce
   Et la vitesse a suivi à l'étape 5 : `supFactor` = 1,22 le place 22 % au-dessus
   d'un boost, soit à peu près la même marche que le boost au-dessus de la
@@ -82,10 +83,12 @@ qu'un document a porté un chiffre faux pendant des mois.
   hystérésis. `driftEnd` porte `held`, la durée : un drift d'un seul pas existe,
   mesuré à 1 ms, et sans cette durée son entrée et sa sortie se superposeraient
   en un clic.
-- **N'existent pas du tout, et sont des mécaniques, pas des FX** : la chaîne de
-  drift, le stock de superboost avec sa disponibilité et son activation — le
-  pickup déclenche l'effet immédiatement — la phase de recovery, et l'état
-  `G_SURGE`. Le jeu porte toujours le nom d'un état qu'il n'a pas, mais la §16
+- **N'existent pas, et sont des mécaniques, pas des FX** : le stock de
+  superboost avec sa disponibilité et son activation — le pickup déclenche
+  l'effet immédiatement — et la phase de recovery. La chaîne de drift et l'état
+  `G_SURGE`, absents à l'écriture de cette liste, existent depuis l'étape 7 ;
+  la chaîne est devenue la montée en mètres, `state.climb`, le 11 septembre
+  2026. Le jeu portait le nom d'un état qu'il n'avait pas, et la §16
   dit maintenant lequel : ce qu'il exige, ce qu'il coûte, et ce qui reste à
   trancher avant d'en écrire une ligne.
 
@@ -155,7 +158,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `DRIFT_ENTRY` | donner un impact clair au début du drift | `driftStart` | **existe** — transient et impulsion haptique |
 | `DRIFT_FLOW` | faire sentir le déplacement latéral | `state.drift`, `state.slip` | **existe** — lacet, gerbe latérale, souffle proportionnel |
 | `DRIFT_CHARGE` | montrer que le drift recharge le boost | `state.energy` montant | **existe** — HUD et ton qui monte avec la réserve |
-| `DRIFT_CHAIN` | valoriser un drift long et propre | chaîne — n'existe pas | absent, classe C |
+| `DRIFT_CHAIN` | valoriser un drift long et propre | `state.climb`, la montée en mètres vers le barreau suivant | fait — la jauge empilée et le halo la montrent |
 | `DRIFT_RELEASE` | marquer la sortie | `driftEnd` | **existe** — whoosh dosé et recentrage caméra |
 | `DRIFT_FULL_CHARGE` | signaler le boost rechargé | `energy` repassée à 100 après 95 | **existe** — classe `.full` et confirmation à deux notes |
 
@@ -184,7 +187,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `main.ts`, hystérésis à 95 | audio.ts | A | **existe** — deux notes montantes | P0 |
 | `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `state.slip` normalisé | audio.ts | A | absent | P1 |
 | `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `driftEnd` | audio.ts | B | **existe** — dosé par `held`, muet sous 0,12 s | P1 |
-| `SFX_DRIFT_CHAIN` | Intensification progressive | chaîne — n'existe pas | audio.ts | C | absent, mécanique | P1 |
+| `SFX_DRIFT_CHAIN` | Intensification progressive | `state.climb` | audio.ts | A | absent — la montée se voit, elle ne s'entend pas encore | P1 |
 | `HAP_DRIFT_ENTRY` | Impulsion d'entrée | `driftStart` | haptics.ts | B | **existe** — espacée de 220 ms | P1 |
 
 `haptics.ts` n'existe que là où `navigator.vibrate` existe : ni iOS, ni bureau.
@@ -285,7 +288,7 @@ Signatures actuelles, à étendre plutôt qu'à contourner :
 | `boostCharge` | `state.energy / 100` | rien — lu par l'audio depuis l'étape 4 |
 | `superRemaining` | `state.superT / supTime` | rien, disponible, **et personne ne le lit** |
 | `superAvailable` | — | pas de stock |
-| `driftChain` | `state.driftHeld`, la durée du drift en cours | la chaîne elle-même, qui est une mécanique. La durée, elle, existe et `driftEnd` la porte |
+| `driftChain` | `state.climb`, la montée en mètres, et `state.driftHeld`, la durée du drift en cours | rien depuis la révision : la montée est dans le noyau, la durée dans `driftEnd` |
 
 ## 13. Cycle de jeu
 
@@ -352,9 +355,11 @@ catapulte et en est une : +266 km/h sur le boost, quand le boost en ajoute +279
 
 ## 16. Spécification du G-SURGE
 
-**Écrit à l'étape 6, révisé après relecture. La mécanique et la couche sonore
-existent depuis ; la couche visuelle non.** Ce qui suit reste la spécification
-complète, avec l'état de chaque morceau.
+**Écrit à l'étape 6, révisé après relecture, construit à l'étape 7, et revu le
+11 septembre 2026 quand la chaîne est devenue la montée** — voir la dernière
+sous-section. Ce qui suit reste la spécification complète, avec l'état de
+chaque morceau ; là où la révision a changé un mécanisme, le texte d'origine
+est conservé et la sous-section finale dit ce qui a bougé.
 
 ### Ce que la mesure avait déjà tranché
 
@@ -396,14 +401,16 @@ Le cumul de vitesse est **plafonné à deux crans**, dégressifs :
 | 2 | × 1,22 | 1 473 km/h | 1,586 |
 
 **Le G-SURGE ne gagne aucune vitesse.** Il roule aux mêmes 1 473 km/h que le
-superboost. Ce qu'il gagne est une durée — 5 s au lieu de 2,6 — et un monde
+superboost. Ce qu'il gagne est une durée — 5 s au lieu des 2,6 s que durait
+alors un superboost ; les deux durent 5 s depuis la révision — et un monde
 sensoriel entier. C'est un choix, et c'est le choix le moins cher qui existe :
 `r` reste à 1,586 sous le plafond de 1,7, donc **rien à relever, rien à
 re-régler, et aucune référence figée à régénérer**.
 
 Le troisième palier n'est donc pas un troisième cran de vitesse mais un **état**
 posé sur le deuxième. Dit autrement : le boost s'achète, le superboost se
-trouve, le G-SURGE se mérite — et les trois vont à la même vitesse maximale.
+trouve — ou se mérite, depuis la révision — le G-SURGE se mérite, et les trois
+vont à la même vitesse maximale.
 
 ### Entrée, durée, sortie
 
@@ -424,12 +431,14 @@ trouve, le G-SURGE se mérite — et les trois vont à la même vitesse maximale
   Mesuré une fois par dix minutes : parfait comme voie de bonus, impossible
   comme voie principale. Le plafond n'est pas de la prudence — le blanc audio
   est une absence, et une absence qui dure cesse de se lire comme un événement.
-- **Fait.** `state.chain` cumule du temps de drift et redescend à `chainDecay`
-  hors drift. Remise à zéro par un contact de mur ou une réception hors piste :
-  la chaîne récompense la propreté, pas l'obstination. Pas de pondération par
-  l'intensité — la mesure qui a choisi cette porte portait sur des *durées*, et
-  pondérer irait au-delà de ce qu'elle établit.
-- **`surgeHold` est uniforme, 0,45 s.** Il avait dû être surchargé par
+- **Fait, puis revu.** `state.chain` cumulait du temps de drift et redescendait
+  à `chainDecay` hors drift ; c'est `state.climb` désormais, des mètres, voir la
+  révision en fin de section. Remise à zéro par un contact de mur ou une
+  réception hors piste : la montée récompense la propreté, pas l'obstination.
+  Pas de pondération par l'intensité — la mesure qui a choisi cette porte
+  portait sur des *durées*, et pondérer irait au-delà de ce qu'elle établit.
+- **`surgeHold` était uniforme, 0,45 s** — remplacé par `climbSurge` en mètres
+  à la révision ; le raisonnement d'alors reste vrai. Il avait dû être surchargé par
   difficulté tant que la chaîne portait seule toute la rareté — la chaîne
   atteignable plafonne à 0,95 s en facile contre 2,65 en moyen, ce qui est une
   lame de rasoir. Le super boost ayant repris ce rôle, la chaîne n'a plus qu'à
@@ -452,10 +461,10 @@ bougent pas**, seule la case 3 est neuve.
 
 | Table | Fichier | Case 3 |
 |---|---|---|
-| Halo de drift | main.ts | cyan `--neon`, tenu, scintillement irrégulier, luminosité portée par la chaîne |
+| Halo de drift | feedback.ts | cyan `--neon`, tenu, scintillement irrégulier, luminosité portée par la montée vers le barreau suivant |
 | Calque plein écran | overlay.ts | voile blanc et flou périphérique, masqués radialement, portés par l'intensité |
-| Secousse | main.ts | un coup à l'entrée, puis une tenue qui monte avec l'intensité |
-| Jauge de boost | hud.ts | devient le compte à rebours de l'état, bornée à 100 |
+| Secousse | feedback.ts, main.ts | un coup à l'entrée, puis une tenue qui monte avec l'intensité |
+| Jauge de boost | hud.ts | la couche du haut de l'échelle empilée : montée vers l'état, puis son décompte, bornée à 100 |
 | HUD | index.html | les instruments décrochent, le secondaire s'efface — jamais les commandes |
 | `FOV_KICK`, `FOV_EASE`, `LAG_SCALE` | camera.ts | champ très large, convergence brutale, caméra qui décroche franchement |
 | `WARP_BY_TIER`, `uStreak` | sky.ts | filé maximal — voir le coût plus bas |
@@ -559,13 +568,13 @@ la même famille — adapter le coût, pas la cadence. Hors périmètre pour l'i
 | drift + G-SURGE | **autorisé** — le drift est ce qui y mène |
 | boost + G-SURGE | le G-SURGE prime, comme le superboost prime sur le boost |
 | superboost + G-SURGE | même vitesse, donc pas de conflit ; un ramassage pendant l'état prolonge plutôt qu'il ne cumule |
-| collision + G-SURGE | la collision sort de l'état et remet la chaîne à zéro |
+| collision + G-SURGE | la collision ne sort pas de l'état — un mur ne coupe que son rendu — mais remet la montée à zéro |
 
 ### Ce que ça coûte, en références figées
 
 | Élément | Classe | Références |
 |---|---|---|
-| `state.chain` | B | aucune — la trace enregistre une liste blanche qui ne la contient pas |
+| `state.climb` (ex-`chain`) | B | aucune — la trace enregistre une liste blanche qui ne la contient pas |
 | `surgeStart`, `surgeEnd` | B | aucune — aucun événement n'est enregistré |
 | Caméra, ciel, audio, HUD, calque de flou | A | aucune |
 | La vitesse et les paliers | — | **non touchés**, c'est tout l'intérêt du plafond à deux crans |
@@ -581,7 +590,7 @@ ses propres tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 
 
 ### Découpage
 
-1. **Le palier sensoriel**, porte = chaîne de drift, vitesse inchangée.
+1. **Le palier sensoriel**, porte = drift cumulé sous superboost, vitesse inchangée.
    *Fait* : la mécanique et sa porte, le quatrième palier dans les quatre
    tables, le blanc audio, les deux événements, le halo de drift, la jauge
    détournée en compte à rebours, l'intensité qui se mérite, le calque de flou
@@ -594,9 +603,50 @@ ses propres tests, comme `tests/speed.test.ts` a dû être écrit pour l'étape 
 C'est l'ordre qui a déjà payé deux fois : l'étape 5 était délibérément après
 l'étape 1, et le chiffre s'est bien mieux tranché avec le retour en place.
 
+### Révision du 11 septembre 2026 : la montée remplace la chaîne
+
+La question « que faut-il pour arbitrer `surgeHold` ? » a eu une réponse qui
+n'était pas une valeur : rien à l'écran ne montrait ce que le seuil mesurait.
+La révision règle ça en faisant de la jauge l'échelle elle-même.
+
+- **La chaîne devient la montée.** `state.climb` cumule des *mètres* de drift
+  propre vers le barreau suivant, quel qu'il soit, et ne compte qu'en poussée :
+  en boost vers le superboost, en superboost vers le G-SURGE, jamais au sommet.
+  Hors drift elle redescend à `climbDecay` = 100 m/s ; un mur ou une réception
+  hors piste l'annulent, comme la chaîne. `surgeHold` et `chainDecay` n'existent
+  plus.
+- **Le superboost se mérite aussi.** `climbSup` = 450 m de montée sous boost
+  l'ouvrent, avec la réserve remise à 100 comme le ferait le ramassage, et
+  l'événement `supEarned` déclenche la même onde de choc et le même son. Le
+  ramassage reste la voie « trouvé » et donne le barreau d'un coup.
+- **Le G-SURGE s'ouvre à `climbSurge` = 600 m** de montée sous superboost, au
+  lieu de 0,45 s de chaîne. Le doublé de ramassages escalade toujours sans
+  condition, et un ramassage pendant l'état le prolonge toujours, plafonné au
+  double.
+- **`supTime` passe de 2,6 à 5 s.** Un superboost est une fenêtre dans laquelle
+  on drifte pour monter, plus un ramassage qui vous arrive ; 2,6 s ne laissaient
+  pas la place. Trouvé ou mérité, il dure pareil.
+- **Les seuils sont en mètres pour que la jauge les montre, dosés en fraction de
+  leur fenêtre.** `GAMEPLAY.md` recalcule les deux : 450 m font 35 % de ce
+  qu'une réserve pleine parcourt en boost, 600 m font 29 % d'un superboost de
+  5 s. Les trois valeurs et `supTime` sont dans l'onglet Avancé.
+- **La jauge de boost est l'échelle**, trois couches empilées aux couleurs des
+  pièces : or pour la réserve, blanc pour la montée vers le superboost puis son
+  décompte, blanc chaud pour la montée vers le G-SURGE puis le sien. Chaque
+  couche recouvre la précédente depuis le bas ; un palier qui s'éteint vide la
+  sienne et découvre celle du dessous — la pile se déconstruit dans l'ordre où
+  elle s'est bâtie. La couche que le drift fait monter pulse. Les deux jauges
+  sont plus épaisses, 9 et 12 px au lieu de 5 et 7.
+- **Coût** : aucune référence figée de simulation, les traces ne contenant ni
+  drift ni superboost ; les deux références visuelles du HUD, régénérées
+  seules ; version 1.2.0.
+
 ### Ce qui reste ouvert
 
-1. La valeur de `surgeHold`, à rejuger en jouant.
+1. Les valeurs de `climbSup`, `climbSurge`, `climbDecay` et `supTime`, à rejuger
+   en jouant — désormais avec la jauge qui montre la montée, et les quatre dans
+   l'onglet Avancé. L'ancienne question de `surgeHold` est dissoute plutôt que
+   tranchée.
 2. Le calque de flou est-il actif par défaut, ou seulement au-dessus d'un
    certain budget de frame ?
 
@@ -607,4 +657,4 @@ Et la lueur de drift reste faible : elle et le G-SURGE sont deux barreaux de la
 même échelle, une charge éclatante mangerait le barreau du dessus.
 
 Tranché depuis : le palier 3 de vitesse **n'est pas exigé** en plus de la
-chaîne. Il n'occupe que 7 % du temps en difficile, l'état y serait mort-né.
+montée. Il n'occupe que 7 % du temps en difficile, l'état y serait mort-né.

@@ -54,7 +54,7 @@ There were none. There is now a net:
   matching reference.
 - Vitest, one file per concern under `tests/`: the PRNG, the clock, the
   trigonometry and parity against those references on the core; the event
-  emission, the speed tiers, the drift chain and the surge, which the frozen
+  emission, the speed tiers, the climb, the earned super boost and the surge, which the frozen
   traces cannot see; on the client side the quality governor, the drift scale
   and the spray envelope, the only presentation modules that run without a
   browser; and two that read the tree as text — the documents' counts and the
