@@ -299,6 +299,7 @@ function endRun(): void {
   screens.setMode('over');
   scoreScreen.show({
     distance: sim.state.dist,
+    seconds: sim.state.time,
     coins: sim.state.coins,
     peakMultiplier: sim.state.multPeak,
     total: sim.state.score,

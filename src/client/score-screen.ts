@@ -1,13 +1,19 @@
 /**
- * L'écran de fin de partie : quatre chiffres comptés à la suite.
+ * L'écran de fin de partie : six chiffres comptés à la suite.
  *
- * Le décalage n'est pas une décoration. Distance, pièces, multiplicateur crête
- * et total apparaissent dans l'ordre où ils se combinent, pour que l'écran
- * explique d'où vient le nombre — c'est le seul endroit où le jeu enseigne que
- * les pièces montent le multiplicateur et que les murs le divisent par deux.
+ * Le décalage n'est pas une décoration. Distance, temps, vitesse moyenne,
+ * pièces, multiplicateur crête et total apparaissent dans l'ordre où ils se
+ * combinent, pour que l'écran explique d'où vient le nombre — c'est le seul
+ * endroit où le jeu enseigne que les pièces montent le multiplicateur et que
+ * les murs le divisent par deux. La vitesse moyenne n'entre pas dans le score :
+ * elle le qualifie — haute avec un score haut, c'est de la maîtrise.
  */
+import { formatClock } from './hud.js';
+
 export interface ScoreBreakdown {
   distance: number;
+  /** Secondes de partie, au pas fixe. */
+  seconds: number;
   coins: number;
   peakMultiplier: number;
   total: number;
@@ -35,6 +41,21 @@ export class ScoreScreen {
         el: document.getElementById('sDist'),
         to: Math.round(breakdown.distance),
         suffix: ' m',
+        dec: 0,
+        prefix: '',
+      },
+      {
+        el: document.getElementById('sTime'),
+        to: breakdown.seconds,
+        suffix: '',
+        dec: 0,
+        prefix: '',
+        format: formatClock,
+      },
+      {
+        el: document.getElementById('sAvg'),
+        to: breakdown.seconds > 0 ? (breakdown.distance / breakdown.seconds) * 3.6 : 0,
+        suffix: ' km/h',
         dec: 0,
         prefix: '',
       },
@@ -68,7 +89,7 @@ export class ScoreScreen {
 
     for (const row of rows) {
       if (!row.el) continue;
-      row.el.textContent = `${row.prefix}${row.dec ? '0.0' : '0'}${row.suffix}`;
+      row.el.textContent = `${row.prefix}${row.format ? row.format(0) : row.dec ? '0.0' : '0'}${row.suffix}`;
       row.el.parentElement?.classList.add('pending');
     }
 
@@ -90,7 +111,10 @@ export class ScoreScreen {
         if (k > 0) row.el.parentElement?.classList.remove('pending');
         const eased = 1 - Math.pow(1 - k, 3);
         const v = row.to * eased;
-        row.el.textContent = row.prefix + (row.dec ? v.toFixed(row.dec) : fmt(v)) + row.suffix;
+        row.el.textContent =
+          row.prefix +
+          (row.format ? row.format(v) : row.dec ? v.toFixed(row.dec) : fmt(v)) +
+          row.suffix;
         if (k >= 1) {
           done++;
           if (!rung[i]) {

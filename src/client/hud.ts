@@ -21,9 +21,16 @@ const PULSE_CUT = 0.2;
 
 const byId = (id: string) => document.getElementById(id);
 
+/** `m:ss`, sans heure : une partie ne dure pas une heure, et si elle le fait les minutes suffisent. */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export class Hud {
   private readonly root = byId('hud');
-  private readonly score = byId('dist');
+  private readonly dist = byId('dist');
+  private readonly clock = byId('clock');
   private readonly mult = byId('mult');
   private readonly speed = byId('spd');
   private readonly speedBox = byId('spdBox');
@@ -46,7 +53,8 @@ export class Hud {
   private readonly layers = createLayers();
 
   /* Dernières valeurs écrites, pour qu'une frame inchangée n'écrive rien. */
-  private lastScore = -1;
+  private lastDist = -1;
+  private lastClock = -1;
   private lastSpeed = -1;
   private lastCoins = -1;
   private lastHull = -1;
@@ -65,10 +73,17 @@ export class Hud {
 
   /** Appelé une fois par frame pendant une partie. */
   update(state: SimState, tuning: Tuning, frameDt: number): void {
-    const score = Math.round(state.score);
-    if (score !== this.lastScore) {
-      this.lastScore = score;
-      if (this.score) this.score.textContent = score.toLocaleString('en-GB');
+    // La distance au centième de kilomètre et le chronomètre à la seconde :
+    // le score ne s'affiche plus pendant la partie, il se lit à la fin.
+    const dist = Math.floor(state.dist / 10);
+    if (dist !== this.lastDist) {
+      this.lastDist = dist;
+      if (this.dist) this.dist.textContent = (dist / 100).toFixed(2);
+    }
+    const seconds = Math.floor(state.time);
+    if (seconds !== this.lastClock) {
+      this.lastClock = seconds;
+      if (this.clock) this.clock.textContent = formatClock(seconds);
     }
 
     const kmh = Math.round(state.speed * 3.6);
@@ -110,7 +125,7 @@ export class Hud {
 
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
-    this.lastScore = this.lastSpeed = this.lastCoins = -1;
+    this.lastDist = this.lastClock = this.lastSpeed = this.lastCoins = -1;
     this.lastHull = this.lastFuel = this.lastShield = -1;
     this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
     this.lastSurging = false;

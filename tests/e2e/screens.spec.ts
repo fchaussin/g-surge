@@ -74,7 +74,7 @@ test.describe('machine à états et navigation', () => {
     await expect(page.locator('#diffNote')).not.toBeEmpty();
   });
 
-  test('une partie fait avancer le score et la vitesse', async ({ game, page }) => {
+  test('une partie fait avancer la distance et la vitesse', async ({ game, page }) => {
     await game.boot();
     await page.locator('#btnStart').click();
 
@@ -94,7 +94,7 @@ test.describe('machine à états et navigation', () => {
           page
             .locator('#dist')
             .innerText()
-            .then((t) => Number(t.replace(/\D/g, ''))),
+            .then((t) => Number(t)),
         {
           timeout: 30_000,
         },

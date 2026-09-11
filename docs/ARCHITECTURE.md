@@ -185,7 +185,7 @@ which is what makes the step runnable outside a page.
 | `surge.ts` | `SurgeMeter`, the intensity a surge earns by driving clean — presentation, reset for a capture |
 | `overlay.ts` | The surge's masked DOM layer: white veil and peripheral `backdrop-filter` blur |
 | `ladder.ts` | The gauge's three layers as a pure function of the state, tested in Node |
-| `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface |
+| `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface — the HUD reads distance and `state.time`, never the score, which the end screen reveals with the average speed |
 | `preferences.ts` | `gsurge.prefs.v1` — validated on read, coalesced on write |
 | `input.ts` | Devices in, `{ steer, brake, boost }` out |
 | `audio.ts`, `haptics.ts` | Feedback, driven by events |

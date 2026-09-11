@@ -172,6 +172,7 @@ export function step(
   state.travel += d;
   if (!attract) {
     state.dist += d;
+    state.time += dt;
     state.score += state.speed * state.mult * diffMul * dt;
     if (state.mult > state.multPeak) state.multPeak = state.mult;
   }

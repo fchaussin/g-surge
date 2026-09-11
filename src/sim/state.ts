@@ -16,6 +16,8 @@ export interface SimState {
   dist: number;
   travel: number;
   cursor: number;
+  /** Secondes de partie, au pas fixe : le chronomètre du HUD, hors attract et hors pause. */
+  time: number;
 
   /* Vitesse et réserve */
   speed: number;
@@ -133,6 +135,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.dist = 0;
   state.travel = 0;
   state.cursor = 0;
+  state.time = 0;
 
   state.speed = tuning.speedStart;
   state.energy = 100;

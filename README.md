@@ -34,7 +34,9 @@ by the speed where no thumb covers it. A left-handed layout is in Settings.
 worth little; speed is what pays, and the multiplier is what makes it pay a
 lot. Coins raise it, it erodes on its own, and **hitting a wall halves it**.
 Above 1000 km/h it erodes half as fast, so holding top speed protects what you
-built.
+built. The HUD shows distance and time, not the score: that is revealed at the
+end, with your average speed next to it — high with a high score, that is
+control.
 
 **Drifting is the engine of everything.** Push hard into a corner until grip
 breaks: the ship slides wide while pointing into the turn, the hull glows, the

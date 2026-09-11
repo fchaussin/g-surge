@@ -225,6 +225,11 @@
   .dist .n{font-size:3.8em;font-weight:200;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(37,226,255,.45)}
   .dist .n i{font-style:normal;font-size:.38em;font-weight:400;color:var(--dim);margin-left:3px}
+  /* Le chronomètre sous la distance : le score ne s'affiche plus en partie —
+     un compteur qui monte régulièrement ne disait rien, la distance et le
+     temps disent où l'on en est, et le score se lit à la fin. */
+  .dist .clock{margin-top:2px;font-size:1.15em;font-weight:600;letter-spacing:.08em;color:var(--dim);
+    font-variant-numeric:tabular-nums}
   .dist .r{margin-top:5px;font-size:1em;color:var(--dim2);font-variant-numeric:tabular-nums}
   .dist .coins{margin-top:3px;font-size:.9em;letter-spacing:.1em;color:var(--dim2)}
   .dist .coins b{color:#ffc24a;font-weight:700;font-variant-numeric:tabular-nums}
@@ -469,7 +474,7 @@
   .score{margin:16px 0 4px}
   .srow{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 0;
     border-bottom:1px solid rgba(223,242,248,.07);font-size:12px;letter-spacing:.05em;color:var(--dim)}
-  .srow b{font-size:15px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+  .srow b{font-size:15px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
   .srow i{font-style:normal;font-size:10px;color:var(--dim2);letter-spacing:0}
   .srow.total{border-bottom:0;border-top:1px solid var(--line);margin-top:5px;padding-top:11px;
     color:var(--text);font-weight:600}
@@ -616,7 +621,8 @@
 <div class="fps" id="fps"><b id="fpsVal">--</b>fps</div>
 
 <div class="hud" id="hud">
-  <div class="dist"><div class="n"><span id="dist">0</span><i>pts</i></div>
+  <div class="dist"><div class="n"><span id="dist">0.00</span><i>km</i></div>
+    <div class="clock" id="clock">0:00</div>
     <div class="live" id="mult">&#215;1.0</div>
     <div class="r" id="recline">best 0 m</div>
     <div class="coins"><b id="coinCount">0</b> COINS</div></div>
@@ -704,6 +710,8 @@
     <div class="pausehead">SHIP WRECKED</div>
     <div class="score">
       <div class="srow"><span>DISTANCE</span><b id="sDist">0 m</b></div>
+      <div class="srow"><span>TIME</span><b id="sTime">0:00</b></div>
+      <div class="srow"><span>AVERAGE SPEED <i>high with a high score: mastery</i></span><b id="sAvg">0 km/h</b></div>
       <div class="srow"><span>COINS <i id="sMul"></i></span><b id="sCoins">0</b></div>
       <div class="srow"><span>PEAK MULTIPLIER</span><b id="sBonus">×1.0</b></div>
       <div class="srow total"><span>SCORE</span><b id="sTotal">0</b></div>
@@ -743,7 +751,7 @@
         </div>
         <div class="grp">
           <h3>Score</h3>
-          <p>Your score is your speed multiplied by a live multiplier, added up every instant. Distance alone is worth little, speed is what pays.</p>
+          <p>Your score is your speed multiplied by a live multiplier, added up every instant. Distance alone is worth little, speed is what pays. The HUD shows distance and time; the score, and your average speed, are revealed at the end.</p>
           <p>Coins raise the multiplier, and how much depends on the rung you are on when you take them: a little at cruise, more under boost, more again under a super boost, and the most in a G-SURGE. The coin's colour tells you which. Above 1000 km/h the multiplier also decays half as slowly, so holding top speed protects what you built.</p>
           <p>The multiplier erodes on its own, and <b>hitting a wall halves it</b>.</p>
         </div>

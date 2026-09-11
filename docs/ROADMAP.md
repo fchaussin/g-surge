@@ -518,6 +518,9 @@ HUD and help references did, each in its own commit. What is left is play:
   instead of leaving it at 900: the factor of 1.9.0 becomes a ceiling. A fix
   to a value found wrong in play, hence a patch; no trace runs dry, so no
   reference moved.
+- **1.15.4** — the HUD stops ticking the score: distance and a stopwatch
+  instead, and the end screen adds time and average speed above the score.
+  `state.time` joins the core; the traces do not record it.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

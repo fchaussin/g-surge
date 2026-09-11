@@ -100,6 +100,17 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 11 September 2026, the HUD readout — 1.15.4
+
+- **"I don't like watching the points tick up so regularly; show distance
+  and a stopwatch instead, and at the end the average speed says something
+  about risk and control when the score is high."** Done: the HUD's big
+  number is the distance in km to the hundredth, a `m:ss` clock under it
+  from `state.time` — fixed-step seconds, paused with the game — and the
+  end screen counts distance, time, average speed, coins, peak multiplier,
+  then the score. The average speed is a reading, not a score input;
+  nothing in the leaderboard's format changed.
+
 ### 11 September 2026, the dry tank — 1.15.3
 
 - **"Dry, no boost is right, but the speed must not stay that high: it
