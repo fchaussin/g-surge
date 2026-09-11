@@ -42,16 +42,6 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
    `audio.ts`. Deliberately close; if the rung is not audible, widen the
    steps rather than raising the gain.
 
-## Decided by a default, say if you disagree
-
-9. **The blur layer.** Open question 2 of the palette's §16: on by default or
-   behind a frame budget. Resolved by the palette's own line — "behind the
-   performance governor from day one" — as a rule rather than a budget: the
-   blur is on, and drops the moment quality has already been stepped down,
-   whether the governor did it or the player set sky detail low or render
-   scale under 1. The veil stays. A budget would need a frame-time probe the
-   governor does not expose per effect.
-
 ## Answered on 11 September 2026, and where the answer went
 
 - **Speed readout at the edge** — stays. Nothing to change.
@@ -61,12 +51,13 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
   stick's, and a two-axis stick read that lean as a weaker turn. The rationale
   is recorded in `input.ts`.
 - **`FX_DRIFT_WAKE` and `SFX_DRIFT_TURBULENCE`** — built, version 1.4.6.
+- **The blur layer** — on by default, off as soon as quality has been stepped
+  down; confirmed.
+- **Comment language** — the interface stays English, the code goes French;
+  the ported client is being translated file by file, whole files, with the
+  bundle's hashed name checked unchanged after each (`TECH-DEBT.md` §21).
 
 ## Housekeeping
 
-7. **Translating the ported client's comments to French**, file by file
-   (`TECH-DEBT.md` §21). Bulk work with no player-visible effect; I do it
-   only when a file is opened for another reason unless told otherwise.
-
-8. **Pushing.** I push only when asked. The versioning rule is respected
+7. **Pushing.** I push only when asked. The versioning rule is respected
    commit by commit, so any moment is a safe one.
