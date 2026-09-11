@@ -41,7 +41,9 @@ built.
 **Drifting is the engine of everything.** Push hard into a corner until grip
 breaks: the ship slides wide while pointing into the turn, the hull glows, the
 gauge pulses. A drift refills the boost reserve much faster than cruising, and
-it is the only way up the ladder.
+it is the only way up the ladder. Chain them without touching a wall and the
+**Perfect Drift** kicks in from the third: every drift pays points and the
+climb runs faster, as long as the next drift starts before the window closes.
 
 **The ladder has four rungs, and the vertical gauge is the ladder.**
 

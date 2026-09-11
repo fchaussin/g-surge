@@ -99,22 +99,22 @@ qu'un document a porté un chiffre faux pendant des mois.
 | `DRIFT` | `state.drift` | existe |
 | `DRIFT_ANGLE` | `state.slip`, en m/s et non en radians | existe, à convertir |
 | `DRIFT_CHARGE` | `driftCharge` → `state.energy` | existe, confondu avec la réserve de boost |
-| `DRIFT_CHAIN` | — | **n'existe pas** — spécifiée en §16, c'est la condition d'entrée du G-SURGE |
+| `DRIFT_CHAIN` | `state.climb` (montée, mètres) et `state.combo` (Perfect Drift, enchaînement) | existe — la montée depuis l'étape 7, le combo depuis 1.6.0 |
 | `SUPERBOOST_PICKUP` | événement `pickup` de `kind: 'sup'` | existe |
 | `SUPERBOOST` | `state.superT`, `supTime`, `supFactor` | existe |
 | `SUPERBOOST_CHARGE` | — | **n'existe pas** : pas de stock |
 | `SUPERBOOST_START` | — | **n'existe pas** : le ramassage déclenche |
 | `SUPERBOOST_END` | événement `supEnd` | existe depuis l'étape 2 |
 | `RECOVERY` | — | **n'existe pas** |
-| `G_SURGE` | — | **n'existe pas**, spécifié en §16 |
+| `G_SURGE` | `state.surgeT`, palier 3 | existe depuis l'étape 7, spécifié en §16 |
 | `RTPC` | les paramètres de `audio.update()`, `sky.update()` | voir §12 |
 | `Trigger Tag` | les variantes de `SimEvent` dans `events.ts` | voir §3 |
 | `Bundle` | rien — regroupement de rédaction, conservé tel quel | — |
 
 ## 2. Hiérarchie des accélérations
 
-La palette en voulait cinq. Le code en a **trois**, portées par une seule
-variable : le palier, `thrustTier()` dans `src/client/thrust.ts`, lu par la
+La palette en voulait cinq. Le code en a **quatre**, portées par une seule
+variable : le palier, `thrustTier()` dans `src/sim/state.ts`, lu par la
 caméra, le ciel, l'audio et le vaisseau. Avant l'étape 1 le ternaire était
 recopié à deux endroits de `main.ts` et personne d'autre ne le voyait.
 
@@ -161,7 +161,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `DRIFT_ENTRY` | donner un impact clair au début du drift | `driftStart` | **existe** — transient et impulsion haptique |
 | `DRIFT_FLOW` | faire sentir le déplacement latéral | `state.drift`, `state.slip` | **existe** — lacet, gerbe latérale, souffle proportionnel |
 | `DRIFT_CHARGE` | montrer que le drift recharge le boost | `state.energy` montant | **existe** — HUD et ton qui monte avec la réserve |
-| `DRIFT_CHAIN` | valoriser un drift long et propre | `state.climb`, la montée en mètres vers le barreau suivant | fait — la jauge empilée et le halo la montrent |
+| `DRIFT_CHAIN` | valoriser un drift long et propre | `state.climb`, la montée en mètres vers le barreau suivant ; `state.combo`, l'enchaînement du Perfect Drift | fait — la jauge empilée et le halo montrent la montée, un pop et une note qui monte disent le combo |
 | `DRIFT_RELEASE` | marquer la sortie | `driftEnd` | **existe** — whoosh dosé et recentrage caméra |
 | `DRIFT_FULL_CHARGE` | signaler le boost rechargé | `energy` repassée à 100 après 95 | **existe** — classe `.full` et confirmation à deux notes |
 

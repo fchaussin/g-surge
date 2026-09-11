@@ -187,6 +187,18 @@ export class Feedback {
           this.flash(0xfff6d0, 1.1);
           haptics.buzz([20, 40, 20]);
           break;
+        case 'comboUp':
+          // Sous le seuil le combo se construit en silence : un pop à chaque
+          // drift noierait ceux des pièces. Armé, il dit son niveau et ce qu'il
+          // vient de payer, dans le cyan du drift dont il est la suite.
+          if (e.bonus > 0) {
+            hud.showPop(`PERFECT DRIFT ×${e.count}  +${Math.round(e.bonus)}`, '#25e2ff');
+            haptics.buzz([14, 30, 14]);
+          }
+          break;
+        case 'comboEnd':
+          hud.showPop(`COMBO LOST ×${e.count}`, '#dff2f8');
+          break;
         case 'supEnd':
           // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
           // le ramassage a rempli la réserve et le superboost ne l'a pas

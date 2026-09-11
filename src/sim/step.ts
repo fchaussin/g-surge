@@ -174,6 +174,9 @@ export function step(
         state.scrape = 0.4;
         state.mult = 1 + (state.mult - 1) * T.multWallCut;
         state.climb = 0;
+        if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
+        state.combo = 0;
+        state.comboLeft = 0;
         out.push({ type: 'badLanding' });
       }
     }
@@ -201,9 +204,32 @@ export function step(
       out.push({ type: 'driftStart' });
     } else {
       out.push({ type: 'driftEnd', held: state.driftHeld });
+      // Le Perfect Drift : un drift assez long prolonge l'enchaînement et
+      // rouvre la fenêtre, resserrée à mesure que le combo monte. Trop court,
+      // il ne compte pas — et ne casse rien non plus : c'est la fenêtre qui
+      // juge, pas la longueur.
+      if (!attract && state.driftHeld >= T.comboMinHeld) {
+        state.combo++;
+        const t = Math.min(1, state.combo / 10);
+        state.comboLeft = T.comboWindow + (T.comboWindowMin - T.comboWindow) * t;
+        const bonus =
+          state.combo >= T.comboArm ? state.speed * state.combo * T.comboScore * diffMul : 0;
+        state.score += bonus;
+        out.push({ type: 'comboUp', count: state.combo, bonus });
+      }
     }
   }
   if (state.drift) state.driftHeld += dt;
+  // Hors drift la fenêtre s'écoule ; expirée, le combo tombe. Pendant un drift
+  // elle ne bouge pas : c'est le drift suivant qu'on attend, pas sa fin.
+  if (!state.drift && state.combo > 0) {
+    state.comboLeft -= dt;
+    if (state.comboLeft <= 0) {
+      if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
+      state.combo = 0;
+      state.comboLeft = 0;
+    }
+  }
 
   // La montée : du drift propre cumulé en mètres vers le barreau suivant. Elle
   // ne compte qu'en poussée, puisque l'échelle se gravit barreau par barreau —
@@ -212,7 +238,13 @@ export function step(
   // sur aucune ligne de physique, donc elle n'est pas dans la trace et ne
   // déplace aucune référence.
   const climbing = state.drift && !attract && state.boosting && state.surgeT <= 0;
-  if (climbing) state.climb += d;
+  // Un combo armé accélère la montée : la régularité paie vers le barreau
+  // suivant, plafonnée pour qu'un long enchaînement ne l'écrase pas.
+  const comboGain =
+    state.combo >= T.comboArm
+      ? Math.min(T.comboClimbMax, T.comboClimb * (state.combo - T.comboArm + 1))
+      : 0;
+  if (climbing) state.climb += d * (1 + comboGain);
   else if (state.climb > 0) state.climb = Math.max(0, state.climb - T.climbDecay * dt);
   if (!attract && state.surgeT <= 0) {
     if (state.superT > 0) {
@@ -255,6 +287,10 @@ export function step(
       if (!attract && !state.air) {
         // Un mur casse la montée : elle récompense la propreté, pas l'obstination.
         state.climb = 0;
+        // Et le combo avec elle, s'il était armé.
+        if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
+        state.combo = 0;
+        state.comboLeft = 0;
         state.speed -= state.speed * T.wallPenalty * dt * 6;
         state.energy = Math.max(0, state.energy - T.wallDrain * dt);
         if (!state.contact) {

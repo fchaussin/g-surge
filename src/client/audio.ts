@@ -205,6 +205,12 @@ export class Audio {
           // Trouvé ou mérité, le même barreau : le même son.
           this.superBoost();
           break;
+        case 'comboUp':
+          if (e.bonus > 0) this.comboUp(e.count);
+          break;
+        case 'comboEnd':
+          this.comboEnd();
+          break;
         case 'supEnd':
           this.superRelease();
           break;
@@ -583,6 +589,29 @@ export class Audio {
     if (!ctx || this.muted) return;
     this.blip(660, 0.09, 'triangle', 0.075);
     this.blip(990, 0.14, 'triangle', 0.065, 0, 0.07);
+  }
+
+  /**
+   * Un drift de plus dans un combo armé : une note qui monte avec le niveau.
+   *
+   * Un demi-ton par niveau sur une base triangulaire, courte et douce : elle
+   * répond à la sortie du drift, dont le whoosh vient de tomber, et doit
+   * s'entendre comme une marche gravie, pas comme une pièce.
+   */
+  private comboUp(count: number): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    const f = 440 * Math.pow(2, Math.min(count, 12) / 12);
+    this.blip(f, 0.09, 'triangle', 0.07);
+    this.blip(f * 1.5, 0.12, 'triangle', 0.045, 0, 0.05);
+  }
+
+  /** Le combo tombe : deux notes qui descendent, discrètes — c'est une perte, pas un choc. */
+  private comboEnd(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.blip(392, 0.1, 'triangle', 0.05);
+    this.blip(294, 0.16, 'triangle', 0.045, 0, 0.09);
   }
 
   /**

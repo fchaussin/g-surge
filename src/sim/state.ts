@@ -39,6 +39,10 @@ export interface SimState {
   climb: number;
   /** Temps restant de G-SURGE, en secondes. */
   surgeT: number;
+  /** Drifts propres enchaînés, le combo du Perfect Drift. Zéro hors combo. */
+  combo: number;
+  /** Secondes restantes pour rouvrir un drift avant que le combo tombe. */
+  comboLeft: number;
 
   /* Saut */
   air: boolean;
@@ -133,6 +137,8 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.driftHeld = 0;
   state.climb = 0;
   state.surgeT = 0;
+  state.combo = 0;
+  state.comboLeft = 0;
 
   state.air = false;
   state.hop = 0;

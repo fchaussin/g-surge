@@ -16,8 +16,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 10 | ~1 800 |
-| `src/client/` | 30 | ~5 900 |
+| `src/sim/` | 10 | ~1 900 |
+| `src/client/` | 30 | ~6 000 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
 
@@ -71,7 +71,7 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
 | `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
-| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `wreck` |
+| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
@@ -145,7 +145,9 @@ named after. Both last `supTime` and `surgeTime`, five seconds each, at the
 **same** top speed: the surge gains no speed, because the engine's audio ratio
 is already near its ceiling; it gains a sensory world that goes down rather
 than up. The boost gauge is that ladder, one stacked layer per rung. Specified
-in `FX-PALETTE.md` §16. None of it costs a frozen reference: the traces contain
+in `FX-PALETTE.md` §16. Chaining clean drifts builds `state.combo`, the
+Perfect Drift: from `comboArm` on it pays score at each drift and speeds the
+climb; a wall or an expired `comboLeft` window drops it. None of it costs a frozen reference: the traces contain
 no drift and no super boost, and `sim-parity` asserts the first.
 
 Airborne state is triggered physically: when the track falls away faster than

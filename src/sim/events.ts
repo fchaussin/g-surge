@@ -65,5 +65,17 @@ export type SimEvent =
   | { readonly type: 'surgeStart' }
   /** Fin du G-SURGE, au pas où le compteur atteint zéro. */
   | { readonly type: 'surgeEnd' }
+  /**
+   * Un drift propre de plus dans l'enchaînement. `count` est le combo atteint ;
+   * `bonus` les points versés, zéro tant que le combo n'est pas armé. Émis à la
+   * sortie du drift, qui est le moment où sa durée est connue.
+   */
+  | { readonly type: 'comboUp'; readonly count: number; readonly bonus: number }
+  /**
+   * Le combo tombe — fenêtre expirée ou mur — depuis un niveau armé. `count`
+   * est le niveau perdu. Non émis sous le seuil : perdre un combo de deux n'est
+   * pas un événement.
+   */
+  | { readonly type: 'comboEnd'; readonly count: number }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };

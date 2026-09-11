@@ -57,6 +57,49 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
   whole files, the bundle's hashed name checked unchanged after each batch.
   Done; `TECH-DEBT.md` §21 is closed.
 
+## The gameplay suggestions of 11 September, and how they land
+
+`GAMEPLAY-FEATURES-SUGGESTIONS_26-09-11.md` lists four features in priority
+order. Measured against the frozen references before touching anything:
+
+- Track items already draw from their own PRNG stream, one number per segment
+  against cumulative thresholds. A new pickup added **after** the coin
+  threshold, with its lateral position from a third stream, leaves the sixty
+  track references identical. Fuel cans and the invincibility item cost no
+  track fixture.
+- The physics traces reach |lat| = 9.60 m, the wall: the reference pilot hits
+  the sides. A near miss must not fire on an approach that ends in contact,
+  or the traces move; whether it fires elsewhere in them is measured by
+  `sim-parity` the moment it exists.
+
+Order of integration, least constraining first: **Perfect Drift** (done,
+1.6.0 — class B, no reference moved), **Near Miss**, **Invincibility with
+wall riding**, **Fuel**. The reverse of the document's priority, because fuel
+carries the one design gap below and the other three carry none.
+
+10. **Fuel at zero — what happens?** The specification gives consumption per
+    thrust level and per difficulty, and says fuel must stay secondary, but
+    not what an empty tank does. Options: (a) boost and super boost become
+    unavailable, cruise continues unchanged — fuel is thrust fuel, and on
+    Medium and Hard the cruise leak only means a can is needed eventually
+    even without boosting; (b) as (a) plus a cruise speed penalty while dry,
+    like damage does; (c) the run ends. Recommendation: **(a)**, with the
+    penalty of (b) as a tuning key defaulting to zero, so it becomes a value
+    to play rather than a decision to reopen. (c) contradicts "must not break
+    the arcade rhythm". **Blocking for fuel; the three others proceed.**
+
+11. **Fuel and the surge.** "G-SURGE: free + refill" on Easy and Medium,
+    "refill + low consumption" on Hard. Read as: the tank refills to full when
+    the surge starts; during it, no consumption on Easy and Medium, a slow one
+    on Hard. Say if the refill was meant to be continuous instead.
+
+12. **Fuel gauge placement.** A second thin bar under the hull bar at the top,
+    amber. Not a decision that blocks; the HUD reference regenerates.
+
+13. **The invincibility item.** Duration, colour and wall acceleration are
+    mine to default — 6 s, violet, and a speed gain on contact in place of the
+    wall penalty — and go on the Advanced tab.
+
 ## Asked for, and not possible as asked
 
 - **A hybrid install / launch button on the web version.** Install is done:

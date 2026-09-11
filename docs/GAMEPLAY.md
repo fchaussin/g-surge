@@ -26,6 +26,16 @@ The multiplier starts at 1 and:
 - **is halved** by a wall impact or a bad landing (`multWallCut`),
 - is capped at `multMax`, default 30.
 
+**The Perfect Drift** pays on top of that. Drifts chained without a wall count
+up a combo; a drift counts if it lasted `comboMinHeld`, and the next one has to
+start within a window that narrows from `comboWindow` to `comboWindowMin` as the
+combo grows. From `comboArm` drifts on, each further drift pays
+`speed × combo × comboScore` points straight into the score, and the climb
+towards the next rung runs `1 + comboClimb × level` faster, capped at
+`comboClimbMax`. A wall, a bad landing or an expired window drop the combo to
+zero. It measures regularity, not angle: no drift is "perfect" on its own, the
+sequence is.
+
 Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 119 m,
 so a faster ship both collects more per second and gets more per coin.
 

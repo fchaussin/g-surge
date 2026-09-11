@@ -38,6 +38,21 @@ export interface Tuning {
   /** Vitesse, en m/s, à laquelle la montée redescend hors drift. */
   climbDecay: number;
   surgeTime: number;
+
+  /* Perfect Drift : l'enchaînement de drifts propres */
+  /** Drifts enchaînés à partir desquels le combo est actif et paie. */
+  comboArm: number;
+  /** Fenêtre, en secondes, pour rouvrir un drift après le précédent, au début du combo. */
+  comboWindow: number;
+  /** La même fenêtre une fois le combo haut : elle se resserre entre les deux. */
+  comboWindowMin: number;
+  /** Plus court drift, en secondes, qui compte dans le combo. */
+  comboMinHeld: number;
+  /** Points par niveau de combo, par m/s de vitesse, à chaque drift qui prolonge. */
+  comboScore: number;
+  /** Part de montée supplémentaire par niveau de combo, plafonnée à `comboClimbMax`. */
+  comboClimb: number;
+  comboClimbMax: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -133,6 +148,16 @@ export const DEFAULTS: Readonly<Tuning> = {
   climbSurge: 600,
   climbDecay: 100,
   surgeTime: 5,
+  /* Le combo se lit en drifts, pas en angle : trois pour l'ouvrir, une fenêtre
+   * qui se resserre de 1,5 à 0,8 s, et un drift qui compte s'il a duré un quart
+   * de seconde. Les valeurs de la spécification, à rejuger en jouant. */
+  comboArm: 3,
+  comboWindow: 1.5,
+  comboWindowMin: 0.8,
+  comboMinHeld: 0.25,
+  comboScore: 0.5,
+  comboClimb: 0.25,
+  comboClimbMax: 1.0,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,
