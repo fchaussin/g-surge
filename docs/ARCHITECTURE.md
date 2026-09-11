@@ -16,8 +16,9 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 13 | ~2 800 |
+| `src/sim/` | 14 | ~2 900 |
 | `src/client/` | 34 | ~7 100 |
+| `server/src/` | 3 | ~200 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -74,6 +75,7 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
 | `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `ride`, `rideEnd`, `fuelEmpty`, `wreck` |
 | `step.ts` | One physics step |
+| `probe.ts` | `probe(sim, opts)`, the reference sonde: a script of inputs replayed at a given `dt` with snapshots every `every` steps — the code the physics fixtures were captured with, run unchanged by Node, the bundle and the Worker |
 | `sim.ts` | The assembly; records every non-attract step into the trace |
 | `trace-bytes.ts` | `packTrace` and `unpackTrace`, the trace in bytes — two per steer on the 1/1024 grid `quantiseSteer` sets, eight off it — for local storage and the wire |
 | `replay.ts` | The trace of a run — seed, difficulty, inputs by span — its `Recorder`, `validTrace` and `replay`, which reproduces a run bit for bit and reports its `Outcome`; what a server rejeu runs, see `NETWORK.md` |
@@ -244,6 +246,24 @@ The shield is the one place oscillators stayed: two sawtooths at 46 Hz beating
 the crackle of a Tesla coil — with a thread of high-passed noise for the spark,
 all opened by `ShieldFx.value`.
 
+## The server, `server/src/`
+
+A Cloudflare Worker, a Durable Object and a D1 database, `docs/NETWORK.md`.
+It imports `src/sim/index.js` directly — the same files as the client, no
+copy, no package — and nothing else of the game. `scripts/build-server.mjs`
+bundles it with esbuild and stamps the core digest; that one bundle serves
+Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
+
+| File | Holds |
+|---|---|
+| `index.ts` | The Worker: `/health`, `/run` — body size, envelope, the core digest against its own, then a forward to the arbiter; `/debug/*` under `DEBUG=1` only, the probe and the generator for the parity measurement |
+| `arbiter.ts` | The Durable Object: `validTrace`, `replay`, the outcome written to D1. The replay lives here because a free-plan Worker has 10 ms of CPU and a replay takes sixty |
+| `http.ts` | `json` and `refuse` |
+| `env.d.ts` | `__CORE_DIGEST__`, defined by the build |
+
+`server/wrangler.jsonc` binds `ARBITER` and `DB` and points `main` at the
+bundle; `server/migrations/` is the D1 schema.
+
 ## Startup
 
 The splash holds until the game can actually run, not for a fixed time. Two
@@ -287,7 +307,7 @@ draws — the same list a run start uses, plus the sky.
 | `nodes()`, `items()` | the ring buffers and live pickups |
 | `setSkyDetail(high)`, `setSkyVisible(visible)` | what the quality governor would do, by hand |
 | `trig(xs)` | the core's `sin`, `cos`, `atan` over a vector, replayed against Node |
-| `trace(opts)` | replays a run at fixed step, outside the render loop |
+| `trace(opts)` | the core's `probe` on the live simulation, outside the render loop |
 | `record()` | the live run's trace, for the browser-to-Node replay proof |
 | `ghost()` | whether a ghost is racing, whether it is drawn, its gap and its score |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |

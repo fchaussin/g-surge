@@ -100,6 +100,19 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the server skeleton — 1.16.2
+
+- **"Go"** on M2. `server/`: a Worker that checks size, envelope and core
+  digest and forwards; an arbiter Durable Object that validates, replays
+  and writes the outcome to D1; the schema; one esbuild bundle that stamps
+  the digest and serves tests, `wrangler dev` and `deploy`. The measurement
+  M2 existed for passed first time: workerd replays the frozen references
+  bit for bit. Dependencies added: `wrangler`, `miniflare`,
+  `@cloudflare/workers-types`, `esbuild` — the Docker `tools` image needs a
+  rebuild to carry them. Nothing deployed: `server:deploy` waits on a
+  Cloudflare account, a `wrangler d1 create gsurge` and its id in
+  `server/wrangler.jsonc`.
+
 ### 12 September 2026, the streamed track's seam — 1.16.1
 
 - **"Tracks generated progressively by the server and served in chunks,

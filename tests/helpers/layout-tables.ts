@@ -23,7 +23,7 @@ import { DEFAULTS } from '../../src/sim/index.js';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Les deux arbres source, dans l'ordre où les documents les présentent. */
-export const TREES = ['src/sim', 'src/client'] as const;
+export const TREES = ['src/sim', 'src/client', 'server/src'] as const;
 
 /** Ce que `CLAUDE.md` demande d'un module. */
 export const MODULE_LIMIT = 300;

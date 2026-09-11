@@ -11,8 +11,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { Sim, trackPoint } from '../src/sim/index.js';
-import type { Difficulty } from '../src/sim/index.js';
+import { probe, Sim, trackPoint, type ProbeOptions, type ProbeResult } from '../src/sim/index.js';
 import { digest } from './helpers/digest.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'e2e', 'fixtures');
@@ -65,63 +64,10 @@ function readTrack(sim: Sim) {
   };
 }
 
-/** Miroir exact de `__gs.trace()` côté jeu, y compris l'arrêt à l'épave. */
-function trace(opts: {
-  seed: string;
-  diff?: Difficulty;
-  steps?: number;
-  dt?: number;
-  every?: number;
-  script?: Array<{ from: number; steer?: number; brake?: boolean; boost?: boolean }>;
-}) {
-  const steps = opts.steps ?? 1200;
-  const dt = opts.dt ?? 1 / 120;
-  const every = opts.every ?? 60;
-  const script = opts.script ?? [];
-  const diff = opts.diff ?? 'easy';
-
-  const sim = new Sim({ seed: opts.seed, difficulty: diff });
-  sim.setDifficulty(diff);
-  sim.reset(opts.seed);
-
-  const s = sim.state;
-  const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-  const snap = (i: number) => ({
-    i,
-    dist: r6(s.dist),
-    travel: r6(s.travel),
-    cursor: r6(s.cursor),
-    speed: r6(s.speed),
-    lat: r6(s.lat),
-    latVel: r6(s.latVel),
-    yaw: r6(s.yaw),
-    hop: r6(s.hop),
-    vyRel: r6(s.vyRel),
-    energy: r6(s.energy),
-    hull: r6(s.hull),
-    mult: r6(s.mult),
-    score: r6(s.score),
-    coins: s.coins,
-    air: s.air,
-    drift: s.drift,
-    wrecked: s.wrecked,
-  });
-
-  let si = 0;
-  let cur: { from: number; steer?: number; brake?: boolean; boost?: boolean } = { from: 0 };
-  const frames = [snap(-1)];
-  let last = -1;
-  for (let i = 0; i < steps; i++) {
-    while (si < script.length && script[si]!.from <= i) cur = script[si++]!;
-    sim.step({ steer: cur.steer ?? 0, brake: !!cur.brake, boost: !!cur.boost }, dt, false);
-    last = i;
-    if (s.wrecked) {
-      frames.push(snap(i));
-      break;
-    }
-    if ((i + 1) % every === 0 || i === steps - 1) frames.push(snap(i));
-  }
-  return { seed: sim.seed, diff, steps, ran: last + 1, dt, wrecked: s.wrecked, frames };
+/** La sonde du noyau sur une simulation neuve — la même que le bundle et le serveur exécutent. */
+function trace(opts: Omit<ProbeOptions, 'dt'> & { dt?: number }): ProbeResult {
+  const sim = new Sim({ seed: opts.seed, difficulty: opts.diff ?? 'easy' });
+  return probe(sim, { ...opts, dt: opts.dt ?? 1 / 120 });
 }
 
 /** Le même que celui du script de trace, à garder synchronisé avec la spec e2e. */

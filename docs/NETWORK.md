@@ -198,6 +198,10 @@ run V8 — the engine on which the core's bit-identity with Chromium and Node
 was measured. The server's replay cost is the client's: 0.45 µs a step, a
 three-minute run in about sixty milliseconds.
 
+The proof is `tests/server.test.ts`: the deployed bundle under Miniflare —
+workerd itself, not an emulation — replays the frozen references and a
+recorded run to Node's outcome, on every `verify`.
+
 **The replay runs inside the Durable Object, never in the Worker.** The
 free plan caps a Worker invocation at 10 ms of CPU; a three-minute replay is
 sixty. A Durable Object request has 30 s on either plan, and the object is

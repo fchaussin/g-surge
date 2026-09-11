@@ -1,6 +1,9 @@
 node_modules/
 dist/
 public/
+# Le bundle du serveur, et l'état local de wrangler
+server/dist/
+.wrangler/
 
 # Playwright
 test-results/

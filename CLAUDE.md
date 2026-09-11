@@ -101,8 +101,17 @@ regenerate in a commit that does nothing else.
 ## Where things live
 
 `docs/ARCHITECTURE.md` is the map. In short: `src/sim/` is the simulation and
-touches nothing else, `src/client/` draws it and plays it, `index.html` holds
-the markup and all the CSS, `static/` is copied verbatim into the build.
+touches nothing else, `src/client/` draws it and plays it, `server/src/` is
+the Cloudflare Worker and its Durable Object over the same `src/sim/`,
+`index.html` holds the markup and all the CSS, `static/` is copied verbatim
+into the build.
+
+**The server is tested in workerd, not in Node.** `tests/server.test.ts`
+bundles `server/` with `scripts/build-server.mjs` — the one bundle that
+`server:dev` and `server:deploy` also use — and runs it under Miniflare; the
+frozen references must replay there bit for bit, as they do in Node and in
+the browser. The replay runs in the Durable Object, never in the Worker: a
+free-plan Worker has 10 ms of CPU and a replay takes sixty.
 
 ## The coordinate system, read this first
 

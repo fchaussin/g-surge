@@ -1,0 +1,27 @@
+// Le serveur : un Worker, un Durable Object, une base D1. Voir docs/NETWORK.md.
+//
+// `main` est le bundle de scripts/build-server.mjs et non la source : c'est
+// esbuild qui estampille le condensé du noyau, et un seul chemin de bundling
+// sert aux tests (Miniflare), à `wrangler dev` et au déploiement.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "g-surge-api",
+  "main": "dist/index.js",
+  "no_bundle": true,
+  "compatibility_date": "2026-09-01",
+  "durable_objects": {
+    "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
+  },
+  // SQLite, pas le stockage clé-valeur : c'est le seul disponible sur le plan gratuit.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Arbiter"] }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gsurge",
+      // À remplacer par l'identifiant que `wrangler d1 create gsurge` rend, au premier déploiement.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "observability": { "enabled": true },
+}

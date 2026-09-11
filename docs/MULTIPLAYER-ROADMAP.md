@@ -32,7 +32,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 |---|---|---|---|---|
 | M0 | The trace and its replay | nothing | — | primitive — **done** |
 | M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 — **done**, 1.16.0 |
-| M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing |
+| M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing — **done**, 1.16.2 |
 | M5 | The streamed track | nothing, if done right | — | phase 2 — the core seam is **done**, 1.16.1 |
 | M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 on the streamed track |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
@@ -95,7 +95,15 @@ marker beyond.
 
 **Version.** Minor.
 
-## M2 — The server skeleton
+## M2 — The server skeleton — done
+
+1.16.2. `server/`, `scripts/build-server.mjs`, `tests/server.test.ts`. The
+measurement passed: the reference track and the three physics references
+replay inside workerd, through the deployed bundle, bit for bit. Miniflare
+rather than the Workers vitest pool, which pins an older vitest; `wrangler`,
+`miniflare`, `@cloudflare/workers-types` and `esbuild` are the dependencies.
+Not yet: `server:test` as its own script (it runs in `verify`), and the
+Worker-side lint of `verify` covers `server/` through `eslint .`.
 
 **Goal.** A Worker, a Durable Object and a D1 schema that replay a trace and
 answer with the outcome, running locally under `wrangler dev`, tested from

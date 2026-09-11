@@ -6,6 +6,8 @@ export default tseslint.config(
     ignores: [
       'dist/',
       'public/',
+      'server/dist/',
+      '.wrangler/',
       'node_modules/',
       'scripts/**',
       // Copie de three.js r128 rejouée aux tests à la place du CDN : ce n'est
@@ -96,8 +98,28 @@ export default tseslint.config(
               message: 'sim/ ne doit pas dépendre de three.js : il doit tourner sans WebGL.',
             },
             {
-              group: ['**/client/**'],
-              message: "La dépendance va client → sim, jamais l'inverse.",
+              group: ['**/client/**', '**/server/**'],
+              message: "La dépendance va client → sim et server → sim, jamais l'inverse.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Le serveur tourne dans workerd : ni DOM, ni Node, ni three.js. Il ne
+    // touche au noyau que par son index, comme le client.
+    files: ['server/src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['three', 'three/*'], message: 'server/ ne dépend pas de three.js.' },
+            { group: ['**/client/**'], message: 'server/ ne dépend pas du client.' },
+            {
+              group: ['**/sim/*', '!**/sim/index.js'],
+              message: 'Le serveur passe par src/sim/index.js, le tonneau, comme le client.',
             },
           ],
         },

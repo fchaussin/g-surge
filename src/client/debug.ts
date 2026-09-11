@@ -16,8 +16,9 @@ import {
   atan,
   cos,
   DEFAULTS,
+  probe,
   sin,
-  type Difficulty,
+  type ProbeOptions,
   type Sim,
   type SimState,
   type Trace,
@@ -30,22 +31,8 @@ import type { Screens } from './screens.js';
 import type { Sky } from './sky.js';
 import type { Viewport } from './viewport.js';
 
-/** Un segment de commande tenu depuis le pas `from` jusqu'au suivant. */
-export interface TraceCommand {
-  from: number;
-  steer?: number;
-  brake?: boolean;
-  boost?: boolean;
-}
-
-export interface TraceOptions {
-  seed: string;
-  diff?: Difficulty;
-  steps?: number;
-  dt?: number;
-  every?: number;
-  script?: TraceCommand[];
-}
+/** Les options de `probe`, le pas en option : celui de la boucle par défaut. */
+export type TraceOptions = Omit<ProbeOptions, 'dt'> & { dt?: number };
 
 export interface DebugSurface {
   seed(): string;
@@ -94,67 +81,17 @@ export interface DebugDeps {
 }
 
 /**
- * Rejoue une partie au pas fixe, hors de la boucle de rendu.
+ * Rejoue une partie hors de la boucle de rendu, sur la simulation vivante.
  *
  * Son rôle a changé avec la bascule. Elle prouvait que deux implémentations
  * s'accordaient ; il n'en reste qu'une, donc ce qu'elle prouve est que le
  * **bundle livré** joue encore comme la source — que rien dans la transpilation,
- * le minifieur ou le graphe de modules n'a déplacé un nombre. Les références
- * figées restent le contrat dans les deux cas.
+ * le minifieur ou le graphe de modules n'a déplacé un nombre. La sonde
+ * elle-même est celle du noyau, `probe`, la même que Node et le serveur.
  */
 function trace(sim: Sim, loop: Loop, opts: TraceOptions): unknown {
-  const steps = opts.steps === undefined ? 1200 : opts.steps;
-  const dt = opts.dt === undefined ? loop.fixedStep : opts.dt;
-  const every = opts.every === undefined ? 60 : opts.every;
-  const script = opts.script ?? [];
-  const diff = opts.diff ?? 'easy';
-
   loop.stop();
-  sim.setDifficulty(diff);
-  sim.reset(opts.seed);
-
-  const st = sim.state;
-  const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
-  const snap = (i: number) => ({
-    i,
-    dist: r6(st.dist),
-    travel: r6(st.travel),
-    cursor: r6(st.cursor),
-    speed: r6(st.speed),
-    lat: r6(st.lat),
-    latVel: r6(st.latVel),
-    yaw: r6(st.yaw),
-    hop: r6(st.hop),
-    vyRel: r6(st.vyRel),
-    energy: r6(st.energy),
-    hull: r6(st.hull),
-    mult: r6(st.mult),
-    score: r6(st.score),
-    coins: st.coins,
-    air: st.air,
-    drift: st.drift,
-    wrecked: st.wrecked,
-  });
-
-  let si = 0;
-  let cur: TraceCommand = { from: 0 };
-  const frames = [snap(-1)];
-  let last = -1;
-  const held = { steer: 0, brake: false, boost: false };
-  for (let i = 0; i < steps; i++) {
-    while (si < script.length && script[si]!.from <= i) cur = script[si++]!;
-    held.steer = cur.steer ?? 0;
-    held.brake = !!cur.brake;
-    held.boost = !!cur.boost;
-    sim.step(held, dt, false);
-    last = i;
-    if (st.wrecked) {
-      frames.push(snap(i));
-      break;
-    }
-    if ((i + 1) % every === 0 || i === steps - 1) frames.push(snap(i));
-  }
-  return { seed: sim.seed, diff, steps, ran: last + 1, dt, wrecked: st.wrecked, frames };
+  return probe(sim, { ...opts, dt: opts.dt ?? loop.fixedStep });
 }
 
 export function installDebugSurface(deps: DebugDeps): void {
