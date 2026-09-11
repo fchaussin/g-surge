@@ -1,60 +1,66 @@
 /**
- * Everything you hear, synthesised. No files, which is why the payload has no
- * asset pipeline at all.
+ * Tout ce qu'on entend, synthétisé. Aucun fichier, ce qui est pourquoi le
+ * bundle n'a aucune chaîne d'actifs.
  *
- * The engine is three bands of filtered noise — low rumble, mid body, high
- * hiss — plus a very quiet sine for turbine whine. Harmonic oscillators were
- * tried first and sounded like a piston engine; noise is what makes it read as
- * a reactor.
+ * Le moteur est trois bandes de bruit filtré — grondement bas, corps médium,
+ * sifflement haut — plus une sinusoïde très discrète pour le sifflement de
+ * turbine. Des oscillateurs harmoniques ont été essayés d'abord et sonnaient
+ * comme un moteur à pistons ; le bruit est ce qui le fait lire comme un
+ * réacteur.
  *
- * Nothing here is created before a user gesture: browsers refuse to start an
- * `AudioContext` otherwise, and an autoplay failure in the console on every
- * load is noise of a different kind.
+ * Rien ici n'est créé avant un geste de l'utilisateur : les navigateurs
+ * refusent sinon de démarrer un `AudioContext`, et un échec d'autoplay dans la
+ * console à chaque chargement est un bruit d'un autre genre.
  */
 import type { SimEvent, ThrustTier } from '../sim/index.js';
 
-/** Reverb impulse length, seconds. Built once, on first use. */
+/** Longueur de l'impulsion de réverbération, en secondes. Bâtie une fois, au premier usage. */
 const REVERB_SECONDS = 3;
 
 /**
- * Ceiling on the engine's speed ratio.
+ * Plafond du rapport de vitesse du moteur.
  *
- * Above 1 under boost, which is what keeps the top end from flattening — but it
- * is a ceiling, and past it every layer stops moving while the ship keeps
- * accelerating. That makes it a constraint on the tuning and not only on this
- * file: `boostFactor * supFactor` must stay under it. Exported so a test can
- * say so, since nothing else would notice the day it stopped being true.
+ * Au-dessus de 1 sous boost, ce qui empêche le haut de s'aplatir — mais c'est
+ * un plafond, et passé celui-ci chaque couche cesse de bouger pendant que le
+ * vaisseau accélère encore. Cela en fait une contrainte sur l'accord et pas
+ * seulement sur ce fichier : `boostFactor * supFactor` doit rester en dessous.
+ * Exporté pour qu'un test le dise, puisque rien d'autre ne remarquerait le jour
+ * où ça cesserait d'être vrai.
  */
 export const ENGINE_R_MAX = 1.7;
 
 /**
- * Engine drive by thrust tier.
+ * Poussée du moteur par barreau.
  *
- * Index 1 is 1, which is what the boolean this replaced always gave a boost, so
- * a boost sounds exactly as it did and only the super boost is new. Until now
- * `update` never received `superT` at all: the reactor and the wind were the
- * plainest case of the super boost being a boost with a different plume.
+ * L'indice 1 vaut 1, ce que le booléen remplacé donnait toujours à un boost,
+ * donc un boost sonne exactement comme avant et seul le super boost est neuf.
+ * Jusque-là `update` ne recevait jamais `superT` : le réacteur et le vent
+ * étaient le cas le plus net du super boost qui n'est qu'un boost avec une
+ * autre plume.
  */
 const DRIVE_BY_TIER = [0, 1, 2, 0] as const;
 
 /**
- * The wind is the one layer a boost never lifted, so there is no previous
- * value to preserve and the tier can own it outright. §10 of the palette also
- * asks for a reinforced wind under a plain boost; that is a change to how a
- * boost sounds, and it is not this step's business.
+ * Le vent est la seule couche qu'un boost n'a jamais levée, donc il n'y a pas
+ * de valeur antérieure à préserver et le barreau peut la posséder entièrement.
+ * La §10 de la palette demande aussi un vent renforcé sous un simple boost ;
+ * c'est un changement du son d'un boost, et ce n'est pas l'affaire de cette
+ * étape.
  */
 const WIND_BY_TIER = [0, 0, 1, 1] as const;
 
 /**
- * The surge does not sound louder, it sounds *blocked*.
+ * Le surge ne sonne pas plus fort, il sonne *bouché*.
  *
- * There is no room left above: `boostFactor * supFactor` is 1.586 against a
- * ceiling of 1.7, so a fourth rung cannot be built by adding. It is built by
- * taking away — the engine layers ducked to almost nothing, the drift band cut,
- * and the wind pushed through a low pass until only a breath is left. Swollen
- * eardrums. See docs/FX-PALETTE.md §16.
+ * Il ne reste pas de place au-dessus : `boostFactor * supFactor` vaut 1,586
+ * contre un plafond de 1,7, donc un quatrième barreau ne peut pas se bâtir en
+ * ajoutant. Il se bâtit en retirant — les couches du moteur couchées à presque
+ * rien, la bande de drift coupée, et le vent passé au travers d'un passe-bas
+ * jusqu'à ne laisser qu'un souffle. Des tympans gonflés. Voir
+ * docs/FX-PALETTE.md §16.
  *
- * The time constant is long on purpose: pressure closing, not a switch.
+ * La constante de temps est longue à dessein : une pression qui se ferme, pas
+ * un interrupteur.
  */
 const SURGE_DUCK = 0.16;
 const SURGE_WIND_HZ = 340;
@@ -62,39 +68,41 @@ const SURGE_WIND_GAIN = 0.11;
 const SURGE_EASE = 0.28;
 
 /**
- * Shortest drift, in seconds, that earns a realignment whoosh.
+ * Plus court drift, en secondes, qui mérite un whoosh de réalignement.
  *
- * Not a guess: a drift lasting a single step exists and was measured at 1 ms
- * while weaving. Its entry and its release would land on top of each other and
- * read as a click rather than as two moments. The entry transient is short
- * enough to stand alone, so only the release is gated.
+ * Pas une supposition : un drift d'un seul pas existe, mesuré à 1 ms en
+ * louvoyant. Son entrée et sa sortie tomberaient l'une sur l'autre et se
+ * liraient comme un clic plutôt que deux instants. Le transitoire d'entrée est
+ * assez court pour tenir seul, donc seule la sortie est filtrée.
  */
 const DRIFT_RELEASE_MIN = 0.12;
 
-/** Gain of the drift airflow band at full slip. It used to be flat at 0.09. */
+/** Gain de la bande d'air du drift à pleine dérive. Elle était plate à 0,09. */
 const DRIFT_AIRFLOW = 0.12;
 
 /**
- * The drift band's turbulence: two slow sines at incommensurate rates, summed,
- * driving the band's centre frequency and its gain. Two rates rather than one
- * so the flutter never settles into a beat the ear can predict — the
- * palette's SFX_DRIFT_TURBULENCE asks for irregular, and a single LFO is a
- * siren. Depth follows the drift intensity, so a light slide barely flutters
- * and a full one tears.
+ * La turbulence de la bande de drift : deux sinusoïdes lentes à des cadences
+ * incommensurables, sommées, qui pilotent la fréquence centrale de la bande et
+ * son gain. Deux cadences plutôt qu'une pour que le flottement ne se cale
+ * jamais sur un battement que l'oreille prédirait — le SFX_DRIFT_TURBULENCE de
+ * la palette demande de l'irrégulier, et un seul LFO est une sirène. La
+ * profondeur suit l'intensité du drift : une glisse légère flotte à peine, une
+ * pleine déchire.
  */
 const TURB_RATES = [3.3, 5.9] as const;
 const TURB_FREQ_DEPTH = 420;
 const TURB_GAIN_DEPTH = 0.3;
 
 /**
- * Where the charge voice starts, by thrust tier, in Hz.
+ * Où la voix de recharge commence, par barreau de poussée, en Hz.
  *
- * The voice used to follow the reserve alone, and fell silent the moment the
- * reserve was full — which under boost is exactly when the drift starts
- * counting towards the next rung. It follows whatever the drift is filling
- * now, and each rung sings a register higher, so the ear hears which rung is
- * being climbed without a colour telling it: debt 10, paid down a little. The
- * surge has nothing above it, and its white-out silences this voice anyway.
+ * La voix suivait la seule réserve, et se taisait dès qu'elle était pleine —
+ * ce qui, sous boost, est exactement le moment où le drift commence à compter
+ * pour le barreau suivant. Elle suit désormais ce que le drift remplit, et
+ * chaque barreau chante un registre plus haut, pour que l'oreille sache quel
+ * barreau se gravit sans qu'une couleur le lui dise : dette 10, un peu
+ * remboursée. Le surge n'a rien au-dessus, et son blanc coupe cette voix de
+ * toute façon.
  */
 const CHARGE_BASE_BY_TIER = [300, 400, 520, 520] as const;
 const CHARGE_SPAN = 560;
@@ -119,12 +127,12 @@ export class Audio {
   private engine: Engine | null = null;
   private wind: Band | null = null;
   private driftNoise: Band | null = null;
-  /** Modulation depths of the drift band's turbulence, in Hz and in gain. */
+  /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
   private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
-  /** No graph exists before a gesture; see `unlock`. */
+  /** Aucun graphe n'existe avant un geste ; voir `unlock`. */
   private unlocked = false;
 
   get isMuted(): boolean {
@@ -139,11 +147,11 @@ export class Audio {
   }
 
   /**
-   * Opens the audio, from a user gesture.
+   * Ouvre l'audio, depuis un geste de l'utilisateur.
    *
-   * Nothing before this creates a context. A browser suspends one created
-   * outside a gesture and warns about it, which used to happen six times on
-   * every load because the screen machine resumed on its own first
+   * Rien avant ceci ne crée de contexte. Un navigateur suspend un contexte créé
+   * hors d'un geste et s'en plaint, ce qui arrivait six fois à chaque
+   * chargement parce que la machine des écrans reprenait sur sa propre première
    * transition.
    */
   unlock(): void {
@@ -152,9 +160,9 @@ export class Audio {
   }
 
   /**
-   * Resumes a context suspended by the browser — a backgrounded tab, an
-   * interrupting call. A no-op until `unlock`, so it is safe to call from any
-   * screen change.
+   * Reprend un contexte suspendu par le navigateur — un onglet en arrière-plan,
+   * un appel qui interrompt. Sans effet jusqu'à `unlock`, donc sûr à appeler
+   * depuis n'importe quel changement d'écran.
    */
   resume(): void {
     if (!this.unlocked) return;
@@ -163,18 +171,18 @@ export class Audio {
   }
 
   /**
-   * Builds the reverb ahead of time.
+   * Bâtit la réverbération à l'avance.
    *
-   * Its impulse response is 288 000 samples over two channels, generated in a
-   * loop. Left to build itself on the first crash, that lands as a hitch at
-   * the worst possible moment.
+   * Sa réponse impulsionnelle fait 288 000 échantillons sur deux canaux,
+   * produits dans une boucle. Laissée se bâtir au premier crash, elle tombe
+   * comme un à-coup au pire moment possible.
    */
   warmUp(): void {
     if (!this.unlocked) return;
     this.reverb();
   }
 
-  /** Turns simulation events into sound. */
+  /** Transforme les événements de la simulation en son. */
   play(events: readonly SimEvent[]): void {
     if (!this.ctx || this.muted) return;
     for (const e of events) {
@@ -194,7 +202,7 @@ export class Audio {
           else this.superBoost();
           break;
         case 'supEarned':
-          // Found or earned, the same rung: the same sound.
+          // Trouvé ou mérité, le même barreau : le même son.
           this.superBoost();
           break;
         case 'supEnd':
@@ -222,17 +230,18 @@ export class Audio {
   }
 
   /**
-   * The continuous layers, followed once a frame.
+   * Les couches continues, suivies une fois par frame.
    *
-   * `setTargetAtTime` rather than direct assignment: a step change on a gain
-   * at audio rate is an audible click, and there is one of these per frame.
+   * `setTargetAtTime` plutôt qu'une affectation directe : un saut sur un gain
+   * à la cadence audio est un clic audible, et il y en a un par frame.
    */
   /**
-   * @param drift 0 to 1, the shared slip scale from `drift.ts`. It was a
-   *   boolean, and a fixed gain: the band said that a drift was happening and
-   *   never how hard.
-   * @param charge what the drift is filling, 0 to 1: the boost reserve at
-   *   cruise, the climb to the next rung in thrust. One scale, the gauge's.
+   * @param drift 0 à 1, l'échelle de dérive partagée de `drift.ts`. C'était un
+   *   booléen et un gain fixe : la bande disait qu'un drift avait lieu, jamais
+   *   avec quelle force.
+   * @param charge ce que le drift remplit, 0 à 1 : la réserve de boost en
+   *   croisière, la montée vers le barreau suivant en poussée. Une seule
+   *   échelle, celle de la jauge.
    */
   update(
     playing: boolean,
@@ -247,13 +256,13 @@ export class Audio {
     if (!ctx || !eng || !this.wind || !this.driftNoise || !this.charge) return;
 
     const t = ctx.currentTime;
-    // Above 1 under boost, which is what keeps the top end from flattening.
+    // Au-dessus de 1 sous boost, ce qui empêche le haut de s'aplatir.
     const r = Math.min(ENGINE_R_MAX, speed / speedMax);
     const bst = DRIVE_BY_TIER[tier];
     const wnd = WIND_BY_TIER[tier];
     const surge = tier === 3;
     const duck = surge ? SURGE_DUCK : 1;
-    /** Each layer's time constant, stretched during a surge. */
+    /** La constante de temps de chaque couche, allongée pendant un surge. */
     const tc = (normal: number) => (surge ? SURGE_EASE : normal);
 
     eng.rumble.filter.frequency.setTargetAtTime(90 + r * 190, t, 0.1);
@@ -294,16 +303,17 @@ export class Audio {
     const airflow = playing && !surge ? drift * DRIFT_AIRFLOW : 0;
     this.driftNoise.gain.gain.setTargetAtTime(airflow, t, 0.07);
     if (this.turb) {
-      // The gain modulation is a fraction of the airflow itself, so it can
-      // never push the band below zero: two sines sum to at most 2.
+      // La modulation de gain est une fraction du souffle lui-même, donc elle
+      // ne peut jamais pousser la bande sous zéro : deux sinusoïdes somment à 2
+      // au plus.
       this.turb.freq.gain.setTargetAtTime(drift * TURB_FREQ_DEPTH, t, 0.1);
       this.turb.amp.gain.setTargetAtTime((airflow * TURB_GAIN_DEPTH) / 2, t, 0.1);
     }
 
-    // The charge: it climbs with what the drift is filling and is heard only
-    // in a drift, because that is where the reserve refills three times faster,
-    // where the climb counts at all, and where the player has a reason to
-    // listen. A register per rung, see CHARGE_BASE_BY_TIER.
+    // La recharge : elle monte avec ce que le drift remplit et ne s'entend
+    // qu'en drift, parce que c'est là que la réserve se remplit trois fois plus
+    // vite, là que la montée compte, et là que le joueur a une raison
+    // d'écouter. Un registre par barreau, voir CHARGE_BASE_BY_TIER.
     const charging = drift > 0 && charge < 0.995 && !surge;
     this.charge.osc.frequency.setTargetAtTime(
       CHARGE_BASE_BY_TIER[tier] + charge * CHARGE_SPAN,
@@ -330,7 +340,7 @@ export class Audio {
     this.master.gain.value = this.muted ? 0 : 0.55;
     this.master.connect(ctx.destination);
 
-    // One white noise buffer, shared by every layer.
+    // Un seul tampon de bruit blanc, partagé par toutes les couches.
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -357,9 +367,10 @@ export class Audio {
     this.wind = this.band(this.loop(0.55), 'bandpass', 900, 0.7);
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
 
-    // Turbulence: the two LFOs sum into two depth gains, one on the band's
-    // frequency, one on its gain. Both depths start at zero and follow the
-    // drift in update(), so off drift the band is exactly what it was.
+    // Turbulence : les deux LFO somment dans deux gains de profondeur, l'un sur
+    // la fréquence de la bande, l'autre sur son gain. Les deux partent de zéro
+    // et suivent le drift dans update(), donc hors drift la bande est
+    // exactement ce qu'elle était.
     const turbFreq = ctx.createGain();
     const turbAmp = ctx.createGain();
     turbFreq.gain.value = 0;
@@ -426,7 +437,7 @@ export class Audio {
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
     if (sweep) o.frequency.exponentialRampToValueAtTime(Math.max(25, sweep), t + dur);
-    // Exponential ramps cannot touch zero, hence the near-silent floor.
+    // Les rampes exponentielles ne peuvent pas toucher zéro, d'où le plancher quasi muet.
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -487,12 +498,12 @@ export class Audio {
       const rev = this.reverb();
       if (rev) g.connect(rev);
     }
-    // Random offset into the buffer, so repeats do not phase together.
+    // Décalage aléatoire dans le tampon, pour que les répétitions ne se mettent pas en phase.
     src.start(t0, Math.random() * 1.4);
     src.stop(t0 + dur + 0.05);
   }
 
-  /** Exponentially decaying noise, built once. */
+  /** Bruit à décroissance exponentielle, bâti une fois. */
   private reverb(): GainNode | null {
     if (this.reverbIn || !this.ctx) return this.reverbIn;
     const ctx = this.ctx;
@@ -531,11 +542,11 @@ export class Audio {
   }
 
   /**
-   * The super boost, which is also its own activation: the pickup fires it.
+   * Le super boost, qui est aussi sa propre activation : le ramassage le tire.
    *
-   * A rising sweep alone reads as "faster". The detonation under it is what
-   * makes it read as a catapult, which is the distinction §15 of the palette
-   * asks for and the one the game did not make.
+   * Un balayage montant seul se lit « plus vite ». La détonation en dessous est
+   * ce qui le fait lire comme une catapulte, la distinction que la §15 de la
+   * palette demande et que le jeu ne faisait pas.
    */
   private superBoost(): void {
     const ctx = this.ctx;
@@ -561,11 +572,11 @@ export class Audio {
   }
 
   /**
-   * The reserve is full: two rising notes, and not the coin's square wave.
+   * La réserve est pleine : deux notes montantes, et pas le carré de la pièce.
    *
-   * Called by the client, which owns the decision of when a refill is worth
-   * announcing. The simulation only knows that the reserve is at 100, and it is
-   * at 100 again three steps after a wall has shaved 0.036 off it.
+   * Appelé par le client, qui possède la décision du moment où un remplissage
+   * mérite une annonce. La simulation ne sait que la réserve est à 100, et elle
+   * y est de nouveau trois pas après qu'un mur en a rogné 0,036.
    */
   boostReady(): void {
     const ctx = this.ctx;
@@ -575,10 +586,10 @@ export class Audio {
   }
 
   /**
-   * Entering a drift: an aerodynamic rupture, not an impact.
+   * L'entrée en drift : une rupture aérodynamique, pas un impact.
    *
-   * The drift already had a continuous voice — a noise band at 2600 Hz that
-   * fades in — and no moments at all. This is the first of the two ends.
+   * Le drift avait déjà une voix continue — une bande de bruit à 2600 Hz qui
+   * monte — et aucun instant. Voici la première des deux extrémités.
    */
   private driftEntry(): void {
     const ctx = this.ctx;
@@ -587,11 +598,12 @@ export class Audio {
   }
 
   /**
-   * Leaving one: the grip comes back, and the whoosh falls rather than rises.
+   * La sortie : les appuis reviennent, et le whoosh descend plutôt qu'il ne
+   * monte.
    *
-   * Scaled by how long the drift was held, which is what the event carries. A
-   * long slide earns a longer, louder realignment; that is also the seed of the
-   * chain the palette describes, without the mechanic behind it.
+   * Dosé par la durée du drift, que l'événement porte. Une longue glisse mérite
+   * un réalignement plus long et plus fort ; c'était aussi la graine de la
+   * chaîne que la palette décrivait, avant la mécanique qui l'a portée.
    */
   private driftRelease(held: number): void {
     const ctx = this.ctx;
@@ -610,10 +622,11 @@ export class Audio {
   }
 
   /**
-   * Entering the surge: the world closes rather than opens.
+   * L'entrée en surge : le monde se ferme plutôt qu'il ne s'ouvre.
    *
-   * A descending sweep under the duck, so the ear reads a pressure change
-   * rather than merely noticing that the engine went away.
+   * Un balayage descendant sous le couchage, pour que l'oreille lise un
+   * changement de pression plutôt que de seulement remarquer que le moteur est
+   * parti.
    */
   private surgeIn(): void {
     const ctx = this.ctx;
@@ -622,7 +635,7 @@ export class Audio {
     this.noiseHit(ctx.currentTime, 0.2, 'lowpass', 2600, 260, 0.8, 0.45, true);
   }
 
-  /** Leaving it: the mix comes back, and it should read as surfacing. */
+  /** La sortie : le mix revient, et ça doit se lire comme remonter à la surface. */
   private surgeOut(): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
@@ -631,12 +644,12 @@ export class Audio {
   }
 
   /**
-   * The end of a super boost: a decompression, not a fall.
+   * La fin d'un super boost : une décompression, pas une chute.
    *
-   * Quieter than the activation on purpose. It closes the beat rather than
-   * competing with it, and what it announces is a hand-off — the pickup filled
-   * the reserve and the super boost never drained it, so the run carries
-   * straight on into a boost.
+   * Plus discrète que l'activation, à dessein. Elle clôt le temps au lieu de
+   * rivaliser avec lui, et ce qu'elle annonce est un passage de relais — le
+   * ramassage a rempli la réserve et le super boost ne l'a jamais vidée, donc
+   * la partie enchaîne directement sur un boost.
    */
   private superRelease(): void {
     const ctx = this.ctx;
@@ -650,9 +663,9 @@ export class Audio {
     if (!ctx || this.muted) return;
     const t = ctx.currentTime;
     this.reverb();
-    this.noiseHit(t, 0.35, 'highpass', 2400, 900, 0.7, 0.09, true); // sheet metal
+    this.noiseHit(t, 0.35, 'highpass', 2400, 900, 0.7, 0.09, true); // tôle
     this.noiseHit(t, 0.45, 'lowpass', 2600, 90, 1.0, 0.4, true); // impact
-    this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true); // low tail
+    this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true); // queue grave
 
     const o = ctx.createOscillator();
     const g = ctx.createGain();
