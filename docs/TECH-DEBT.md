@@ -36,7 +36,7 @@ classic scripts, and those are gone.
 | 17 | `Math` transcendentals are not bit-identical across engines | — | **done**, the core carries its own |
 | 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
 | 20 | Modules over the 300-line rule | Low | seven; `main.ts` split from 824 to 517, the rest one thing each |
-| 21 | Comment language | Low | core French, ported client English, no file mixed any more |
+| 21 | Comment language | — | **done**, every code file is French; interface and documents stay English |
 
 ## 3. Tests
 
@@ -490,10 +490,14 @@ against a hundred and forty English ones and uniformity was the rule being
 served. The bundle's hashed name did not move, which is how a comment-only
 change is checked here.
 
-What is left is the ported client in English, uniform file by file. Low, and
-not worth a bulk pass: a translation touches nothing the player receives and
-everything a reviewer reads, so it is done when a file is opened for another
-reason — whole file, never a paragraph.
+Closed on 11 September 2026, on the author's decision: interface English,
+code French. The ported client, `vite.config.ts` and the tests went over in
+batches of whole files, each batch checked the one way a comment-only change
+can be — the built bundle kept its hashed name throughout. `audio.ts`, made
+English the day before for uniformity's sake, went the other way once the rule
+was settled. What stays English in code is what the player reads: labels,
+hints, tips, difficulty notes, test titles, and the generated prose of
+`GAMEPLAY.md`.
 
 ## What is deliberately not debt
 

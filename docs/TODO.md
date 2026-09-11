@@ -53,9 +53,9 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
 - **`FX_DRIFT_WAKE` and `SFX_DRIFT_TURBULENCE`** — built, version 1.4.6.
 - **The blur layer** — on by default, off as soon as quality has been stepped
   down; confirmed.
-- **Comment language** — the interface stays English, the code goes French;
-  the ported client is being translated file by file, whole files, with the
-  bundle's hashed name checked unchanged after each (`TECH-DEBT.md` §21).
+- **Comment language** — the interface stays English, the code went French,
+  whole files, the bundle's hashed name checked unchanged after each batch.
+  Done; `TECH-DEBT.md` §21 is closed.
 
 ## Housekeeping
 

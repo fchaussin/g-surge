@@ -1,12 +1,13 @@
 /**
- * `docs/ARCHITECTURE.md` may not drift from the tree it maps.
+ * `docs/ARCHITECTURE.md` ne peut pas dériver de l'arbre qu'il cartographie.
  *
- * It did, quietly, for five roadmap steps: six modules absent from its tables
- * and a client line count off by a factor of two and a half. Nothing was
- * wrong, so nothing complained. Two checks now do — the counts are generated,
- * and every source module has to be named in the map.
+ * Il l'a fait, en silence, pendant cinq étapes de la feuille de route : six
+ * modules absents de ses tables et un compte de lignes du client faux d'un
+ * facteur deux et demi. Rien n'était faux, donc rien ne s'est plaint. Deux
+ * vérifications le font désormais — les comptes sont générés, et chaque module
+ * source doit être nommé dans la carte.
  *
- * `npm run docs:layout` rewrites the generated blocks.
+ * `npm run docs:layout` réécrit les blocs générés.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,7 +40,7 @@ describe('the documents that count the tree', () => {
     });
   }
 
-  /** A marker that stops matching must fail loudly, not silently do nothing. */
+  /** Un marqueur qui cesse de correspondre doit échouer bruyamment, pas ne rien faire en silence. */
   it('refuses a document whose markers have gone', () => {
     expect(() => render('X.md', '# nothing here', { layout: '' })).toThrow(
       /missing or malformed markers/,

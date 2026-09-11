@@ -1,16 +1,18 @@
 /**
- * The parts of `docs/ARCHITECTURE.md` and `docs/TECH-DEBT.md` that are counts
- * on the tree.
+ * Les parties de `docs/ARCHITECTURE.md` et `docs/TECH-DEBT.md` qui sont des
+ * comptes sur l'arbre.
  *
- * `ARCHITECTURE.md` stated a client of 2 100 lines while the tree held 5 200,
- * and listed nine of the fifteen entries of the debug surface: nothing in it
- * was wrong, everything was incomplete, and it stayed so through five roadmap
- * steps because nothing could contradict it. This is the "obvious next move"
- * `TECH-DEBT.md` §19 named — the counts are generated here and checked by a
- * test, and the module tables are checked for completeness.
+ * `ARCHITECTURE.md` annonçait un client de 2 100 lignes quand l'arbre en tenait
+ * 5 200, et listait neuf des quinze entrées de la surface de mise au point :
+ * rien n'y était faux, tout était incomplet, et c'est resté ainsi pendant cinq
+ * étapes de la feuille de route parce que rien ne pouvait le contredire. C'est
+ * le « prochain geste évident » que `TECH-DEBT.md` §19 nommait — les comptes
+ * sont générés ici et vérifiés par un test, et les tables de modules sont
+ * vérifiées complètes.
  *
- * Deliberately not generated: the role of each module, which is prose and a
- * judgement, and the reasons a module grew past the 300-line rule.
+ * Délibérément pas généré : le rôle de chaque module, qui est de la prose et un
+ * jugement, et les raisons pour lesquelles un module a dépassé la règle des
+ * 300 lignes.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -20,37 +22,38 @@ import { DEFAULTS } from '../../src/sim/index.js';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** The two source trees, in the order the documents present them. */
+/** Les deux arbres source, dans l'ordre où les documents les présentent. */
 export const TREES = ['src/sim', 'src/client'] as const;
 
-/** What `CLAUDE.md` asks of a module. */
+/** Ce que `CLAUDE.md` demande d'un module. */
 export const MODULE_LIMIT = 300;
 
-/** Source modules of one tree — `.ts` files, `tsconfig.json` and tests excluded. */
+/** Les modules source d'un arbre — fichiers `.ts`, `tsconfig.json` et tests exclus. */
 export function modules(tree: string): string[] {
   return readdirSync(join(ROOT, tree))
     .filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts') && !f.endsWith('.test.ts'))
     .sort();
 }
 
-/** Line count of one file, comments included: the documents count what a reader scrolls. */
+/** Compte de lignes d'un fichier, commentaires compris : les documents comptent ce qu'un lecteur fait défiler. */
 export function lines(path: string): number {
   const text = readFileSync(join(ROOT, path), 'utf8');
   return text.length === 0 ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
 }
 
 /**
- * A count rounded to the nearest hundred, written the way the documents write
- * large numbers. Rounded so that an ordinary edit does not move the document;
- * the exact figure is one `wc -l` away and belongs nowhere in prose.
+ * Un compte arrondi à la centaine, écrit comme les documents écrivent les grands
+ * nombres. Arrondi pour qu'une édition ordinaire ne déplace pas le document ;
+ * le chiffre exact est à un `wc -l` de distance et n'a sa place dans aucune
+ * prose.
  */
 export function approx(n: number): string {
   const rounded = Math.round(n / 100) * 100;
-  // Thousands grouped by a plain space, as in "1 345 m" elsewhere in docs/.
+  // Milliers groupés par une espace simple, comme « 1 345 m » ailleurs dans docs/.
   return `~${String(rounded).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
 }
 
-/** The top table of `ARCHITECTURE.md`: where the code is and how much of it. */
+/** La table de tête d'`ARCHITECTURE.md` : où est le code et combien il y en a. */
 export function layout(): string {
   const rows = TREES.map((tree) => {
     const files = modules(tree);
@@ -61,7 +64,7 @@ export function layout(): string {
   return ['| Where | Files | Lines |', '|---|---|---|', ...rows].join('\n');
 }
 
-/** The table of `TECH-DEBT.md` §20: every module over the limit, largest first. */
+/** La table de `TECH-DEBT.md` §20 : chaque module au-dessus de la limite, le plus gros d'abord. */
 export function oversize(limit = MODULE_LIMIT): string {
   const rows: Array<[string, number]> = [];
   for (const tree of TREES) {
@@ -80,9 +83,10 @@ export function oversize(limit = MODULE_LIMIT): string {
 }
 
 /**
- * Replaces each `<!-- generated:name -->` block of a document. Throws if one
- * is missing: a marker that stops matching must fail loudly, not silently
- * leave a stale table behind — that is the failure mode this exists to end.
+ * Remplace chaque bloc `<!-- generated:name -->` d'un document. Lève si l'un
+ * manque : un marqueur qui cesse de correspondre doit échouer bruyamment, pas
+ * laisser en silence une table périmée — c'est le mode de défaillance que ceci
+ * existe pour clore.
  */
 export function render(name: string, document: string, blocks: Record<string, string>): string {
   let out = document;
@@ -100,10 +104,10 @@ export function render(name: string, document: string, blocks: Record<string, st
 }
 
 /**
- * The table of `TECH-DEBT.md` §11: how much of the tuning the panel exposes.
+ * La table de `TECH-DEBT.md` §11 : quelle part de l'accord le panneau expose.
  *
- * Three documents carried three different pairs of figures for this — 69 and
- * 40, 70 and 32 — and the tree agreed with none of them.
+ * Trois documents portaient trois paires de chiffres différentes pour cela — 69
+ * et 40, 70 et 32 — et l'arbre n'était d'accord avec aucune.
  */
 export function coverage(): string {
   const keys = Object.keys(DEFAULTS).length;
@@ -117,7 +121,7 @@ export function coverage(): string {
   ].join('\n');
 }
 
-/** The generated blocks of each document, by file name. */
+/** Les blocs générés de chaque document, par nom de fichier. */
 export function documents(): Record<string, Record<string, string>> {
   return {
     'ARCHITECTURE.md': { layout: layout() },

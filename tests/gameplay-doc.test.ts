@@ -1,12 +1,12 @@
 /**
- * `docs/GAMEPLAY.md` may not drift from the tuning it describes.
+ * `docs/GAMEPLAY.md` ne peut pas dériver de l'accord qu'il décrit.
  *
- * The document once carried a ratio divided by a figure that appeared nowhere
- * in the code, and it survived for months because every number in it was typed
- * by hand. Everything derivable is now generated; this test is what makes that
- * stick.
+ * Le document a porté un rapport divisé par un chiffre qui n'apparaissait nulle
+ * part dans le code, et il a survécu des mois parce que chaque nombre y était
+ * tapé à la main. Tout ce qui se dérive est désormais généré ; ce test est ce
+ * qui fait tenir cela.
  *
- * `npm run docs:tuning` rewrites the generated blocks.
+ * `npm run docs:tuning` réécrit les blocs générés.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -38,7 +38,7 @@ describe('docs/GAMEPLAY.md', () => {
     expect(declared.sort()).toEqual(Object.keys(sections()).sort());
   });
 
-  /** A marker that stops matching must fail loudly, not silently do nothing. */
+  /** Un marqueur qui cesse de correspondre doit échouer bruyamment, pas ne rien faire en silence. */
   it('refuses a document whose markers have gone', () => {
     expect(() => render('# nothing here')).toThrow(/missing or malformed markers/);
   });

@@ -1,15 +1,17 @@
 /**
- * The parts of `docs/GAMEPLAY.md` that are arithmetic on the tuning tables.
+ * Les parties de `docs/GAMEPLAY.md` qui sont de l'arithmétique sur les tables
+ * d'accord.
  *
- * This document existed for months carrying a row that was simply wrong — a
- * ratio divided by a figure that appeared nowhere in the code — because every
- * number in it was typed by hand and nothing could contradict it. Anything
- * derivable is now computed here and checked by a test, so the document cannot
- * drift from `src/sim/tuning.ts` again.
+ * Ce document a existé des mois avec une ligne simplement fausse — un rapport
+ * divisé par un chiffre qui n'apparaissait nulle part dans le code — parce que
+ * chaque nombre y était tapé à la main et que rien ne pouvait le contredire.
+ * Tout ce qui se dérive est désormais calculé ici et vérifié par un test, donc
+ * le document ne peut plus dériver de `src/sim/tuning.ts`.
  *
- * What is deliberately *not* generated: prose, design intent, and the two
- * tables that depended on how someone happened to be driving. A number that
- * needs a play policy to be true does not belong in a reference.
+ * Ce qui n'est délibérément *pas* généré : la prose, l'intention de conception,
+ * et les deux tables qui dépendaient de la façon dont quelqu'un conduisait. Un
+ * nombre qui a besoin d'une politique de jeu pour être vrai n'a pas sa place
+ * dans une référence.
  */
 import {
   clamp,
@@ -23,17 +25,17 @@ import {
   type Tuning,
 } from '../../src/sim/index.js';
 
-/** Assumed lateral closing speed for the "average impact", in m/s. */
+/** Vitesse latérale d'approche supposée pour « l'impact moyen », en m/s. */
 const TYPICAL_IMPACT = 12;
 
 const kmh = (ms: number) => Math.round(ms * 3.6);
 
 /**
- * Wraps prose at the width this repository writes at.
+ * Replie la prose à la largeur à laquelle ce dépôt écrit.
  *
- * Generated text still has to be read in a diff, and a paragraph that rewraps
- * differently every time a number gains a digit makes every change look
- * larger than it is.
+ * Un texte généré se lit encore dans un diff, et un paragraphe qui se replie
+ * autrement chaque fois qu'un nombre gagne un chiffre fait paraître chaque
+ * changement plus gros qu'il n'est.
  */
 function wrap(text: string, width = 79, indent = ''): string {
   const out: string[] = [];
@@ -51,19 +53,19 @@ function wrap(text: string, width = 79, indent = ''): string {
 }
 const deg = (rad: number) => (rad * 180) / Math.PI;
 
-/** Tightest corner the generator will draw at a given speed, and its radius. */
+/** Le virage le plus serré que le générateur dessine à une vitesse donnée, et son rayon. */
 function tightestCorner(t: Tuning, speed: number) {
   const v2 = Math.max(3600, speed * speed);
   const k = clamp(t.curveLoad / (v2 * t.centri), t.curveMin, t.curveMax);
   const load = k * v2 * t.centri;
-  // Banking is the balance angle for that load, so part of the push is taken
-  // by the track itself and never reaches the driver.
+  // Le dévers est l'angle d'équilibre pour cette charge, donc une part de la
+  // poussée est prise par la piste elle-même et n'atteint jamais le pilote.
   const bank = clamp(-Math.atan(load / 9.81) * t.bankScale, -1.25, 1.25);
   const assist = 9.81 * Math.abs(Math.sin(bank)) * t.bankAssist;
   return { radius: 1 / k, load, net: load - assist };
 }
 
-/** Maximum yaw the stick can command at a given speed, in radians. */
+/** Lacet maximal que le manche peut commander à une vitesse donnée, en radians. */
 const yawMax = (t: Tuning, speed: number) =>
   clamp((t.yawBase * t.yawSpeedRef) / Math.max(40, speed), t.yawMin, t.yawBase);
 
@@ -175,8 +177,8 @@ export function handling(t: Tuning): string {
   const boosted = t.speedMax * t.boostFactor;
   const at = (v: number) => `${deg(yawMax(t, v)).toFixed(1)}° at ${kmh(v)} km/h`;
 
-  // At the top of the range `yawMax` scales as 1/v, so the authority the stick
-  // commands is almost constant — which is why it is quoted as one figure.
+  // En haut de la plage `yawMax` varie en 1/v, donc l'autorité que le manche
+  // commande est presque constante — d'où un seul chiffre cité.
   const authority = Math.sin(yawMax(t, t.speedMax)) * t.speedMax * t.gripHold;
   const full = Math.sin(yawMax(t, boosted)) * boosted * t.gripHold;
 
@@ -253,7 +255,7 @@ export function constants(t: Tuning): string {
   ].join('\n');
 }
 
-/** Every generated block, by the marker name that encloses it. */
+/** Chaque bloc généré, par le nom du marqueur qui l'encadre. */
 export function sections(): Record<string, string> {
   const t = tuningFor('easy');
   return {
@@ -265,7 +267,7 @@ export function sections(): Record<string, string> {
   };
 }
 
-/** Replaces each `<!-- generated:name -->` block. Throws if one is missing. */
+/** Remplace chaque bloc `<!-- generated:name -->`. Lève si l'un manque. */
 export function render(document: string): string {
   let out = document;
   for (const [name, body] of Object.entries(sections())) {

@@ -1,12 +1,12 @@
 /**
- * Acceptance for the new client's skeleton.
+ * Recette du squelette du client.
  *
- * Deliberately narrow: at this point the build only has to start, hold a live
- * WebGL context, size its canvas correctly and prove that the simulation core
- * is actually being driven. Screens, HUD and rendering arrive at roadmap steps
- * 2 and 3, and their tests come with them.
+ * Volontairement étroite : le build doit démarrer, tenir un contexte WebGL
+ * vivant, dimensionner correctement son canvas et prouver que le noyau de
+ * simulation est bien piloté. Les écrans, le HUD et le rendu ont leurs propres
+ * tests, dans les autres fichiers de cette suite.
  *
- * These run against `dist/`, so `npm run test:e2e:next` builds first.
+ * Tout ceci tourne contre `public/`, que le serveur de test construit d'abord.
  */
 import { expect, test } from '@playwright/test';
 
@@ -20,15 +20,15 @@ function watchErrors(page: import('@playwright/test').Page): string[] {
 }
 
 /**
- * Waits for the game to be genuinely ready, not merely loaded.
+ * Attend que le jeu soit vraiment prêt, pas seulement chargé.
  *
- * `window.__gsNext` appears when the module is evaluated, which is well before
- * the splash finishes compiling shaders and drawing its first frame. Waiting
- * on it let a test call `freeze` mid-startup, and the warm-up frame that
- * followed then overwrote the frozen one — visible as a screenshot that
- * differed by a different amount on every retry.
+ * `window.__gsNext` apparaît à l'évaluation du module, bien avant que l'écran de
+ * démarrage ait fini de compiler les shaders et de dessiner sa première frame.
+ * Attendre dessus a laissé un test appeler `freeze` en plein démarrage, et la
+ * frame d'échauffement qui a suivi a écrasé la frame figée — visible comme une
+ * capture qui différait d'une quantité différente à chaque nouvel essai.
  *
- * `#boot.gone` is set by `__gsReady`, which the client calls last.
+ * `#boot.gone` est posé par `__gsReady`, que le client appelle en dernier.
  */
 const ready = async (page: import('@playwright/test').Page): Promise<void> => {
   await page.waitForSelector('#boot.gone', { timeout: 20_000 });
@@ -36,15 +36,16 @@ const ready = async (page: import('@playwright/test').Page): Promise<void> => {
 
 test.describe('new client, skeleton', () => {
   /**
-   * The splash carries the build's identity, written in by a Vite plugin.
+   * L'écran de démarrage porte l'identité du build, écrite par un plugin Vite.
    *
-   * The plugin already fails the build when its marker goes missing, which is
-   * the same guard the service worker has. What that cannot catch is a
-   * replacement that runs and produces the wrong thing, so this checks the
-   * shape on the served page instead of the source.
+   * Le plugin fait déjà échouer le build quand son marqueur disparaît, la même
+   * garde que celle du service worker. Ce qu'elle ne peut pas attraper est un
+   * remplacement qui tourne et produit la mauvaise chose, donc ceci vérifie la
+   * forme sur la page servie plutôt que dans la source.
    *
-   * The commit half is deliberately loose: the end-to-end image has no git, so
-   * it falls back to DEV there, and pinning it would only pin the container.
+   * La moitié commit est délibérément lâche : l'image de bout en bout n'a pas
+   * de git, donc elle retombe sur DEV, et l'épingler n'épinglerait que le
+   * conteneur.
    */
   test('shows the build it is, on the splash and in the menu', async ({ page }) => {
     await page.goto('/');
@@ -75,7 +76,7 @@ test.describe('new client, skeleton', () => {
     expect(gl).not.toBeNull();
     expect(gl!.lost).toBe(false);
     expect(gl!.w).toBeGreaterThan(0);
-    // The code depends on r128 behaviour; the bundle must not drift off it.
+    // Le code dépend du comportement de r128 ; le bundle ne doit pas s'en écarter.
     expect(await page.evaluate(() => window.__gsNext.revision)).toBe('128');
     expect(errors).toEqual([]);
   });
@@ -105,7 +106,7 @@ test.describe('new client, skeleton', () => {
     expect(m.bufW).not.toBe(300);
   });
 
-  /** The same trap as the legacy: three.js sets inline styles that hide it. */
+  /** Le même piège que l'ancien jeu : three.js pose des styles en ligne qui le cachent. */
   test('the canvas CSS rule stands without three.js inline styles', async ({ page }) => {
     await page.goto('/');
     await ready(page);
@@ -156,17 +157,17 @@ test.describe('new client, skeleton', () => {
 });
 
 /**
- * Full-frame visual references for the new client — canvas included.
+ * Références visuelles plein cadre du client — canvas compris.
  *
- * The legacy suite could never do this: a frame depended on when it happened
- * to be taken, because the simulation ran on the real frame delta. With a
- * fixed step and a seed, `freeze` replays a known number of steps and draws
- * exactly one frame, which is reproducible.
+ * L'ancienne suite ne pouvait pas le faire : une frame dépendait du moment où on
+ * la prenait, parce que la simulation tournait sur le vrai delta de frame. Avec
+ * un pas fixe et une graine, `freeze` rejoue un nombre connu de pas et dessine
+ * exactement une frame, reproductible.
  *
- * A small tolerance remains on purpose. The exhaust flicker is per-frame noise
- * on `Math.random`, deliberately left outside the simulation; seeding it would
- * couple presentation to the core for no gain. It moves a few hundred pixels
- * around the two plumes and nothing else.
+ * Le scintillement des plumes est du bruit par frame sur `Math.random`, laissé
+ * hors de la simulation à dessein ; le semer couplerait la présentation au
+ * noyau pour rien. `freeze` cale donc les plumes avant de dessiner, ce qui est
+ * ce qui a permis de descendre la tolérance à zéro.
  */
 test.describe('new client, rendering', () => {
   for (const [name, steps] of [
@@ -175,21 +176,22 @@ test.describe('new client, rendering', () => {
     ['far', 9000],
   ] as const) {
     test(`renders the track ${name}`, async ({ page }, testInfo) => {
-      // Desktop only. The 3D scene does not change meaningfully with the
-      // viewport, and three sets of references would be 1.9 MB of PNG in the
-      // repository for nothing. The retina project exists for canvas geometry,
-      // not for looks.
+      // Ordinateur seulement. La scène 3D ne change pas de façon significative
+      // avec la fenêtre, et trois jeux de références feraient 1,9 Mo de PNG dans
+      // le dépôt pour rien. Le projet retina existe pour la géométrie du canvas,
+      // pas pour l'aspect.
       test.skip(testInfo.project.name !== 'desktop', 'one set of scene references is enough');
       await page.goto('/');
       await ready(page);
-      // The UI is hidden rather than masked: these references are about the
-      // scene, and the menu covers most of it. The interface gets its own.
+      // L'interface est cachée plutôt que masquée : ces références portent sur
+      // la scène, et le menu en couvre l'essentiel. L'interface a les siennes.
       //
-      // `.boot` is in that list for a reason worth keeping. The splash holds
-      // for 1 200 ms by design, while `ready()` resolves as soon as the module
-      // runs — so without hiding it the capture raced the splash, and one of
-      // these references was in fact a screenshot of the loading screen. It
-      // passed whenever the timing happened to repeat.
+      // `.boot` est dans cette liste pour une raison qui mérite d'être gardée.
+      // L'écran de démarrage tenait autrefois 1 200 ms par conception pendant
+      // que `ready()` se résolvait dès que le module tournait — donc sans le
+      // cacher la capture faisait la course avec lui, et l'une de ces références
+      // était en fait une capture de l'écran de chargement. Elle passait chaque
+      // fois que le minutage se répétait.
       await page.evaluate(
         ([seed, n]) => {
           const hide = '.layer, .hud, .mutebtn, .fps, .boot';
@@ -199,10 +201,10 @@ test.describe('new client, rendering', () => {
         ['reference', steps],
       );
       await expect(page).toHaveScreenshot(`scene-${name}.png`, {
-        // Measured, not guessed: with the plumes as the only moving part, two
-        // captures of the same frozen frame differ by at most 2 280 pixels.
-        // The first version of this test allowed 2 % — 18 000 pixels — which
-        // was loose enough to hide a banner added across the whole width.
+        // Zéro, et ce n'est pas une posture : `freeze` cale les plumes, seule
+        // pièce mobile. La première version de ce test tolérait 2 % — 18 000
+        // pixels — assez lâche pour cacher une bannière ajoutée sur toute la
+        // largeur ; la seconde 2 280, mesurés avec les plumes libres.
         maxDiffPixels: 0,
       });
     });
@@ -225,8 +227,8 @@ test.describe('new client, rendering', () => {
       (window as unknown as { __calls: number }).__calls = 0;
       window.__gsNext.freeze('reference', 600);
     });
-    // The legacy draws about 76 calls a frame. Anything near zero means the
-    // scene is empty and the screenshots would be comparing two black frames.
+    // Le jeu dessine environ 76 appels par frame. Près de zéro veut dire que la
+    // scène est vide et que les captures compareraient deux frames noires.
     expect(
       await page.evaluate(() => (window as unknown as { __calls: number }).__calls),
     ).toBeGreaterThan(30);

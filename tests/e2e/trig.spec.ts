@@ -1,23 +1,24 @@
 /**
- * The one claim about `src/sim/trig.ts` that Node alone cannot check.
+ * La seule affirmation sur `src/sim/trig.ts` que Node seul ne peut pas vérifier.
  *
- * Debt 17 is a statement about two engines disagreeing, so a test for it needs
- * two engines. `tests/trig.test.ts` pins what the core returns, in Node, against
- * frozen bit patterns. This one runs the shipped bundle in Chromium and asks
- * whether it returns the same bits — which is the property server-side
- * validation, ghosts and shared tracks would all rest on.
+ * La dette 17 est un énoncé sur deux moteurs qui divergent, donc un test pour
+ * elle a besoin de deux moteurs. `tests/trig.test.ts` épingle ce que le noyau
+ * rend, dans Node, contre des motifs de bits figés. Celui-ci fait tourner le
+ * bundle livré dans Chromium et demande s'il rend les mêmes bits — la propriété
+ * sur laquelle la validation côté serveur, les fantômes et les pistes partagées
+ * reposeraient tous.
  *
- * It also measures the problem itself rather than restating it: the same
- * arguments go through the browser's own `Math`, and the disagreements with
- * Node's `Math` are counted and reported. That count is deliberately not
- * asserted. It depends on two engine versions and could legitimately reach zero
- * on some pairing; the point is not that they always differ, it is that the
- * core no longer cares whether they do.
+ * Il mesure aussi le problème lui-même au lieu de le répéter : les mêmes
+ * arguments passent par le `Math` du navigateur, et les désaccords avec le
+ * `Math` de Node sont comptés et rapportés. Ce compte n'est délibérément pas
+ * vérifié. Il dépend de deux versions de moteur et pourrait légitimement
+ * atteindre zéro sur un appariement ; le point n'est pas qu'ils divergent
+ * toujours, c'est que le noyau ne se soucie plus de savoir s'ils le font.
  *
- * Numbers cross the bridge as JSON, which round-trips a finite double exactly —
- * `Number::toString` is specified to produce the shortest representation that
- * reads back identically — so a comparison of bit patterns on this side is
- * sound.
+ * Les nombres traversent le pont en JSON, qui fait l'aller-retour d'un double
+ * fini exactement — `Number::toString` est spécifié pour produire la plus courte
+ * représentation qui se relit à l'identique — donc une comparaison de motifs de
+ * bits de ce côté est valide.
  */
 import { expect, test } from '@playwright/test';
 import { atan, cos, sin } from '../../src/sim/index.js';
@@ -29,13 +30,14 @@ const bits = (x: number): string => {
 };
 
 /**
- * Arguments spanning what the game actually produces, and then some.
+ * Des arguments couvrant ce que le jeu produit vraiment, et au-delà.
  *
- * Measured over a run on all three difficulties: yaw reaches 44 rad and bank
- * stays under 13. The sweep goes to 1000 so the reduction is exercised well
- * past anything a track can bend to, and the exact multiples of π/2 are added
- * by hand because a random sweep never lands on them — those are the arguments
- * where the reduction cancels its high bits and implementations part company.
+ * Mesuré sur une partie dans les trois difficultés : le lacet atteint 44 rad et
+ * le dévers reste sous 13. Le balayage va jusqu'à 1000 pour que la réduction
+ * soit exercée bien au-delà de ce qu'une piste peut plier, et les multiples
+ * exacts de π/2 sont ajoutés à la main parce qu'un balayage aléatoire ne tombe
+ * jamais dessus — ce sont les arguments où la réduction annule ses bits hauts
+ * et où les implémentations se séparent.
  */
 function bands(): Array<{ label: string; xs: number[] }> {
   let state = 20260910;
@@ -109,8 +111,9 @@ test.describe('the core carries its own trigonometry across engines', () => {
       total += counts.sin + counts.cos + counts.atan;
     }
 
-    // Deliberately not asserted; see the note at the top of this file. What the
-    // suite guards is the test above, which says the core agrees with itself.
+    // Délibérément pas vérifié ; voir la note en tête de ce fichier. Ce que la
+    // suite garde est le test au-dessus, qui dit que le noyau s'accorde avec
+    // lui-même.
     expect(total).toBeGreaterThanOrEqual(0);
   });
 });

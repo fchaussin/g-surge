@@ -1,16 +1,18 @@
 /**
- * The element ids `index.html` declares and the ones the client looks up are
- * the same set, in both directions.
+ * Les identifiants d'éléments qu'`index.html` déclare et ceux que le client
+ * cherche sont le même ensemble, dans les deux sens.
  *
- * TECH-DEBT §6: roughly seventy string literals shared between the markup and
- * the modules, so renaming one is a two-place search. It stays a two-place
- * edit — this test does not remove the coupling, it makes forgetting one of
- * the two places fail in seconds instead of returning `null` in a browser.
+ * TECH-DEBT §6 : une septantaine de littéraux partagés entre le balisage et les
+ * modules, donc en renommer un est une recherche à deux endroits. Ça reste une
+ * édition à deux endroits — ce test ne retire pas le couplage, il fait qu'en
+ * oublier un échoue en quelques secondes au lieu de rendre `null` dans un
+ * navigateur.
  *
- * Text only, no DOM: the markup is read as a file, the lookups are the quoted
- * literals at the call sites plus the id tables the modules export. An id
- * built at runtime — a `page${...}` template — is invisible here, which is why
- * `settings.ts` spells its tabs out as literals.
+ * Texte seul, pas de DOM : le balisage est lu comme un fichier, les recherches
+ * sont les littéraux entre guillemets aux points d'appel plus les tables
+ * d'identifiants que les modules exportent. Un identifiant bâti à l'exécution —
+ * un gabarit `page${...}` — est invisible ici, ce qui est pourquoi
+ * `settings.ts` écrit ses onglets en littéraux.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,15 +31,15 @@ const e2eSources = readdirSync(join(ROOT, 'tests/e2e'))
   .filter((f) => f.endsWith('.spec.ts'))
   .map((f) => readFileSync(join(ROOT, 'tests/e2e', f), 'utf8'));
 
-/** Every `id="..."` the markup declares. */
+/** Chaque `id="..."` que le balisage déclare. */
 function declared(): string[] {
   return [...html.matchAll(/\sid="([A-Za-z][\w-]*)"/g)].map((m) => m[1]!);
 }
 
 /**
- * Every id the client looks up: the literal at each call site, and the tables.
- * `on` is the click binder in `main.ts`, `byId` the helper in `hud.ts` and
- * `settings.ts`.
+ * Chaque identifiant que le client cherche : le littéral à chaque point d'appel,
+ * et les tables. `on` est le lieur de clic de `main.ts`, `byId` l'aide de
+ * `hud.ts` et `settings.ts`.
  */
 function lookedUp(): string[] {
   const out = new Set<string>();
@@ -58,9 +60,9 @@ function lookedUp(): string[] {
 }
 
 /**
- * Whether anything refers to an id besides its own declaration: a quoted
- * literal in the client, a `#id` in the stylesheet or the end-to-end suite, or
- * the splash's inline script.
+ * Si quelque chose renvoie à un identifiant en dehors de sa propre déclaration :
+ * un littéral dans le client, un `#id` dans la feuille de style ou la suite de
+ * bout en bout, ou le script en ligne de l'écran de démarrage.
  */
 function referenced(id: string): boolean {
   const quoted = new RegExp(`['"\`]${id}['"\`]`);
@@ -89,7 +91,7 @@ describe('element ids', () => {
     expect(orphans, 'ids index.html declares that nothing refers to').toEqual([]);
   });
 
-  /** The regexes have to find the real call sites, or the test above is vacuous. */
+  /** Les expressions doivent trouver les vrais points d'appel, sinon le test au-dessus est vide. */
   it('sees the lookups it is meant to see', () => {
     const seen = lookedUp();
     expect(seen.length).toBeGreaterThan(50);

@@ -1,15 +1,15 @@
 /**
- * The shipped bundle plays the same as the source.
+ * Le bundle livré joue comme la source.
  *
- * This test replaced a set that compared two implementations against each
- * other, back when the legacy and `src/sim/` both existed. There is only one
- * now, so what is left to prove is different and still worth proving: that
- * nothing between the TypeScript and the deployed file — the transpile, the
- * minifier, the module graph, the `es2020` target — moved a number.
+ * Ce test a remplacé un jeu qui comparait deux implémentations l'une à l'autre,
+ * du temps où l'ancien jeu et `src/sim/` existaient tous deux. Il n'en reste
+ * qu'une, donc ce qui reste à prouver est différent et vaut encore la peine :
+ * que rien entre le TypeScript et le fichier déployé — la transpilation, le
+ * minifieur, le graphe de modules, la cible `es2020` — n'a déplacé un nombre.
  *
- * The frozen references in `fixtures/` remain the contract. `tests/sim-parity`
- * replays them against the source in Node; this replays them against the built
- * bundle in a browser.
+ * Les références figées de `fixtures/` restent le contrat. `tests/sim-parity`
+ * les rejoue contre la source dans Node ; ceci les rejoue contre le bundle
+ * compilé dans un navigateur.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,7 +21,7 @@ const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const load = (name: string): unknown =>
   JSON.parse(readFileSync(join(FIXTURES, `${name}.json`), 'utf8'));
 
-/** The same script the references were captured with. */
+/** Le même script que celui avec lequel les références ont été capturées. */
 const REFERENCE_SCRIPT = [
   { from: 0, steer: 0, brake: false, boost: false },
   { from: 240, steer: 0.18, brake: false, boost: true },
@@ -31,7 +31,7 @@ const REFERENCE_SCRIPT = [
   { from: 1500, steer: 0.06, brake: false, boost: true },
 ];
 
-/** `#boot.gone` is the real ready signal; see the note in boot.spec.ts. */
+/** `#boot.gone` est le vrai signal de prêt ; voir la note dans boot.spec.ts. */
 const ready = async (page: import('@playwright/test').Page): Promise<void> => {
   await page.waitForSelector('#boot.gone', { timeout: 20_000 });
 };
@@ -49,8 +49,8 @@ test.describe('the shipped bundle', () => {
   test('runs at the fixed step', async ({ page }) => {
     const clock = await page.evaluate(() => window.__gsNext.clock());
     expect(clock.hz).toBeCloseTo(HZ, 6);
-    // 720 divides the common refresh rates, which is what lets the renderer
-    // skip interpolation entirely.
+    // 720 divise les cadences de rafraîchissement courantes, ce qui permet au
+    // rendu de se passer entièrement d'interpolation.
     for (const refresh of [30, 60, 72, 90, 120, 144, 240]) {
       expect(Math.round(clock.hz) % refresh, `${refresh} Hz`).toBe(0);
     }
@@ -75,10 +75,10 @@ test.describe('the shipped bundle', () => {
             seed: 'reference',
             diff: d as 'easy' | 'medium' | 'hard',
             steps: 1800,
-            // The references were captured at 1/120, before the loop settled
-            // on a 720 Hz step. They pin what `step()` does for a given dt,
-            // which is the part that has to stay still; the rate the loop
-            // happens to call it at is a separate decision.
+            // Les références ont été capturées à 1/120, avant que la boucle se
+            // fixe sur un pas de 720 Hz. Elles épinglent ce que `step()` fait
+            // pour un dt donné, la partie qui doit rester immobile ; la cadence
+            // à laquelle la boucle l'appelle est une décision à part.
             dt: 1 / 120,
             every: 120,
             script: script as Array<{
