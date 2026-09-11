@@ -21,7 +21,15 @@ export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
  * d'`index.html`.
  */
 export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
-  menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu', 'btnInstall'],
+  menu: [
+    'segDiff',
+    'btnStart',
+    'btnHelp',
+    'btnSettingsMenu',
+    'btnFullMenu',
+    'btnInstall',
+    'btnInstallLater',
+  ],
   help: ['btnCloseHelp'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
   over: ['btnAgain', 'btnOverMenu'],

@@ -91,6 +91,27 @@
   .diffnote{margin:0 0 14px;font-size:11px;line-height:1.45;color:var(--dim2);min-height:30px}
   .diffnote b{color:var(--amber);font-weight:600}
 
+  /* L'invitation à installer : une carte, pas un bouton fantôme, parce qu'un
+     bouton seul ne dit pas pourquoi. Cachée par défaut, montrée par install.ts
+     là où le navigateur offre quelque chose ou sur iOS, où le geste se dit. */
+  .install{margin-top:14px;padding:12px 14px;border-radius:12px;
+    border:1px solid rgba(255,194,74,.35);background:rgba(255,194,74,.07)}
+  .install p{margin:0 0 10px;font-size:12px;line-height:1.5;color:var(--dim)}
+  .install .btn{margin:0}
+  .install .lnk{display:block;margin:8px auto 0;font-size:10px;letter-spacing:.1em;
+    color:var(--dim2);text-transform:uppercase}
+  .install.manual .btn{display:none}
+  /* La mise à jour prête : une barre fixe en haut, au-dessus des calques et
+     sous rien, montrée hors partie seulement. Le rechargement est au joueur. */
+  .update{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translateX(-50%);
+    z-index:40;display:flex;align-items:center;gap:14px;padding:10px 12px 10px 16px;
+    border-radius:12px;border:1px solid rgba(255,194,74,.5);background:rgba(8,12,20,.92);
+    backdrop-filter:blur(10px);font-size:12px;color:var(--text);white-space:nowrap;
+    box-shadow:0 0 30px rgba(255,194,74,.18)}
+  .update .btn{width:auto;padding:8px 12px;font-size:11px;letter-spacing:.06em;
+    border-color:var(--amber);background:rgba(255,194,74,.16)}
+  /* `display:flex` battrait le `hidden` du navigateur : l'attribut doit gagner. */
+  .update[hidden],.install[hidden]{display:none}
   .board{margin-top:22px;border-top:1px solid rgba(37,226,255,.14);padding-top:14px}
   .board h3{margin:0 0 9px;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em}
   .board ol{list-style:none;margin:0;padding:0}
@@ -568,6 +589,11 @@
 
 <div class="surge" id="surge"></div>
 
+<div class="update" id="updateBar" hidden>
+  <span>A new version is ready.</span>
+  <button class="btn" id="btnUpdate">RESTART TO UPDATE</button>
+</div>
+
 <div class="layer on" id="menu">
   <div class="scrim"></div>
   <div class="modal">
@@ -589,7 +615,11 @@
     <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
     <button class="btn ghost" id="btnSettingsMenu">SETTINGS</button>
     <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
-    <button class="btn ghost" id="btnInstall" style="display:none">INSTALL APP</button>
+    <div class="install" id="installCard" hidden>
+      <p id="installText">Install G-SURGE: full screen, works offline, and it keeps itself up to date.</p>
+      <button class="btn" id="btnInstall">INSTALL APP</button>
+      <button class="lnk" id="btnInstallLater">not now</button>
+    </div>
     <div class="keyhint">↑ ↓ MOVE &nbsp; ENTER SELECT &nbsp; ESC BACK</div>
     <div class="board">
       <h3>BEST RUNS</h3>
@@ -636,7 +666,7 @@
           <h3>Controls</h3>
           <p><b>Touch.</b> Put your thumb anywhere in the lower left area: a slider appears where you press and steers left and right. On the right, <b>BRAKE</b> sits beside <b>BOOST</b>, and the boost gauge stands above them. Pause is the top left button. Left handed layout is in Settings.</p>
           <p><b>Keyboard.</b> Left and right arrows steer. <b>Space</b> or up arrow boosts. <b>Down</b> brakes. <b>Esc</b> pauses. In menus, up and down move, Enter selects.</p>
-          <p><b>Install.</b> On Android and desktop Chrome the menu offers <b>INSTALL APP</b> when the browser allows it. On iPhone and iPad, use Share, then <b>Add to Home Screen</b>. The installed app runs full screen and updates itself.</p>
+          <p><b>Install.</b> On Android and desktop Chrome the menu offers <b>INSTALL APP</b> when the browser allows it. On iPhone and iPad, use Share, then <b>Add to Home Screen</b>. The installed app runs full screen and works offline; when a new version is ready it says so, and you choose when to restart.</p>
         </div>
         <div class="grp">
           <h3>The ladder</h3>

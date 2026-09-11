@@ -57,6 +57,16 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
   whole files, the bundle's hashed name checked unchanged after each batch.
   Done; `TECH-DEBT.md` §21 is closed.
 
+## Asked for, and not possible as asked
+
+- **A hybrid install / launch button on the web version.** Install is done:
+  the menu carries an invitation card with a button where the browser offers
+  `beforeinstallprompt`, the Share → Add to Home Screen hint on iOS, silence
+  once installed or dismissed. *Launch* the installed app from a tab has no API
+  in any browser — a page cannot open a PWA — so the hybrid reduces to the
+  install half. Chrome on Android shows its own "open in app" affordance in the
+  address bar, which is the closest that exists.
+
 ## Housekeeping
 
 7. **Pushing.** I push only when asked. The versioning rule is respected

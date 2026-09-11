@@ -27,7 +27,7 @@ import { Fullscreen } from './fullscreen.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
 import { InputSource } from './input.js';
-import { InstallPrompt } from './install.js';
+import { InstallPrompt, type InstallOffer } from './install.js';
 import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
 import { Pickups } from './pickups.js';
@@ -129,24 +129,33 @@ const screens = new Screens({
     // Les navigateurs ne laissent démarrer un AudioContext que sur un geste, et
     // chaque changement d'écran en est un.
     audio.resume();
-    // Une mise à jour qui attendait la fin de la partie recharge ici.
-    updates.settle();
+    // La barre de mise à jour ne se montre qu'hors partie.
+    showUpdateBar();
   },
 });
 
-// Recharger ne coupe personne au menu. Partout ailleurs ça attend : en partie
-// et en pause bien sûr, mais aussi sur l'écran de fin, où le joueur lit son
-// score — le tableau l'a déjà, recharger là ne perdrait rien sauf la lecture.
-const updates = new Updates(() => screens.mode === 'menu');
+// Une mise à jour prête est annoncée, jamais appliquée seule : la barre
+// apparaît hors partie, et c'est le joueur qui recharge.
+const updates = new Updates(() => showUpdateBar());
+function showUpdateBar(): void {
+  const bar = document.getElementById('updateBar');
+  if (bar) bar.hidden = !(updates.pending && screens.mode !== 'run');
+}
 
-// Le bouton d'installation n'existe que là où le navigateur propose quelque
-// chose : il apparaît sur l'événement, disparaît après, et déplace ce qui est
-// navigable comme le fait le plein écran.
-const install = new InstallPrompt((available) => {
-  const button = document.getElementById('btnInstall');
-  if (button) button.style.display = available ? '' : 'none';
+// L'invitation à installer : une carte dans le menu, avec un bouton là où le
+// navigateur offre une boîte, un mode d'emploi sur iOS, rien une fois installé
+// ou fermé. Elle déplace ce qui est navigable, comme le plein écran.
+function showInstall(offer: InstallOffer): void {
+  const card = document.getElementById('installCard');
+  const text = document.getElementById('installText');
+  if (card) {
+    card.hidden = offer.kind === 'none';
+    card.classList.toggle('manual', offer.kind === 'manual');
+  }
+  if (text && offer.kind === 'manual') text.textContent = offer.hint;
   screens.buildNav();
-});
+}
+const install = new InstallPrompt(prefs.values.installDismissed, showInstall);
 
 const input = new InputSource({
   isPlaying: () => screens.isPlaying,
@@ -425,6 +434,11 @@ on('btnCloseSettings', () => screens.setMode('menu'));
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());
 on('btnInstall', () => void install.prompt());
+on('btnInstallLater', () => {
+  install.dismiss();
+  prefs.set('installDismissed', true);
+});
+on('btnUpdate', () => updates.apply());
 
 // Les deux commandes disparaissent là où l'API n'existe pas, plutôt que de
 // rester là sans rien faire.
@@ -503,6 +517,9 @@ void boot();
 // portage — le fichier partait et rien ne l'activait. Attrapé en le cherchant
 // plutôt que par un test, ce qui est la lacune.
 updates.register();
+// L'offre initiale : sur iOS elle existe avant tout événement, et `setMode('menu')`
+// a déjà bâti la navigation, donc c'est ici qu'elle se montre.
+showInstall(install.offer);
 
 /* ------------------------------------------------------------ mise au point -- */
 

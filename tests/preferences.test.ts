@@ -24,6 +24,7 @@ describe('the preferences sanitiser', () => {
       sky: false,
       skyDetail: false,
       showFps: true,
+      installDismissed: true,
       renderScale: 0.7,
     };
     expect(sanitise(written)).toEqual(written);
