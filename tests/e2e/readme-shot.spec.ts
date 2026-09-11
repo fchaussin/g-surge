@@ -42,6 +42,6 @@ test('captures a frame for the README', async ({ page }, testInfo) => {
   if (SEEDS.length) {
     for (const seed of SEEDS) await shoot(page, seed, `test-results/readme-${seed}.png`);
   } else {
-    await shoot(page, 'readme', 'docs/media/screenshot.png');
+    await shoot(page, 'neon', 'docs/media/screenshot.png');
   }
 });
