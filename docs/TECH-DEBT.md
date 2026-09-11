@@ -21,7 +21,7 @@ classic scripts, and those are gone.
 | 3 | No tests at all | Low | largely covered, gaps below |
 | 4 | Variable time step | — | **done**, fixed 720 Hz |
 | 5 | Settings are not persisted | — | **done** |
-| 6 | Hardcoded DOM ids, no UI layer | Low | halved: modules split, ids remain |
+| 6 | Hardcoded DOM ids, no UI layer | Low | halved: modules split, ids remain — and are reconciled by a test |
 | 7 | three.js pinned to r128, no SRI | Low | SRI gone with the CDN; the pin stands |
 | 8 | No types | — | **gone**, the codebase is TypeScript |
 | 9 | Long functions | — | **gone with the legacy** |
@@ -51,11 +51,13 @@ There were none. There is now a net:
   by deliberately breaking what it protects: a physics constant, a generation
   probability to one percent, and a PRNG misalignment all bring down the
   matching reference.
-- Vitest, 81 tests in ten files: the PRNG, the clock, the trigonometry and
-  parity against those references on the core; the event emission, the speed
-  tiers, the drift chain and the surge, which the frozen traces cannot see; and
-  on the client side the quality governor, the drift scale and the spray
-  envelope, the only presentation modules that run without a browser.
+- Vitest, one file per concern under `tests/`: the PRNG, the clock, the
+  trigonometry and parity against those references on the core; the event
+  emission, the speed tiers, the drift chain and the surge, which the frozen
+  traces cannot see; on the client side the quality governor, the drift scale
+  and the spray envelope, the only presentation modules that run without a
+  browser; and two that read the tree as text — the documents' counts and the
+  element ids shared with `index.html`.
 
 Formerly listed as missing, and closed since:
 
@@ -131,9 +133,18 @@ The interface is split into `hud.ts`, `screens.ts`, `settings.ts` and
 `sliders.ts`, each with one reason to change, and the settings rows are
 generated from a table rather than written as markup.
 
-What remains is the ids themselves: roughly seventy string literals shared
+What remains is the ids themselves: seventy-one string literals shared
 between `index.html` and the modules that look them up, so renaming one is
-still a two-place search.
+still a two-place edit. Since 11 September 2026 it is a two-place edit that
+`tests/dom-ids.test.ts` checks: every id the client looks up must be declared,
+every id declared must be referred to by something — the client, the
+stylesheet, the splash's inline script or the end-to-end suite — and none may
+be declared twice. Text only, in Node, in milliseconds. It found no defect on
+the current tree; it did find one id pair, the settings tabs, built from a
+template at runtime, which it could not see and which is now spelled out.
+
+The coupling itself stands, and is not worth a layer: seventy ids behind an
+accessor would be seventy accessors.
 
 ## 7. three.js r128
 

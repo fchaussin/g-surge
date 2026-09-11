@@ -388,10 +388,11 @@ playing rather than measuring.
 ## What this roadmap does not cover
 
 **Technical debt.** All of it is Low and none of it blocks the above. In
-`TECH-DEBT.md`: the DOM id coupling (6), the tuning coverage (11), the
-colour-only signals (10), the interface modules tested only through the browser
-(3), and the strings (14, deferred by decision). Item 10 intersects step 1 and
-step 4 — see the rules above.
+`TECH-DEBT.md`: the DOM id coupling (6, now reconciled by a test), the tuning
+coverage (11), the colour-only signals (10), the interface modules tested only
+through the browser (3), the strings (14, deferred by decision), and the
+modules over the 300-line rule (20, `main.ts` split, the rest one thing each).
+Item 10 intersects step 1 and step 4 — see the rules above.
 
 **Open decisions.** CodePen, whose build script was deleted with the legacy and
 which nothing depends on; and whether `static/` should follow the Vite

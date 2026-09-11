@@ -58,6 +58,18 @@ export interface SettingsOptions {
 
 const byId = (id: string) => document.getElementById(id);
 
+/**
+ * The panel's tabs and the page each one shows.
+ *
+ * Literals rather than a `page${...}` template on purpose: `tests/dom-ids`
+ * reconciles every id the client looks up with `index.html`, and an id built
+ * at runtime is one it cannot see.
+ */
+export const TABS = [
+  { tab: 'tabGen', page: 'pageGen' },
+  { tab: 'tabAdv', page: 'pageAdv' },
+] as const;
+
 /** Keeps a toggle's class and its announced state together. */
 function paintToggle(el: HTMLElement | null, on: boolean): void {
   if (!el) return;
@@ -136,18 +148,18 @@ export class Settings {
   }
 
   private bindTabs(): void {
-    const show = (which: 'gen' | 'adv') => {
-      for (const k of ['gen', 'adv'] as const) {
-        byId(`page${k === 'gen' ? 'Gen' : 'Adv'}`)?.classList.toggle('on', k === which);
-        const tab = byId(`tab${k === 'gen' ? 'Gen' : 'Adv'}`);
-        tab?.classList.toggle('on', k === which);
-        tab?.setAttribute('aria-selected', String(k === which));
+    const show = (which: (typeof TABS)[number]) => {
+      for (const t of TABS) {
+        const on = t === which;
+        byId(t.page)?.classList.toggle('on', on);
+        const tab = byId(t.tab);
+        tab?.classList.toggle('on', on);
+        tab?.setAttribute('aria-selected', String(on));
       }
       // The visible page decides what is navigable.
       this.options.rebuildNav();
     };
-    byId('tabGen')?.addEventListener('click', () => show('gen'));
-    byId('tabAdv')?.addEventListener('click', () => show('adv'));
+    for (const t of TABS) byId(t.tab)?.addEventListener('click', () => show(t));
   }
 
   private bindDifficulty(): void {

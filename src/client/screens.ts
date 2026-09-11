@@ -12,8 +12,13 @@
  */
 export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
 
-/** Navigable elements per screen, in order. Settings builds its own. */
-const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
+/**
+ * Navigable elements per screen, in order. Settings builds its own.
+ *
+ * Exported, with the two tables below, for `tests/dom-ids` alone: they are the
+ * ids this module looks up, and the test reconciles them with `index.html`.
+ */
+export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   menu: ['segDiff', 'btnStart', 'btnHelp', 'btnSettingsMenu', 'btnFullMenu'],
   help: ['btnCloseHelp'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
@@ -21,14 +26,15 @@ const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
 };
 
 /** Preselected element when a screen opens. */
-const NAV_DEFAULT: Partial<Record<Mode, string>> = {
+export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   menu: 'btnStart',
   pause: 'btnResume',
   over: 'btnAgain',
   help: 'btnCloseHelp',
 };
 
-const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings'];
+/** The screens that are also element ids. `run` is not one: it shows the HUD. */
+export const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings'];
 
 export interface ScreensOptions {
   /** Called on every transition, so the rest of the client can react. */
