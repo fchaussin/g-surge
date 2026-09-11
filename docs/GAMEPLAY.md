@@ -141,8 +141,8 @@ easy.
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
 | Share of grip that corner demands | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
-| Impact at 12 m/s closing | 19 pts | 24 pts | 31 pts |
-| Time to repair it | 13 s | 22 s | 45 s |
+| Impact at 12 m/s closing | 26 pts | 31 pts | 36 pts |
+| Time to repair it | 106 s | 156 s | 240 s |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
 
@@ -206,7 +206,7 @@ and the table is generated from it.
 | Pickup | Look | Effect | Easy | Medium | Hard |
 |---|---|---|---|---|---|
 | Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |
-| Repair | green octahedron | hull +40 | every 4.5 km | every 6.1 km | every 8.9 km |
+| Repair | green octahedron | hull +30 | every 8.9 km | every 11.1 km | every 13.3 km |
 | Super boost | magenta cone | 5 s at ×1.22, reserve pinned full | every 5.6 km | every 5.6 km | every 7.4 km |
 | Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 4.8 km | every 4.8 km | every 4.8 km |
 | Fuel can | red cylinder | fuel +35 | every 1.5 km | every 2.4 km | every 4.0 km |
@@ -223,17 +223,22 @@ described under Scoring.
 
 ## Damage
 
-Tuned three times on 11 September 2026, and the middle one is what stands. The
-first set, 2.0 / 15 / 1.7 for impact, scrape and passive repair, played like a
-simulator: the author found Easy near unplayable. The second, 1.2 / 7 / 4, made
-losing impossible — the hull healed faster than a scrape drained it, which is
-nonsense in a gauge. The current values sit between: a hit at 12 m/s costs 19
-points and takes 13 s to heal on Easy, a scrape drains 11 a second against 1.5
-returned, so a mistake is remembered and a habit is fatal. The scripted pilot,
-which touches the walls fifty times in ten minutes, finishes five minutes on
-Easy, loses about one run in two on Medium around the fourth minute, and dies
-in two minutes on Hard. Damage takes less speed and steering away than it did
-at first, so a damaged hull is not locked into a spiral.
+Tuned four times on 11 September 2026. The first set, 2.0 / 15 / 1.7 for
+impact, scrape and passive repair, played like a simulator: the author found
+Easy near unplayable. The second, 1.2 / 7 / 4, made losing impossible — the
+hull healed faster than a scrape drained it, which is nonsense in a gauge. The
+third, 1.6 / 11 / 1.5, still did: the only way to lose was to sit against a
+wall, stopped, for ten to twenty seconds. Measured, the hull was being filled
+from three sides at once — 90 points a minute of passive repair, a 40-point
+repair every 4 km, against hits of 20 to 30 — so every hit had healed before
+the next. The fourth set makes the hull a budget. A hit at 12 m/s costs 26
+points on Easy and takes 106 s to heal, a repair returns 30 and comes every
+9 km, a scrape drains 11 a second against 0.25 returned: four hits in a minute
+with no repair lose the run, two do not. The scripted pilot, which never aims
+for a repair, finishes ten minutes on Easy unless it drives its most
+aggressive line, dies around the third minute on Medium and around the second
+on Hard. Damage takes less speed and steering away than it did at first, so a
+damaged hull is not locked into a spiral.
 
 <!-- generated:damage -->
 | Event | Cost |
@@ -241,8 +246,8 @@ at first, so a damaged hull is not locked into a spiral.
 | Impact | `hullImpact` × lateral closing speed, clamped 2 to 42 |
 | Scraping | 11 per second |
 | Bad landing off track | 12 points, plus 35 % of speed |
-| Passive repair | 1.5 per second |
-| Repair pickup | `fixAmount`, 40 points |
+| Passive repair | 0.25 per second |
+| Repair pickup | `fixAmount`, 30 points |
 
 Damage reduces top speed by up to 22 %, steering by 20 % and halves boost
 recharge. At zero the run ends.

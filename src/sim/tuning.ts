@@ -240,25 +240,28 @@ export const DEFAULTS: Readonly<Tuning> = {
   rollChance: 0.14,
   rollNodes: 44,
   stripeEvery: 2,
-  /* Réglés deux fois le 11 septembre 2026. La première version, 2,0 / 15 /
+  /* Réglés quatre fois le 11 septembre 2026. La première version, 2,0 / 15 /
    * 1,7, jouait comme un simulateur ; la seconde, 1,2 / 7 / 4, ne laissait
-   * plus perdre — la coque se refaisait plus vite qu'un frottement ne la
-   * mangeait, ce qui n'a aucun sens. Celle-ci tient le milieu : un choc à
-   * 12 m/s coûte 19 points et se répare en 13 s, un frottement en coûte 11 par
-   * seconde contre 1,5 rendus. Le pilote scripté, qui touche les murs
-   * cinquante fois par dix minutes, finit ses cinq minutes en facile, perd
-   * une partie sur deux en moyen vers quatre minutes, et meurt en deux en
-   * difficile. Les dégâts retirent moins de vitesse et de direction qu'au
+   * plus perdre ; la troisième, 1,6 / 11 / 1,5, non plus — pour mourir il
+   * fallait rester collé au mur, à l'arrêt, dix à vingt secondes. Mesuré,
+   * la coque était remplie par trois sources à la fois : 90 points par
+   * minute de régénération, une réparation de 40 tous les 4 km, et des chocs
+   * à 20 ou 30. Un choc se refaisait tout seul avant le suivant. Celle-ci
+   * fait de la coque un budget : un choc à 12 m/s coûte 26 points et met
+   * 100 s à se refaire, une réparation en rend 30 et vient tous les 8 km,
+   * un frottement coûte 11 par seconde contre 0,25 rendus. Quatre chocs en
+   * une minute sans réparation, et la course est perdue ; deux, et elle
+   * continue. Les dégâts retirent moins de vitesse et de direction qu'au
    * départ, pour ne pas enfermer une coque abîmée dans une spirale. */
-  hullImpact: 1.6,
+  hullImpact: 2.2,
   hullScrape: 11,
-  hullRegen: 1.5,
+  hullRegen: 0.25,
   badLandingHull: 12,
   damageSpeed: 0.22,
   damageSteer: 0.2,
   coinChance: 0.015,
-  fixChance: 0.003,
-  fixAmount: 40,
+  fixChance: 0.0015,
+  fixAmount: 30,
   supChance: 0.0024,
   /* 2,6 s tant que le super boost n'était qu'un ramassage ; 5 s depuis qu'il
    * est un barreau dans lequel on drifte pour monter au suivant. */
@@ -319,11 +322,11 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 38,
       speedRamp: 6000,
-      hullImpact: 2.0,
-      hullRegen: 1.1,
+      hullImpact: 2.6,
+      hullRegen: 0.2,
       hullScrape: 14,
       multDecay: 0.14,
-      fixChance: 0.0022,
+      fixChance: 0.0012,
       rollChance: 0.18,
       climbRate: 27,
       fuelCruise: 1,
@@ -337,11 +340,11 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 46,
       speedRamp: 4000,
-      hullImpact: 2.6,
-      hullRegen: 0.7,
+      hullImpact: 3.0,
+      hullRegen: 0.15,
       hullScrape: 18,
       multDecay: 0.2,
-      fixChance: 0.0015,
+      fixChance: 0.001,
       supChance: 0.0018,
       rollChance: 0.24,
       climbRate: 31,

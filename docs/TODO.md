@@ -12,28 +12,39 @@ what was answered, newest first.
 
 ## Open — to be judged by playing
 
-### 1. Damage, third setting
+### 1. Damage, fourth setting
 
-Set on 11 September 2026 after two plays that landed on the two extremes.
-`hullImpact` 1.6 / 2.0 / 2.6, `hullScrape` 11 / 14 / 18, `hullRegen`
-1.5 / 1.1 / 0.7 for Easy / Medium / Hard; `badLandingHull` 12, `damageSpeed`
-0.22 and `damageSteer` 0.2 unchanged from the second setting. The invariant
-this one respects: passive repair is always well under a scrape, so leaning on
-a wall is always a loss.
+Set on 11 September 2026 after the third play: "I never lose — you have to
+sit against the wall, stopped, ten to twenty seconds, you really have to want
+it". Measured, the hull was refilled from three sides — 90 points a minute of
+passive repair, a 40-point repair every 4 km, hits of 20 to 30 — so nothing
+accumulated. This setting makes the hull a budget, on every difficulty:
 
-Measured with the scripted pilot, which touches the walls fifty times in ten
-minutes and never aims for a repair — a lower bound on a human:
+| | Easy | Medium | Hard |
+|---|---|---|---|
+| `hullImpact` (hit at 12 m/s) | 2.2 (26) | 2.6 (31) | 3.0 (36) |
+| `hullRegen` per second | 0.25 | 0.2 | 0.15 |
+| `fixChance` (one repair every) | 0.0015 (9 km) | 0.0012 (11 km) | 0.001 (13 km) |
+| `fixAmount` | 30 | 30 | 30 |
+
+`hullScrape` 11 / 14 / 18 unchanged — parking against a wall already killed
+in ten seconds, that was never the problem. The invariant still holds by a
+wide margin: passive repair is far under a scrape. The sixty track references
+moved with `fixChance`, in their own commit.
+
+What to judge: on Easy, four hits in a minute with no repair should lose the
+run, two should not; a repair should feel like a find rather than a given. If
+it now bites too hard, `fixChance` back to 0.002 is the knob that changes the
+least about a single hit — the first play found the *hit* too harsh, not the
+budget. If it is still soft, `hullImpact` 2.2 → 2.6 on Easy.
+
+The scripted pilot, which never aims for a repair (`npm run measure:ladder`):
 
 | difficulty | walls / 10 min | wrecks | alive |
 |---|---|---|---|
-| easy | 54 – 57 | 0 – 1 of 3 | 293 – 300 s |
-| medium | 54 – 104 | 1 – 2 of 3 | 180 – 240 s |
-| hard | 80 – 83 | 3 of 3 | 100 – 135 s |
-
-What to judge: on Easy, is a run lost to a habit and never to a single
-mistake? If Easy still bites, `hullRegen` is the knob that changes the feel
-most for the least — 1.5 → 2 — and it must stay under `hullScrape / 3`. If it
-is still soft, `hullImpact` first: it is the one the pilot's numbers move with.
+| easy | 12 – 54 | 0 – 1 of 3 | 287 – 600 s |
+| medium | 3 – 46 | 2 – 3 of 3 | 33 – 600 s |
+| hard | 4 – 18 | 3 of 3 | 29 – 169 s |
 
 ### 2. The invincibility item
 
@@ -106,6 +117,14 @@ not audible, widen the steps rather than raising the gain.
   by commit, so any moment is a safe one.
 
 ## Log — answered, newest first
+
+### 11 September 2026, after the third play — 1.14.0
+
+- **Damage, a fourth time.** "I never lose." The third setting kept the hit
+  cheap and the refill generous; this one cuts passive repair by six, halves
+  the repair pickups and their amount by a quarter, and raises the hit by a
+  third. Entry 1 above has the table and what to judge next; the physics and
+  the track references moved, in their own commit.
 
 ### 11 September 2026, after the second play — 1.13.0
 

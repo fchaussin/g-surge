@@ -67,7 +67,9 @@ describe('drift events', () => {
   /**
    * Le drift bascule sur une hystérésis, donc ses deux extrémités doivent
    * s'alterner strictement. Un slalom lent est ce qui en produit le plus :
-   * mesuré, dix entrées par minute, et le plus court drift dure un seul pas.
+   * mesuré, une vingtaine d'entrées par minute, et le plus court drift dure
+   * un seul pas — mais il faut cinq minutes pour le voir passer depuis le
+   * quatrième réglage des dégâts, une minute n'en produisait plus sous 0,2 s.
    *
    * Le relevé s'arrête sur un pas sans drift, pour qu'aucun drift en cours ne
    * fausse la somme des durées.
@@ -107,7 +109,7 @@ describe('drift events', () => {
   });
 
   it('carries durations that add up to the time actually spent drifting', () => {
-    const { seen, drifting } = weave(60);
+    const { seen, drifting } = weave(300);
     const ends = seen.filter((e) => e.type === 'driftEnd');
 
     expect(ends.length).toBeGreaterThan(0);

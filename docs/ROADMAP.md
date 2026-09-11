@@ -496,6 +496,12 @@ HUD and help references did, each in its own commit. What is left is play:
   and a SHIELD bar under hull and fuel counts it down. `GAMEPLAY.md` gains a
   generated pickups table; `TODO.md` is regrouped into open, impossible and
   log.
+- **1.14.0** — the third play: "I never lose". The hull was refilled from
+  three sides at once and no hit accumulated. Passive repair cut from 1.5 to
+  0.25 a second, repairs half as frequent and 30 instead of 40, the hit up a
+  third; the hull is a budget now. The physics references moved, and the
+  sixty track references with `fixChance` — the first time those have moved
+  for a rebalance rather than for the opening.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 
