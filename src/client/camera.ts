@@ -191,7 +191,30 @@ export class ChaseCamera {
       FOV_KICK[tier] +
       (state.scrape > 0 ? 3 : 0);
     this.fov += (wanted - this.fov) * Math.min(1, frameDt * FOV_EASE[tier]);
-    this.camera.fov = this.fov;
+    this.camera.fov = fitAspect(this.fov, this.camera.aspect);
     this.camera.updateProjectionMatrix();
   }
+}
+
+/** The aspect every field of view in the tuning was chosen on. */
+const REF_ASPECT = 16 / 9;
+
+/**
+ * The vertical field of view to use on a screen wider than 16:9.
+ *
+ * three.js takes a vertical angle and lets the width follow the aspect, so a
+ * phone in landscape — 19.5:9, 20:9 — was simply shown more world on each
+ * side, and the ship, whose size on screen is set by that angle, came out the
+ * same height as on a monitor a hundred times larger. On a small screen that
+ * reads as a ship too far away. Holding the *horizontal* field constant
+ * instead means a wider screen zooms in rather than widening: the ship grows
+ * by the ratio of the aspects, 17 % at 19.5:9.
+ *
+ * Nothing happens at 16:9 or narrower, which is where every frozen scene
+ * reference is taken, and why none of them moves.
+ */
+function fitAspect(vertical: number, aspect: number): number {
+  if (aspect <= REF_ASPECT) return vertical;
+  const half = Math.tan(MathUtils.degToRad(vertical) / 2) * (REF_ASPECT / aspect);
+  return MathUtils.radToDeg(2 * Math.atan(half));
 }

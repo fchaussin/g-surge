@@ -31,7 +31,16 @@ const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
   KeyZ: 'boost',
 };
 
-const STICK_RADIUS = 46;
+/**
+ * Full throw of the stick, in pixels, along its one axis.
+ *
+ * The stick is horizontal only. The game has no vertical input — brake and
+ * boost are pads — so a knob free to wander in two dimensions was reading a
+ * diagonal thumb as a weaker turn than the player meant, and drawing a circle
+ * that promised an axis nothing listened to. The pill in the stylesheet is
+ * `2 × STICK_RADIUS` plus the knob's own width.
+ */
+const STICK_RADIUS = 42;
 /** Below this the stick reads as centred; the rest is rescaled to keep 1 at full throw. */
 const STICK_DEADZONE = 0.07;
 
@@ -106,15 +115,11 @@ export class InputSource {
     if (!zone || !stick) return;
 
     const move = (e: PointerEvent) => {
-      let dx = e.clientX - this.stickCx;
-      let dy = e.clientY - this.stickCy;
-      const d = Math.hypot(dx, dy);
-      if (d > STICK_RADIUS) {
-        dx *= STICK_RADIUS / d;
-        dy *= STICK_RADIUS / d;
-      }
+      // One axis: the vertical component is dropped, not projected, so a thumb
+      // that slides up or down while turning keeps the full turn it asked for.
+      const dx = Math.max(-STICK_RADIUS, Math.min(STICK_RADIUS, e.clientX - this.stickCx));
       const knob = stick.firstElementChild as HTMLElement | null;
-      if (knob) knob.style.transform = `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px)`;
+      if (knob) knob.style.transform = `translateX(${dx.toFixed(1)}px)`;
 
       let v = dx / STICK_RADIUS;
       if (Math.abs(v) < STICK_DEADZONE) v = 0;

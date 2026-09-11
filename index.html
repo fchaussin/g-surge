@@ -242,11 +242,14 @@
   .pads{position:absolute;inset:auto 0 0 0;
     padding:0 16px calc(env(safe-area-inset-bottom) + 16px);
     display:flex;justify-content:flex-end;align-items:flex-end;gap:12px}
-  .cluster{display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:auto}
+  /* Frein à gauche du boost, sur une ligne : empilés, le frein mangeait la
+     hauteur au-dessus du boost, là où la jauge doit vivre pour être vue. */
+  .cluster{display:flex;flex-direction:row;align-items:flex-end;gap:12px;pointer-events:auto}
   body.lefty .pads{justify-content:flex-start}
+  body.lefty .cluster{flex-direction:row-reverse}
   body.lefty .stickzone{left:auto;right:0}
-  body.lefty .bst{right:auto;left:10px}
-  body.lefty .bstlbl{right:auto;left:4px;margin-right:0;margin-left:28px}
+  body.lefty .bst{right:auto;left:16px}
+  body.lefty .bstlbl{right:auto;left:36px;margin-right:0}
   .pad{position:relative;overflow:hidden;width:72px;height:72px;border-radius:50%;
     border:1px solid var(--line);background:rgba(8,20,28,.5);backdrop-filter:blur(8px);
     display:flex;align-items:center;justify-content:center;color:var(--neon);
@@ -302,12 +305,15 @@
 
   .stickzone{position:absolute;left:0;bottom:0;width:54%;height:60%;pointer-events:auto}
   .hud:not(.on) .stickzone{pointer-events:none}
-  .stick{position:absolute;width:106px;height:106px;margin:-53px 0 0 -53px;border-radius:50%;
+  /* Une réglette, pas un disque : le jeu n'a qu'un axe au manche, et un cercle
+     promettait une direction que rien n'écoutait. Largeur = 2 × STICK_RADIUS
+     de input.ts + la molette. */
+  .stick{position:absolute;width:132px;height:64px;margin:-32px 0 0 -66px;border-radius:32px;
     border:1px solid var(--line);background:rgba(8,20,28,.34);backdrop-filter:blur(6px);
     opacity:0;transition:opacity .12s;pointer-events:none}
   .stick.on{opacity:1}
-  .stick::before{content:'';position:absolute;left:50%;top:50%;width:2px;height:22px;
-    margin:-11px 0 0 -1px;background:rgba(37,226,255,.18)}
+  .stick::before{content:'';position:absolute;left:50%;top:50%;width:84px;height:2px;
+    margin:-1px 0 0 -42px;background:rgba(37,226,255,.18)}
   .knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;
     border-radius:50%;background:rgba(37,226,255,.30);border:1px solid rgba(37,226,255,.65);
     box-shadow:0 0 22px rgba(37,226,255,.4)}
@@ -328,11 +334,15 @@
      le bas ; quand un palier s'éteint sa couche se vide et découvre la
      précédente. Le fond est teinté du bronze de la croisière. hud.ts écrit
      les hauteurs, seulement quand elles changent. */
-  .bst{position:absolute;right:10px;top:50%;transform:translateY(-50%);
-    width:12px;height:34vh;max-height:230px;border-radius:6px;
+  /* Au-dessus du pad de boost et alignée sur lui, pas à mi-hauteur : centrée
+     verticalement, sa moitié basse passait sous le pouce posé sur le pad. La
+     place libérée par le frein lui revient, d'où la hauteur. */
+  .bst{position:absolute;right:16px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
+    width:14px;height:40vh;max-height:320px;border-radius:7px;
     background:rgba(224,145,63,.16);box-shadow:inset 0 0 0 1px rgba(224,145,63,.3);
     overflow:hidden}
-  .bst i{position:absolute;left:0;right:0;bottom:0;display:block;height:0;border-radius:6px}
+  .bst i{position:absolute;left:0;right:0;bottom:0;display:block;height:0;border-radius:7px}
   .bst #boostBar{background:#ffc24a;box-shadow:0 0 14px rgba(255,194,74,.55)}
   .bst .l2{background:#dff4ff;box-shadow:0 0 16px rgba(223,244,255,.75)}
   .bst .l3{background:#fff6d0;box-shadow:0 0 20px rgba(255,246,208,.9)}
@@ -352,9 +362,10 @@
     mask-image:radial-gradient(ellipse at 50% 52%,
       rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%)}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
-  .bstlbl{position:absolute;right:4px;top:50%;font-size:8px;letter-spacing:.22em;
-    color:var(--dim2);transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;
-    margin-right:28px}
+  .bstlbl{position:absolute;right:36px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
+    font-size:8px;letter-spacing:.22em;color:var(--dim2);
+    transform:rotate(180deg);writing-mode:vertical-rl}
 
 
   .nav-sel{outline:2px solid var(--neon);outline-offset:3px;
@@ -363,7 +374,8 @@
   .keyhint{margin-top:12px;font-size:10px;letter-spacing:.14em;color:var(--dim2);text-align:center}
   @media (pointer:coarse){.keyhint{display:none}}
 
-  .kb{position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);
+  /* À gauche des deux pads, qui occupent désormais 178 px en bas à droite. */
+  .kb{position:absolute;right:194px;bottom:calc(env(safe-area-inset-bottom) + 18px);
     font-size:10px;line-height:1.5;color:var(--dim2);text-align:right}
   @media (pointer:coarse){.kb{display:none}}
 
@@ -537,9 +549,9 @@
   <div class="stick" id="stick"><div class="knob"></div></div>
   <div class="pads">
     <div class="cluster">
+      <div class="pad brake" data-in="brake"><span>BRAKE</span><i class="key">↓</i></div>
       <div class="pad boost" data-in="boost"><div class="fill" id="boostFill"></div>
         <span>BOOST</span><span class="hint">DRIFT +</span><i class="key">SPACE</i></div>
-      <div class="pad brake" data-in="brake"><span>BRAKE</span><i class="key">↓</i></div>
     </div>
   </div>
   <div class="toast" id="toast"></div>
