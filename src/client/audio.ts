@@ -211,6 +211,9 @@ export class Audio {
         case 'comboEnd':
           this.comboEnd();
           break;
+        case 'nearMiss':
+          this.nearMiss(e.closeness);
+          break;
         case 'supEnd':
           this.superRelease();
           break;
@@ -604,6 +607,26 @@ export class Audio {
     const f = 440 * Math.pow(2, Math.min(count, 12) / 12);
     this.blip(f, 0.09, 'triangle', 0.07);
     this.blip(f * 1.5, 0.12, 'triangle', 0.045, 0, 0.05);
+  }
+
+  /**
+   * Un mur frôlé : un fouet d'air, court et haut, plus sec à mesure qu'on est
+   * passé près. Du bruit filtré et pas une note — c'est de l'air qui déchire,
+   * pas une récompense qui sonne.
+   */
+  private nearMiss(closeness: number): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    this.noiseHit(
+      ctx.currentTime,
+      0.1 + closeness * 0.12,
+      'bandpass',
+      3800,
+      1400,
+      2.4,
+      0.11,
+      false,
+    );
   }
 
   /** Le combo tombe : deux notes qui descendent, discrètes — c'est une perte, pas un choc. */

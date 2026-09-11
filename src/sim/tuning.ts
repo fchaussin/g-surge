@@ -53,6 +53,16 @@ export interface Tuning {
   /** Part de montée supplémentaire par niveau de combo, plafonnée à `comboClimbMax`. */
   comboClimb: number;
   comboClimbMax: number;
+
+  /* Near Miss : frôler le mur sans le toucher */
+  /** Largeur, en mètres depuis le mur, de la bande où l'on frôle. */
+  nearBand: number;
+  /** Plus court passage dans la bande, en secondes, qui compte. */
+  nearMinHeld: number;
+  /** Points par m/s de vitesse à la proximité maximale, dosés par la proximité atteinte. */
+  nearScore: number;
+  /** Points de réserve rendus à la proximité maximale. */
+  nearCharge: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -158,6 +168,14 @@ export const DEFAULTS: Readonly<Tuning> = {
   comboScore: 0.5,
   comboClimb: 0.25,
   comboClimbMax: 1.0,
+  /* La bande fait un peu plus d'une demi-largeur de vaisseau (SHIP = 1,9) :
+   * assez pour qu'on la sente, trop étroite pour qu'un passage ordinaire y
+   * tombe. Récompense proportionnelle à la vitesse, comme la spécification le
+   * suggère, et petite recharge sans jauge neuve. À rejuger en jouant. */
+  nearBand: 1.2,
+  nearMinHeld: 0.08,
+  nearScore: 0.6,
+  nearCharge: 6,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,

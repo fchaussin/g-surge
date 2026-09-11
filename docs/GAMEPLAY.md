@@ -36,6 +36,15 @@ towards the next rung runs `1 + comboClimb × level` faster, capped at
 zero. It measures regularity, not angle: no drift is "perfect" on its own, the
 sequence is.
 
+**The Near Miss** pays for a wall skimmed and not touched. Within `nearBand`
+metres of the edge the pass is armed; leaving that band after at least
+`nearMinHeld` seconds with no contact in between pays
+`speed × nearScore × closeness` points and `nearCharge × closeness` reserve,
+where closeness is how deep into the band the ship got, 0 to 1. A touch during
+the pass cancels it without ending it: the band re-arms on the next pass. Nothing
+counts in the air, where the edge is a different object. No new gauge, as the
+specification asked.
+
 Equilibrium is `1 + gainPerSecond / decay`. A coin appears roughly every 119 m,
 so a faster ship both collects more per second and gets more per coin.
 

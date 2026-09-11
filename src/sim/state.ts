@@ -43,6 +43,12 @@ export interface SimState {
   combo: number;
   /** Secondes restantes pour rouvrir un drift avant que le combo tombe. */
   comboLeft: number;
+  /** Near Miss : dans la bande près du mur, et sans contact depuis l'entrée. */
+  near: boolean;
+  nearClean: boolean;
+  /** Secondes passées dans la bande, et proximité maximale atteinte, 0 à 1. */
+  nearHeld: number;
+  nearPeak: number;
 
   /* Saut */
   air: boolean;
@@ -139,6 +145,10 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.surgeT = 0;
   state.combo = 0;
   state.comboLeft = 0;
+  state.near = false;
+  state.nearClean = false;
+  state.nearHeld = 0;
+  state.nearPeak = 0;
 
   state.air = false;
   state.hop = 0;

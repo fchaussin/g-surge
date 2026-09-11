@@ -73,8 +73,9 @@ order. Measured against the frozen references before touching anything:
   `sim-parity` the moment it exists.
 
 Order of integration, least constraining first: **Perfect Drift** (done,
-1.6.0 — class B, no reference moved), **Near Miss**, **Invincibility with
-wall riding**, **Fuel**. The reverse of the document's priority, because fuel
+1.6.0 — class B, no reference moved), **Near Miss** (done, 1.7.0 — class B,
+`sim-parity` now asserts the reference pilot never skims cleanly),
+**Invincibility with wall riding**, **Fuel**. The reverse of the document's priority, because fuel
 carries the one design gap below and the other three carry none.
 
 10. **Fuel at zero — what happens?** The specification gives consumption per
@@ -86,7 +87,7 @@ carries the one design gap below and the other three carry none.
     like damage does; (c) the run ends. Recommendation: **(a)**, with the
     penalty of (b) as a tuning key defaulting to zero, so it becomes a value
     to play rather than a decision to reopen. (c) contradicts "must not break
-    the arcade rhythm". **Blocking for fuel; the three others proceed.**
+    the arcade rhythm". **Answered: (a)**, penalty key at zero by default.
 
 11. **Fuel and the surge.** "G-SURGE: free + refill" on Easy and Medium,
     "refill + low consumption" on Hard. Read as: the tank refills to full when

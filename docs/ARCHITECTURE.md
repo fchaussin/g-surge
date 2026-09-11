@@ -71,7 +71,7 @@ decide part of the result — `Math.random` obviously, `Date.now` less so, and
 | `trig.ts` | `sin`, `cos`, `atan` — bit-identical on every engine, unlike `Math` |
 | `track.ts` | Ring buffers, generation, `buildPath`, `sample`, `gradeAt` |
 | `state.ts` | Simulation state, track space only, and `thrustTier` — the one rung the client reads |
-| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `wreck` |
+| `events.ts` | What the simulation reports, instead of calling the audio: `land`, `badLanding`, `wallImpact`, `scrape`, `pickup`, `supEarned`, `supEnd`, `driftStart`, `driftEnd`, `surgeStart`, `surgeEnd`, `comboUp`, `comboEnd`, `nearMiss`, `wreck` |
 | `step.ts` | One physics step |
 | `sim.ts` | The assembly |
 | `index.ts` | The barrel — everything the client is allowed to import, and the only path it uses |
@@ -147,7 +147,10 @@ is already near its ceiling; it gains a sensory world that goes down rather
 than up. The boost gauge is that ladder, one stacked layer per rung. Specified
 in `FX-PALETTE.md` §16. Chaining clean drifts builds `state.combo`, the
 Perfect Drift: from `comboArm` on it pays score at each drift and speeds the
-climb; a wall or an expired `comboLeft` window drops it. None of it costs a frozen reference: the traces contain
+climb; a wall or an expired `comboLeft` window drops it. Skimming a wall
+without touching it — into `nearBand` and out again, clean — pays score and a
+little reserve, the Near Miss; the reference pilot enters that band and touches
+every time, and `sim-parity` asserts it. None of it costs a frozen reference: the traces contain
 no drift and no super boost, and `sim-parity` asserts the first.
 
 Airborne state is triggered physically: when the track falls away faster than

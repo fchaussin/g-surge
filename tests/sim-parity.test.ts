@@ -182,6 +182,12 @@ describe('parité du noyau avec le jeu', () => {
         expect(sim.state.drift, `${diff} a décroché au pas ${i}`).toBe(false);
         expect(sim.state.climb).toBe(0);
         expect(sim.state.surgeT).toBe(0);
+        // Même raisonnement pour le Near Miss : le pilote de référence frôle
+        // les murs mais les touche à chaque fois. Un passage propre paierait en
+        // score et en réserve, deux champs de la trace.
+        for (const e of sim.events) {
+          expect(e.type, `${diff} a frôlé un mur proprement au pas ${i}`).not.toBe('nearMiss');
+        }
       }
     }
   });

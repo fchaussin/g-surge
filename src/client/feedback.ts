@@ -199,6 +199,13 @@ export class Feedback {
         case 'comboEnd':
           hud.showPop(`COMBO LOST ×${e.count}`, '#dff2f8');
           break;
+        case 'nearMiss':
+          // L'orangé d'une brûlure, entre le rouge du mur et l'or de la réserve :
+          // c'est un risque payé, pas un choc et pas une pièce.
+          hud.showPop(`NEAR MISS  +${Math.round(e.bonus)}`, '#ff8a5c');
+          this.flash(0xff8a5c, 0.5 + e.closeness * 0.5);
+          haptics.buzz(8 + Math.round(e.closeness * 14));
+          break;
         case 'supEnd':
           // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :
           // le ramassage a rempli la réserve et le superboost ne l'a pas

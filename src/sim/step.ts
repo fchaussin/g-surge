@@ -318,6 +318,37 @@ export function step(
   }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 2.6);
 
+  // Near Miss : frôler le mur sans le toucher. On entre dans la bande, on en
+  // ressort ; si aucun contact n'a eu lieu entre les deux et que le passage a
+  // duré, la sortie paie — en points selon la vitesse et la proximité
+  // atteinte, et en un peu de réserve. Un contact pendant le passage l'annule
+  // sans le clore : la bande se rouvre au prochain passage seulement. En l'air
+  // rien ne compte, la bordure y est un autre objet. Aucune référence figée ne
+  // bouge : le pilote de référence entre dans la bande et touche à chaque fois.
+  if (!attract) {
+    const edge = HALF - SHIP - Math.abs(state.lat);
+    const inBand = !state.air && edge < T.nearBand;
+    if (inBand) {
+      if (!state.near) {
+        state.near = true;
+        state.nearClean = true;
+        state.nearHeld = 0;
+        state.nearPeak = 0;
+      }
+      state.nearHeld += dt;
+      state.nearPeak = Math.max(state.nearPeak, 1 - Math.max(0, edge) / T.nearBand);
+      if (state.contact) state.nearClean = false;
+    } else if (state.near) {
+      state.near = false;
+      if (!state.air && state.nearClean && state.nearHeld >= T.nearMinHeld) {
+        const bonus = state.speed * T.nearScore * state.nearPeak * diffMul;
+        state.score += bonus;
+        state.energy = Math.min(100, state.energy + T.nearCharge * state.nearPeak);
+        out.push({ type: 'nearMiss', closeness: state.nearPeak, bonus });
+      }
+    }
+  }
+
   // ramassage : chaque objet est testé au moment où le vaisseau le dépasse
   const ibase = track.nid[0]!;
   for (const it of track.items) {

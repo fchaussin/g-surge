@@ -77,5 +77,11 @@ export type SimEvent =
    * pas un événement.
    */
   | { readonly type: 'comboEnd'; readonly count: number }
+  /**
+   * Un mur frôlé sans être touché : entré dans la bande, ressorti propre.
+   * `closeness` est la proximité maximale atteinte, 0 à 1 ; `bonus` les points
+   * versés, déjà dosés par la vitesse et cette proximité.
+   */
+  | { readonly type: 'nearMiss'; readonly closeness: number; readonly bonus: number }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };
