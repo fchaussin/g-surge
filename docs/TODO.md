@@ -42,30 +42,6 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
    `audio.ts`. Deliberately close; if the rung is not audible, widen the
    steps rather than raising the gain.
 
-## Layout and interface
-
-4. **The speed readout at the top right edge.** You noted that a number that
-   changes every frame at the edge of the screen may be the wrong place for
-   it, independently of its size. Options: leave it; move it next to the
-   score under the multiplier; show it only when it changes tier. My reading:
-   leave it until the HUD scaling has been seen on the large screen, then
-   decide once — moving it costs a reference regeneration and nothing else.
-
-5. **Whether the brake stays.** You observed it is rarely used. It is now
-   beside the boost, where it costs no height. Removing it is a controls
-   break in the versioning rule's sense — a major — and the simulation would
-   keep `brake` in its input either way, so the cost is small and reversible.
-   Recommendation: keep it one more round of play; the one-axis stick may
-   change how often it is reached for.
-
-## Presentation, in the palette but not yet built
-
-6. **`FX_DRIFT_WAKE` and `SFX_DRIFT_TURBULENCE`**, both P1. A turbulence
-   behind the ship in a drift, and an irregular texture on the drift band.
-   Both are class A and could be built without asking; I have not, because
-   the drift now has a glow, a spray, a camera and a voice, and a fifth
-   channel may be one too many. Say if you want either.
-
 ## Decided by a default, say if you disagree
 
 9. **The blur layer.** Open question 2 of the palette's §16: on by default or
@@ -75,6 +51,16 @@ decided goes where it belongs: the code, `GAMEPLAY.md`, or the palette.
    whether the governor did it or the player set sky detail low or render
    scale under 1. The veil stays. A budget would need a frame-time probe the
    governor does not expose per effect.
+
+## Answered on 11 September 2026, and where the answer went
+
+- **Speed readout at the edge** — stays. Nothing to change.
+- **The brake** — stays. The one-axis stick is the reason it may be reached
+  for more, not less: through corners, corkscrews and the ship's own lateral
+  offset, a thumb tends to align itself with the ship's axis rather than the
+  stick's, and a two-axis stick read that lean as a weaker turn. The rationale
+  is recorded in `input.ts`.
+- **`FX_DRIFT_WAKE` and `SFX_DRIFT_TURBULENCE`** — built, version 1.4.6.
 
 ## Housekeeping
 

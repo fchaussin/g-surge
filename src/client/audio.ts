@@ -75,6 +75,18 @@ const DRIFT_RELEASE_MIN = 0.12;
 const DRIFT_AIRFLOW = 0.12;
 
 /**
+ * The drift band's turbulence: two slow sines at incommensurate rates, summed,
+ * driving the band's centre frequency and its gain. Two rates rather than one
+ * so the flutter never settles into a beat the ear can predict — the
+ * palette's SFX_DRIFT_TURBULENCE asks for irregular, and a single LFO is a
+ * siren. Depth follows the drift intensity, so a light slide barely flutters
+ * and a full one tears.
+ */
+const TURB_RATES = [3.3, 5.9] as const;
+const TURB_FREQ_DEPTH = 420;
+const TURB_GAIN_DEPTH = 0.3;
+
+/**
  * Where the charge voice starts, by thrust tier, in Hz.
  *
  * The voice used to follow the reserve alone, and fell silent the moment the
@@ -107,6 +119,8 @@ export class Audio {
   private engine: Engine | null = null;
   private wind: Band | null = null;
   private driftNoise: Band | null = null;
+  /** Modulation depths of the drift band's turbulence, in Hz and in gain. */
+  private turb: { freq: GainNode; amp: GainNode } | null = null;
   private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
@@ -277,11 +291,14 @@ export class Audio {
       tc(0.18),
     );
 
-    this.driftNoise.gain.gain.setTargetAtTime(
-      playing && !surge ? drift * DRIFT_AIRFLOW : 0,
-      t,
-      0.07,
-    );
+    const airflow = playing && !surge ? drift * DRIFT_AIRFLOW : 0;
+    this.driftNoise.gain.gain.setTargetAtTime(airflow, t, 0.07);
+    if (this.turb) {
+      // The gain modulation is a fraction of the airflow itself, so it can
+      // never push the band below zero: two sines sum to at most 2.
+      this.turb.freq.gain.setTargetAtTime(drift * TURB_FREQ_DEPTH, t, 0.1);
+      this.turb.amp.gain.setTargetAtTime((airflow * TURB_GAIN_DEPTH) / 2, t, 0.1);
+    }
 
     // The charge: it climbs with what the drift is filling and is heard only
     // in a drift, because that is where the reserve refills three times faster,
@@ -339,6 +356,25 @@ export class Audio {
     };
     this.wind = this.band(this.loop(0.55), 'bandpass', 900, 0.7);
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
+
+    // Turbulence: the two LFOs sum into two depth gains, one on the band's
+    // frequency, one on its gain. Both depths start at zero and follow the
+    // drift in update(), so off drift the band is exactly what it was.
+    const turbFreq = ctx.createGain();
+    const turbAmp = ctx.createGain();
+    turbFreq.gain.value = 0;
+    turbAmp.gain.value = 0;
+    for (const rate of TURB_RATES) {
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = rate;
+      lfo.connect(turbFreq);
+      lfo.connect(turbAmp);
+      lfo.start();
+    }
+    turbFreq.connect(this.driftNoise.filter.frequency);
+    turbAmp.connect(this.driftNoise.gain.gain);
+    this.turb = { freq: turbFreq, amp: turbAmp };
 
     const chargeOsc = ctx.createOscillator();
     chargeOsc.type = 'triangle';

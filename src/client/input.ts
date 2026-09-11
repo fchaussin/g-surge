@@ -37,7 +37,10 @@ const KEYMAP: Record<string, 'left' | 'right' | 'brake' | 'boost'> = {
  * The stick is horizontal only. The game has no vertical input — brake and
  * boost are pads — so a knob free to wander in two dimensions was reading a
  * diagonal thumb as a weaker turn than the player meant, and drawing a circle
- * that promised an axis nothing listened to. The pill in the stylesheet is
+ * that promised an axis nothing listened to. The diagonal is not carelessness:
+ * through corners, corkscrews and the ship's own lateral offset, a thumb tends
+ * to align itself with the ship's axis on screen rather than the stick's, and
+ * that lean has to count as a full turn. The pill in the stylesheet is
  * `2 × STICK_RADIUS` plus the knob's own width.
  */
 const STICK_RADIUS = 42;

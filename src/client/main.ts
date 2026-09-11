@@ -20,7 +20,7 @@ import {
 import { Audio } from './audio.js';
 import { ChaseCamera } from './camera.js';
 import { installDebugSurface } from './debug.js';
-import { driftIntensity } from './drift.js';
+import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
 import { Feedback } from './feedback.js';
 import { Fullscreen } from './fullscreen.js';
@@ -323,7 +323,7 @@ function renderFrame(frameDt: number): void {
   yawVisual += (wantYaw - yawVisual) * Math.min(1, frameDt * 9);
   ship.setAttitude(lean, yawVisual, MathUtils.clamp(-state.vyRel * 0.018, -0.32, 0.32));
   ship.updateThrust(frameDt, thrust);
-  ship.updateSmoke(frameDt, state.speed, thrust);
+  ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   spray.update(frameDt, state);
 
   // Lueur, secousse du client et hystérésis de la réserve pleine, sur l'horloge

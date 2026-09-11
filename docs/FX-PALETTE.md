@@ -177,7 +177,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `CAM_DRIFT_EXIT_SNAP` | Recentrage à la sortie | `driftEnd` | camera.ts | B | **existe** — rattrapage × 2,4 sur 0,32 s | P1 |
 | `FX_DRIFT_PARTICLES` | Particules projetées latéralement | `driftIntensity`, `driftSide` | drift-spray.ts | A | **existe** — 32 sprites, hasard semé, 13,5 m de portée | P0 |
 | `FX_DRIFT_CHARGE` | Énergie visible sur le vaisseau | `state.climb`, `state.drift` | feedback.ts, ship.ts | A | **existe** — lueur cyan tenue sur la coque, scintillement irrégulier, portée par la montée | P0 |
-| `FX_DRIFT_WAKE` | Turbulence derrière le vaisseau | `state.slip` | ship.ts | A | absent | P1 |
+| `FX_DRIFT_WAKE` | Turbulence derrière le vaisseau | `driftIntensity`, `driftSide` | ship.ts | A | **existe** — la traînée de fumée se courbe du côté d'où vient le vaisseau et se disloque, d'autant plus loin en arrière | P1 |
 | `PP_DRIFT_BLUR` | Blur dirigé | `state.slip` | — | A | absent, **et il n'y a pas de pipeline de post-process** | P1 |
 
 ## 6. SFX et haptique Drift
@@ -188,7 +188,7 @@ Les grandeurs continues (`DriftIntensity`, `SuperboostRemaining`) ne sont pas de
 | `SFX_DRIFT_ENTRY` | Transient d'entrée | `driftStart` | audio.ts | B | **existe** — souffle bref qui monte | P0 |
 | `SFX_DRIFT_CHARGE` | Son de recharge | `state.energy`, en drift | audio.ts | A | **existe** — triangle de 300 à 860 Hz | P0 |
 | `SFX_DRIFT_FULL_CHARGE` | Confirmation boost prêt | `main.ts`, hystérésis à 95 | audio.ts | A | **existe** — deux notes montantes | P0 |
-| `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `state.slip` normalisé | audio.ts | A | absent | P1 |
+| `SFX_DRIFT_TURBULENCE` | Turbulence irrégulière | `driftIntensity` | audio.ts | A | **existe** — deux LFO incommensurables sur la fréquence et le gain de la bande, profondeur portée par l'intensité | P1 |
 | `SFX_DRIFT_RELEASE` | Whoosh de réalignement | `driftEnd` | audio.ts | B | **existe** — dosé par `held`, muet sous 0,12 s | P1 |
 | `SFX_DRIFT_CHAIN` | Intensification progressive | `state.climb` | audio.ts | A | fait — la voix de recharge suit la montée en poussée, un registre par barreau | P1 |
 | `HAP_DRIFT_ENTRY` | Impulsion d'entrée | `driftStart` | haptics.ts | B | **existe** — espacée de 220 ms | P1 |

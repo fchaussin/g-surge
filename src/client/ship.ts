@@ -51,6 +51,21 @@ const CORE_BY_TIER = [0xffffff, 0xffffff, 0xffe6fb, 0xfff6d0] as const;
 const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
 
+/**
+ * What a drift does to the smoke trail: it bends towards the side the ship
+ * came from, since the puffs were left where the ship no longer is, and it
+ * breaks up — each puff wobbles on its own, more so the further back it sits.
+ *
+ * The palette's FX_DRIFT_WAKE. Deterministic, a sine per puff on a clock that
+ * only runs while the wake is up, rather than a random per frame: the trail is
+ * in every scene capture and a wobble that is exactly zero off drift is what
+ * keeps those captures where they are. Eased, so it has to be reset.
+ */
+const WAKE_BEND = 2.4;
+const WAKE_JITTER = 0.55;
+const WAKE_RATE = 9;
+const WAKE_EASE = 6;
+
 type Point3 = readonly [number, number, number];
 
 /** Loose triangles, so the geometry is flat shaded without asking for it. */
@@ -79,6 +94,9 @@ export class Ship {
   private readonly haloMaterial: MeshBasicMaterial;
   private readonly smoke: Sprite[] = [];
   private smokePhase = 0;
+  /** The slide as the trail currently feels it, −1 to 1, eased. */
+  private wake = 0;
+  private wakeClock = 0;
 
   /* Scratch colours, so the per-frame lerps allocate nothing. */
   private readonly tmpA = new Color();
@@ -172,12 +190,20 @@ export class Ship {
     this.flameCore.color.setHex(CORE_BY_TIER[level]);
   }
 
-  updateSmoke(frameDt: number, speed: number, level: ThrustTier): void {
+  /**
+   * @param slide the drift, signed by the side the ship slides to, 0 outside
+   *   one — `driftIntensity × driftSide`, the shared scale. The trail bends the
+   *   other way and breaks up in proportion.
+   */
+  updateSmoke(frameDt: number, speed: number, level: ThrustTier, slide = 0): void {
     if (speed < 1) {
       for (const sp of this.smoke) sp.visible = false;
       return;
     }
     this.smokePhase = (this.smokePhase + (speed * frameDt) / TRAIL_LENGTH) % 1;
+    this.wake += (slide - this.wake) * Math.min(1, frameDt * WAKE_EASE);
+    const turbulence = Math.abs(this.wake);
+    if (turbulence > 0.001) this.wakeClock += frameDt * WAKE_RATE;
     const half = SMOKE_COUNT / 2;
     const base = 0.2 + level * 0.11;
 
@@ -189,8 +215,16 @@ export class Ship {
       // filling the screen is a bug this codebase has already paid for.
       const p = (this.smokePhase + (i % half) / half) % 1;
       sp.visible = true;
-      sp.position.set(side * (1.15 + p * 1.05), 1.0 + p * 0.85, -2.6 - p * TRAIL_LENGTH);
-      sp.scale.setScalar(0.45 + p * 1.35);
+      // Zero exactly when the wake is zero: `a + 0` is `a`, so an attract-mode
+      // frame lands on the same floats as before the wake existed.
+      const bend = -this.wake * WAKE_BEND * p;
+      const jitter = turbulence * WAKE_JITTER * p * Math.sin(this.wakeClock + i * 2.4);
+      sp.position.set(
+        side * (1.15 + p * 1.05) + bend + jitter,
+        1.0 + p * 0.85 + jitter * 0.5,
+        -2.6 - p * TRAIL_LENGTH,
+      );
+      sp.scale.setScalar(0.45 + p * 1.35 + turbulence * p * 0.6);
       sp.material.opacity = base * Math.pow(Math.sin(p * Math.PI), 1.3);
     }
   }
@@ -198,6 +232,8 @@ export class Ship {
   /** Puffs hold a distance travelled, so a reset has to drop them. */
   clearSmoke(): void {
     this.smokePhase = 0;
+    this.wake = 0;
+    this.wakeClock = 0;
     for (const sp of this.smoke) sp.visible = false;
   }
 
