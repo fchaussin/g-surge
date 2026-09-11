@@ -474,7 +474,7 @@ Nothing in the frozen simulation references moved for any of the four; the
 HUD and help references did, each in its own commit. What is left is play:
 `TODO.md` carries the values and the pilot's measurements.
 
-### After a first play — the same day
+### After the first plays — the same day
 
 - **1.10.0** — the game was tuned like a simulator and played like one.
   Damage retuned for an arcade: hits cost 40 % less, scrapes half, the hull
@@ -488,6 +488,14 @@ HUD and help references did, each in its own commit. What is left is play:
 - **1.12.0** — the menu says when the app is already installed on the device;
   the mobile boost gauge anchors to the top, away from the thumbs.
 - The root README speaks to the player; `docs/README.md` to the developer.
+- **1.13.0** — the second play found the other extreme: the 1.10.0 hull healed
+  faster than a wall drained it. Damage set to the middle — 1.6 / 11 / 1.5 on
+  Easy, entry 1 of `TODO.md` has the pilot's numbers — and the references
+  moved again, in their own commit. The fuel can is red and a cylinder, the
+  invincibility item a rainbow prism with an animated shader that lasts 8 s,
+  and a SHIELD bar under hull and fuel counts it down. `GAMEPLAY.md` gains a
+  generated pickups table; `TODO.md` is regrouped into open, impossible and
+  log.
 
 **Total: five to eight days**, of which one is paper and one is a decision.
 

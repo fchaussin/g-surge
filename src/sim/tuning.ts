@@ -207,13 +207,13 @@ export const DEFAULTS: Readonly<Tuning> = {
   nearScore: 0.6,
   nearCharge: 6,
   /* Au-delà des traces figées, qui couvrent 1 345 m. Aussi rare qu'un super
-   * boost, six secondes, et un gain qui pousse la vitesse un quart au-dessus de
-   * sa cible tant qu'on frotte — la cible la ramène à speedGain par seconde,
-   * donc l'excès se fixe à rideGain / (speedGain − rideGain), 0,235 ici. À
-   * rejuger en jouant. */
+   * boost, huit secondes — six semblaient courtes en jeu —, et un gain qui
+   * pousse la vitesse un quart au-dessus de sa cible tant qu'on frotte — la
+   * cible la ramène à speedGain par seconde, donc l'excès se fixe à
+   * rideGain / (speedGain − rideGain), 0,235 ici. À rejuger en jouant. */
   extrasFrom: 1500,
   rideChance: 0.0025,
-  rideTime: 6,
+  rideTime: 8,
   rideGain: 0.08,
   /* Facile : la croisière ne consomme rien, un boost une réserve pleine
    * durant 3,8 s en brûle 11, un super boost de 5 s en brûle 30, le surge est
@@ -240,14 +240,19 @@ export const DEFAULTS: Readonly<Tuning> = {
   rollChance: 0.14,
   rollNodes: 44,
   stripeEvery: 2,
-  /* Allégés le 11 septembre 2026 : un jeu d'arcade pardonne. Un choc coûte
-   * 40 % de moins, un frottement moitié moins, la coque se refait deux fois
-   * plus vite, et les dégâts retirent moins de vitesse et de direction. Le
-   * pilote scripté, qui touche les murs quarante fois par dix minutes, mourait
-   * en 86 s en difficile ; il doit finir ses cinq minutes en facile. */
-  hullImpact: 1.2,
-  hullScrape: 7,
-  hullRegen: 4,
+  /* Réglés deux fois le 11 septembre 2026. La première version, 2,0 / 15 /
+   * 1,7, jouait comme un simulateur ; la seconde, 1,2 / 7 / 4, ne laissait
+   * plus perdre — la coque se refaisait plus vite qu'un frottement ne la
+   * mangeait, ce qui n'a aucun sens. Celle-ci tient le milieu : un choc à
+   * 12 m/s coûte 19 points et se répare en 13 s, un frottement en coûte 11 par
+   * seconde contre 1,5 rendus. Le pilote scripté, qui touche les murs
+   * cinquante fois par dix minutes, finit ses cinq minutes en facile, perd
+   * une partie sur deux en moyen vers quatre minutes, et meurt en deux en
+   * difficile. Les dégâts retirent moins de vitesse et de direction qu'au
+   * départ, pour ne pas enfermer une coque abîmée dans une spirale. */
+  hullImpact: 1.6,
+  hullScrape: 11,
+  hullRegen: 1.5,
   badLandingHull: 12,
   damageSpeed: 0.22,
   damageSteer: 0.2,
@@ -314,9 +319,9 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 38,
       speedRamp: 6000,
-      hullImpact: 1.6,
-      hullRegen: 2.8,
-      hullScrape: 10,
+      hullImpact: 2.0,
+      hullRegen: 1.1,
+      hullScrape: 14,
       multDecay: 0.14,
       fixChance: 0.0022,
       rollChance: 0.18,
@@ -332,9 +337,9 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
     set: {
       curveLoad: 46,
       speedRamp: 4000,
-      hullImpact: 2.2,
-      hullRegen: 1.8,
-      hullScrape: 14,
+      hullImpact: 2.6,
+      hullRegen: 0.7,
+      hullScrape: 18,
       multDecay: 0.2,
       fixChance: 0.0015,
       supChance: 0.0018,

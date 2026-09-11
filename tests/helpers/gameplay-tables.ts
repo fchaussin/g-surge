@@ -214,7 +214,7 @@ export function damage(t: Tuning): string {
     '|---|---|',
     `| Impact | \`hullImpact\` × lateral closing speed, clamped 2 to 42 |`,
     `| Scraping | ${t.hullScrape} per second |`,
-    `| Bad landing off track | 18 points, plus ${Math.round(t.badLanding * 100)} % of speed |`,
+    `| Bad landing off track | ${t.badLandingHull} points, plus ${Math.round(t.badLanding * 100)} % of speed |`,
     `| Passive repair | ${t.hullRegen} per second |`,
     `| Repair pickup | \`fixAmount\`, ${t.fixAmount} points |`,
     '',
@@ -222,6 +222,56 @@ export function damage(t: Tuning): string {
       `Damage reduces top speed by up to ${Math.round(t.damageSpeed * 100)} %, steering ` +
         `by ${Math.round(t.damageSteer * 100)} % and halves boost recharge. At zero the ` +
         'run ends.',
+    ),
+  ].join('\n');
+}
+
+/** Espacement moyen d'un objet tiré indépendamment par segment, en mètres. */
+function spacing(chance: number): string {
+  const m = SEG / chance;
+  return m >= 1000 ? `every ${(m / 1000).toFixed(1)} km` : `every ${Math.round(m)} m`;
+}
+
+/**
+ * Les objets de la piste : ce à quoi ils ressemblent est côté client
+ * (`pickups.ts`), ce qu'ils font et à quelle fréquence est ici. Les pièces
+ * n'ont pas de tirage par segment — elles viennent en séries, voir le score.
+ */
+export function pickups(): string {
+  const levels: Difficulty[] = ['easy', 'medium', 'hard'];
+  const t = levels.map((d) => tuningFor(d));
+  // Réparation et super boost ne sont tirés que sur un segment libre : pendant
+  // une série de pièces — 5 à 10 segments, 7,5 en moyenne — rien n'est tiré.
+  const free = (x: Tuning) => 1 / (1 + x.coinChance * 7.5);
+  const row = (name: string, look: string, effect: string, key: keyof Tuning, item = false) =>
+    `| ${name} | ${look} | ${effect} | ${t
+      .map((x) => spacing((x[key] as number) * (item ? free(x) : 1)))
+      .join(' | ')} |`;
+  const e = t[0]!;
+  return [
+    '| Pickup | Look | Effect | Easy | Medium | Hard |',
+    '|---|---|---|---|---|---|',
+    '| Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |',
+    row('Repair', 'green octahedron', `hull +${e.fixAmount}`, 'fixChance', true),
+    row(
+      'Super boost',
+      'magenta cone',
+      `${e.supTime} s at ×${e.supFactor}, reserve pinned full`,
+      'supChance',
+      true,
+    ),
+    row(
+      'Invincibility',
+      'rainbow prism',
+      `${e.rideTime} s of harmless walls that push, on the SHIELD bar`,
+      'rideChance',
+    ),
+    row('Fuel can', 'red cylinder', `fuel +${e.fuelCan}`, 'fuelCanChance'),
+    '',
+    wrap(
+      `Every pickup is taken within \`pickRadius\`, ${e.pickRadius} m. The last two are ` +
+        `extras: none appears before \`extrasFrom\`, ${e.extrasFrom} m, and their odds are ` +
+        'per 12 m segment past it, so the spacing above is an average over a long run.',
     ),
   ].join('\n');
 }
@@ -263,6 +313,7 @@ export function sections(): Record<string, string> {
     difficulty: difficulties(),
     handling: handling(t),
     damage: damage(t),
+    pickups: pickups(),
     constants: constants(t),
   };
 }

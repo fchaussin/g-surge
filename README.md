@@ -43,7 +43,7 @@ it is the only way up the ladder. Chain them without touching a wall and the
 **Perfect Drift** kicks in from the third: every drift pays points and the
 climb runs faster, as long as the next drift starts before the window closes.
 Skim a wall without touching it and the **Near Miss** pays points and a little
-boost, more the closer and the faster. A violet ring grants a few seconds of
+boost, more the closer and the faster. A rainbow prism grants a few seconds of
 **invincibility**, during which a wall pushes instead of biting: lean on the
 outside of a corner and ride it.
 
@@ -62,17 +62,17 @@ the edges of the screen blur, and for five seconds the world closes in.
 Touching a wall empties whatever you were climbing. As a rung ends, its layer
 drains and uncovers the one below.
 
-**Fuel.** The thin orange bar under the hull is the tank. Boosting burns it,
+**Fuel.** The thin red bar under the hull is the tank. Boosting burns it,
 a super boost burns it faster, and on Medium and Hard even cruising sips at it.
-Orange cans refill it, a G-SURGE fills it to the brim, and running dry takes
+Red cans refill it, a G-SURGE fills it to the brim, and running dry takes
 the boost away without stopping you.
 
 **Damage.** The green bar along the top is your hull. Impacts cost in
 proportion to how hard you hit, scraping along a wall drains it, landing off
 track after a jump hurts, and damage takes a little of your top speed and
-steering. It heals on its own, quickly, and green pickups heal it faster. At
-zero the run ends — but this is an arcade game: it forgives, and Easy forgives
-most.
+steering. It heals on its own, slowly — a hit is remembered for a dozen
+seconds — and green pickups heal it at once. At zero the run ends. This is an
+arcade game: it forgives a mistake, not a habit, and Easy forgives most.
 
 **Three difficulties.** Easy is the reference. Medium tightens the corners,
 reaches top speed sooner, makes impacts cost more, the multiplier fade faster

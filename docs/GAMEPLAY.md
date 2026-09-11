@@ -45,7 +45,7 @@ the pass cancels it without ending it: the band re-arms on the next pass. Nothin
 counts in the air, where the edge is a different object. No new gauge, as the
 specification asked.
 
-**Invincibility and wall riding.** A violet pickup grants `rideTime` seconds in
+**Invincibility and wall riding.** A rainbow prism grants `rideTime` seconds in
 which the walls are harmless — no hull lost, no speed cut, no multiplier halved,
 no climb or combo dropped, and a landing beyond the edge is just a landing. A
 wall then *pushes*: each second of contact adds `rideGain` of the speed, and the
@@ -57,7 +57,7 @@ a second list, `extras`, drawn from their own stream and never before
 `extrasFrom` metres: the frozen track references record the original list as it
 was, and the physics traces end before any extra can exist.
 
-**Fuel** is a permanent resource, 0 to 100, shown as the thin orange bar under
+**Fuel** is a permanent resource, 0 to 100, shown as the thin red bar under
 the hull bar. It burns per second at a rate set by the thrust rung —
 `fuelCruise`, `fuelBoost`, `fuelSup`, `fuelSurge` — and by the difficulty, which
 overrides them: on Easy cruising burns nothing, on Medium and Hard it burns a
@@ -141,8 +141,8 @@ easy.
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
 | Share of grip that corner demands | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
-| Impact at 12 m/s closing | 14 pts | 19 pts | 26 pts |
-| Time to repair it | 4 s | 7 s | 15 s |
+| Impact at 12 m/s closing | 19 pts | 24 pts | 31 pts |
+| Time to repair it | 13 s | 22 s | 45 s |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
 
@@ -196,21 +196,52 @@ speed dependent. Ramps are generated deliberately: a firm climb followed by a
 sharp crest, which is what makes the ship leave the ground. Corkscrews are pure
 roll accumulated over `rollNodes` segments, with curvature forced to zero.
 
+## Pickups
+
+Five objects share the track. What they look like is the client's business,
+`src/client/pickups.ts`; what they do and how often they come is the tuning's,
+and the table is generated from it.
+
+<!-- generated:pickups -->
+| Pickup | Look | Effect | Easy | Medium | Hard |
+|---|---|---|---|---|---|
+| Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |
+| Repair | green octahedron | hull +40 | every 4.5 km | every 6.1 km | every 8.9 km |
+| Super boost | magenta cone | 5 s at ×1.22, reserve pinned full | every 5.6 km | every 5.6 km | every 7.4 km |
+| Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 4.8 km | every 4.8 km | every 4.8 km |
+| Fuel can | red cylinder | fuel +35 | every 1.5 km | every 2.4 km | every 4.0 km |
+
+Every pickup is taken within `pickRadius`, 3.6 m. The last two are extras: none
+appears before `extrasFrom`, 1500 m, and their odds are per 12 m segment past
+it, so the spacing above is an average over a long run.
+<!-- /generated:pickups -->
+
+The two extras were added on 11 September 2026 and live in `track.extras`,
+their own list and their own PRNG stream, so that the sixty frozen track
+references — which record `items` — stayed identical. Wall riding and fuel are
+described under Scoring.
+
 ## Damage
 
-Retuned on 11 September 2026 for an arcade game that forgives: a hit costs
-40 % less, a scrape half, the hull heals twice as fast, and damage takes less
-speed and steering away. The scripted pilot, which hits the walls forty times
-in ten minutes, used to die in 86 s on Hard; it now finishes five minutes on
-Easy and Medium without a wreck, and lasts about 195 s on Hard.
+Tuned three times on 11 September 2026, and the middle one is what stands. The
+first set, 2.0 / 15 / 1.7 for impact, scrape and passive repair, played like a
+simulator: the author found Easy near unplayable. The second, 1.2 / 7 / 4, made
+losing impossible — the hull healed faster than a scrape drained it, which is
+nonsense in a gauge. The current values sit between: a hit at 12 m/s costs 19
+points and takes 13 s to heal on Easy, a scrape drains 11 a second against 1.5
+returned, so a mistake is remembered and a habit is fatal. The scripted pilot,
+which touches the walls fifty times in ten minutes, finishes five minutes on
+Easy, loses about one run in two on Medium around the fourth minute, and dies
+in two minutes on Hard. Damage takes less speed and steering away than it did
+at first, so a damaged hull is not locked into a spiral.
 
 <!-- generated:damage -->
 | Event | Cost |
 |---|---|
 | Impact | `hullImpact` × lateral closing speed, clamped 2 to 42 |
-| Scraping | 7 per second |
-| Bad landing off track | 18 points, plus 35 % of speed |
-| Passive repair | 4 per second |
+| Scraping | 11 per second |
+| Bad landing off track | 12 points, plus 35 % of speed |
+| Passive repair | 1.5 per second |
 | Repair pickup | `fixAmount`, 40 points |
 
 Damage reduces top speed by up to 22 %, steering by 20 % and halves boost

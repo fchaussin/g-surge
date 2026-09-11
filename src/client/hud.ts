@@ -31,6 +31,7 @@ export class Hud {
   private readonly coins = byId('coinCount');
   private readonly hull = byId('hullBar');
   private readonly fuel = byId('fuelBar');
+  private readonly shield = byId('shieldBar');
   private readonly boostBox = byId('bstBox');
   /* Les trois couches de l'échelle, de la réserve au G-SURGE. */
   private readonly boost = byId('boostBar');
@@ -50,6 +51,7 @@ export class Hud {
   private lastCoins = -1;
   private lastHull = -1;
   private lastFuel = -1;
+  private lastShield = -1;
   private lastL1 = -1;
   private lastL2 = -1;
   private lastL3 = -1;
@@ -109,7 +111,8 @@ export class Hud {
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
     this.lastScore = this.lastSpeed = this.lastCoins = -1;
-    this.lastHull = this.lastFuel = this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
+    this.lastHull = this.lastFuel = this.lastShield = -1;
+    this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
     this.lastSurging = false;
     this.lastTier = -1;
     this.lastMult = 1;
@@ -118,6 +121,7 @@ export class Hud {
     this.popTime = 0;
     this.pop?.classList.remove('on');
     this.warn?.classList.remove('on');
+    this.shield?.parentElement?.classList.remove('on');
     this.root?.classList.remove('surge');
   }
 
@@ -196,6 +200,17 @@ export class Hud {
         this.fuel.style.width = `${fuel}%`;
         this.fuel.parentElement?.classList.toggle('low', fuel > 0 && fuel < 20);
         this.fuel.parentElement?.classList.toggle('dry', fuel === 0);
+      }
+    }
+
+    // Le bouclier : ce qui reste de l'invincibilité, en centièmes de sa durée.
+    // Vide, la barre reste là ; pleine, son dégradé défile.
+    const shield = state.rideT > 0 ? Math.ceil((state.rideT / tuning.rideTime) * 100) : 0;
+    if (shield !== this.lastShield) {
+      this.lastShield = shield;
+      if (this.shield) {
+        this.shield.style.width = `${shield}%`;
+        this.shield.parentElement?.classList.toggle('on', shield > 0);
       }
     }
 

@@ -162,7 +162,7 @@ export class Feedback {
             this.flash(RIDE_COLOUR, 1.4);
             haptics.buzz([25, 30, 25, 30, 60]);
           } else {
-            hud.showPop(`FUEL +${Math.round(e.gain)}`, '#ff9f1a');
+            hud.showPop(`FUEL +${Math.round(e.gain)}`, '#ff5a4a');
             this.flash(FUEL_COLOUR, 0.6 + e.gain / 100);
             haptics.buzz([18, 30, 18]);
           }

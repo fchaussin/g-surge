@@ -126,7 +126,7 @@ export const SLIDERS: readonly SliderSpec[] = [
     min: 2,
     max: 15,
     step: 0.5,
-    hint: 'Seconds the violet pickup makes the walls harmless. Touching one then pushes instead of biting.',
+    hint: 'Seconds the rainbow prism makes the walls harmless. Touching one then pushes instead of biting.',
   },
   {
     key: 'rideGain',

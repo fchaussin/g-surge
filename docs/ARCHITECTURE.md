@@ -16,8 +16,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 10 | ~2 100 |
-| `src/client/` | 30 | ~6 200 |
+| `src/sim/` | 10 | ~2 200 |
+| `src/client/` | 30 | ~6 300 |
 | `index.html` | 1 | ~800 |
 <!-- /generated:layout -->
 
@@ -150,12 +150,13 @@ Perfect Drift: from `comboArm` on it pays score at each drift and speeds the
 climb; a wall or an expired `comboLeft` window drops it. Skimming a wall
 without touching it — into `nearBand` and out again, clean — pays score and a
 little reserve, the Near Miss; the reference pilot enters that band and touches
-every time, and `sim-parity` asserts it. A violet extra grants `rideT` seconds
-of invincibility, during which a wall pushes instead of biting — wall riding.
-`state.fuel` is a permanent resource burnt per thrust rung and per difficulty,
-refilled by orange cans among the extras and by the surge; empty, it takes the
-boost away and leaves the cruise alone. None of it costs a frozen reference: the traces contain
-no drift and no super boost, and `sim-parity` asserts the first.
+every time, and `sim-parity` asserts it. A rainbow prism among the extras
+grants `rideT` seconds of invincibility, during which a wall pushes instead of
+biting — wall riding. `state.fuel` is a permanent resource burnt per thrust
+rung and per difficulty, refilled by red cans among the extras and by the
+surge; empty, it takes the boost away and leaves the cruise alone. None of it
+costs a frozen reference: the traces contain no drift and no super boost, and
+`sim-parity` asserts the first.
 
 Airborne state is triggered physically: when the track falls away faster than
 `airThresh × g`, the ship keeps its vertical velocity and the gap opens.
