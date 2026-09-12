@@ -15,7 +15,7 @@
   "main": "dist/index.js",
   "no_bundle": true,
   "compatibility_date": "2026-09-01",
-  "routes": [{ "pattern": "api.g-surge.w23.fr", "custom_domain": true }],
+  "routes": [{ "pattern": "gsurge-api.w23.fr", "custom_domain": true }],
   "durable_objects": {
     "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
   },
@@ -25,7 +25,7 @@
     {
       "binding": "DB",
       "database_name": "gsurge",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "8c63a59d-d062-4bbf-b9f0-ac864db01c18",
       "migrations_dir": "migrations",
     },
   ],
@@ -33,7 +33,15 @@
   "env": {
     "staging": {
       "name": "g-surge-api-staging",
-      "routes": [{ "pattern": "api-staging.g-surge.w23.fr", "custom_domain": true }],
+      // Pas de domaine personnalisé : les préversions vivent déjà sur des
+      // URLs éphémères en *.pages.dev, un sous-domaine fixe en w23.fr
+      // n'apporterait rien et coûte le même souci de certificat que la
+      // production. workers.dev est déjà couvert par son propre certificat.
+      "workers_dev": true,
+      // Sans ce tableau vide, l'environnement hérite des `routes` du
+      // sommet du fichier — le domaine personnalisé de la production —
+      // et un déploiement de staging le lui reprend. Vécu une fois.
+      "routes": [],
       "durable_objects": {
         "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
       },
@@ -41,7 +49,7 @@
         {
           "binding": "DB",
           "database_name": "gsurge-staging",
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "7774e2c3-f1e1-4a9f-a9bf-36e58f5666bb",
           "migrations_dir": "migrations",
         },
       ],

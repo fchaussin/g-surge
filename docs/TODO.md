@@ -100,6 +100,23 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the D1 databases and the first deploy
+
+- **"Go on Cloudflare, staging and prod."** `gsurge` and `gsurge-staging`
+  created, migrated, their ids in `server/wrangler.jsonc`; staging deployed.
+  The assumed hostnames did not survive contact: `api.g-surge.w23.fr` has no
+  certificate under the free plan (Universal SSL is the zone plus one level
+  of wildcard, not two) and Total TLS is $10/month. Production moved to
+  `gsurge-api.w23.fr`, one label, inside the free certificate. Staging
+  dropped its custom domain entirely — a preview already lives at an
+  unmemorable `*.pages.dev` address, so a fixed subdomain bought it nothing
+  — and answers on its default `g-surge-api-staging.fchaussin.workers.dev`.
+  One near miss: `env.staging` without an explicit empty `routes` inherits
+  the top-level route and a staging deploy reassigns production's custom
+  domain to itself; `server/wrangler.jsonc` now says why in a comment.
+  Production deployed on the corrected hostname and the dead `api.g-surge.w23.fr`
+  domain record removed from the account.
+
 ### 12 September 2026, the streamed track, server and client — 1.16.3
 
 - **"Push `multiplayer` and continue on M5."** Pushed; the chantier had

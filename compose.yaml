@@ -67,4 +67,10 @@ services:
     user: '${GSURGE_USER:-0:0}'
     volumes:
       - .:/app
+    # Pris dans .env s'il existe, jamais dans l'image : un jeton Cloudflare
+    # pour `wrangler d1 create` et `server:deploy*`, absent en dehors de ces
+    # commandes.
+    environment:
+      - CLOUDFLARE_API_TOKEN
+      - CLOUDFLARE_ACCOUNT_ID
     command: ['npm', 'run', 'verify']

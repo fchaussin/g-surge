@@ -12,9 +12,13 @@ import { apiUrl } from '../vite.config.js';
 
 describe('the API url', () => {
   it('is production on main, staging on any other Pages branch, local otherwise', () => {
-    expect(apiUrl({ CF_PAGES_BRANCH: 'main' })).toBe('https://api.g-surge.w23.fr');
-    expect(apiUrl({ CF_PAGES_BRANCH: 'multiplayer' })).toBe('https://api-staging.g-surge.w23.fr');
-    expect(apiUrl({ CF_PAGES_BRANCH: 'feat/x' })).toBe('https://api-staging.g-surge.w23.fr');
+    expect(apiUrl({ CF_PAGES_BRANCH: 'main' })).toBe('https://gsurge-api.w23.fr');
+    expect(apiUrl({ CF_PAGES_BRANCH: 'multiplayer' })).toBe(
+      'https://g-surge-api-staging.fchaussin.workers.dev',
+    );
+    expect(apiUrl({ CF_PAGES_BRANCH: 'feat/x' })).toBe(
+      'https://g-surge-api-staging.fchaussin.workers.dev',
+    );
     expect(apiUrl({})).toBe('http://localhost:8787');
   });
 

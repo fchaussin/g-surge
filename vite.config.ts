@@ -165,8 +165,8 @@ function coreStamp(): Plugin {
  * mécanisme et même assertion que les deux autres estampilles.
  */
 const API_URLS = {
-  production: 'https://api.g-surge.w23.fr',
-  staging: 'https://api-staging.g-surge.w23.fr',
+  production: 'https://gsurge-api.w23.fr',
+  staging: 'https://g-surge-api-staging.fchaussin.workers.dev',
   local: 'http://localhost:8787',
 } as const;
 

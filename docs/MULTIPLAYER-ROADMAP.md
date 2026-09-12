@@ -134,13 +134,20 @@ refused; a trace over the ticket window is refused.
 **Needs from the author.** `wrangler` and `@cloudflare/vitest-pool-workers`
 as dev dependencies; a Cloudflare account only when `deploy` comes, in M3.
 
-**Environments**, decided on 12 September 2026: a branch is a Pages preview
-on `*.pages.dev` and talks to the staging Worker, `api-staging.g-surge.w23.fr`,
-with its own D1; `main` is production on `g-surge.w23.fr` and talks to
-`api.g-surge.w23.fr`. The client's `API_URL` is stamped at build from
-`CF_PAGES_BRANCH` (`GS_API_URL` overrides), `tests/api-url.test.ts`; the
-server's two environments are in `server/wrangler.jsonc`. The hostnames
-assume the game at `g-surge.w23.fr` — to confirm.
+**Environments**, decided on 12 September 2026, hostnames revised the same
+day once deployed: a branch is a Pages preview on `*.pages.dev` and talks to
+the staging Worker on its default `g-surge-api-staging.fchaussin.workers.dev`
+— a preview already lives on an address nobody remembers, so a fixed
+subdomain bought it nothing; `main` is production on `g-surge.w23.fr` and
+talks to `gsurge-api.w23.fr`. Not `api.g-surge.w23.fr`: Cloudflare's free
+Universal SSL covers a zone and one level of wildcard under it, `*.w23.fr`,
+not a second level — `api.g-surge.w23.fr` has no certificate to answer with
+and the handshake fails, and the fix, Total TLS, is $10/month. A single-label
+custom domain stays inside the free certificate. The client's `API_URL` is
+stamped at build from `CF_PAGES_BRANCH` (`GS_API_URL` overrides),
+`tests/api-url.test.ts`; the server's two environments are in
+`server/wrangler.jsonc`. The hostname assumes the game at `g-surge.w23.fr` —
+to confirm.
 
 **Version.** None — nothing in the bundle changes.
 
