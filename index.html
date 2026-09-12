@@ -480,6 +480,15 @@
   .damage{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;
     --sev:0;background:radial-gradient(ellipse at 50% 52%,
       rgba(255,25,25,0) 28%, rgba(255,25,25,var(--sev)) 100%)}
+  /* Le battement d'une coque au bord de la casse : une animation, pas une
+     oscillation écrite depuis la boucle. Écrire `--sev` quatre fois par
+     seconde invalidait ce dégradé plein écran autant de fois, et coûtait un
+     quart de la cadence — mesuré. Ici le JS ne pose que la classe. */
+  @keyframes dmgpulse{0%,49.9%{opacity:1}50%,100%{opacity:.25}}
+  /* `will-change` seulement pendant le battement : l'opacité animée reste
+     alors une composition, jamais une re-rastérisation du dégradé. */
+  .damage.blink{animation:dmgpulse .25s linear infinite;will-change:opacity}
+  @media (prefers-reduced-motion:reduce){.damage.blink{animation:none}}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:36px;
     bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);

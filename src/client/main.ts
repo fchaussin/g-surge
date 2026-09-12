@@ -494,7 +494,7 @@ function renderFrame(frameDt: number): void {
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   ship.updateExplosion(frameDt);
   spray.update(frameDt, state);
-  damage.update(state.hull, elapsed, screens.isPlaying);
+  damage.update(state.hull, screens.isPlaying);
 
   // Un écran bas — un téléphone en paysage — rapproche la caméra. Lu à chaque
   // frame : `innerHeight` ne force pas de mise en page, et la rotation d'un
