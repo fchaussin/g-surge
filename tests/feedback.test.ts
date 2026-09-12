@@ -19,7 +19,7 @@ function doubles() {
     haptics: { buzz: () => void calls.buzzes++ },
     hud: { showPop: (text: string) => void calls.pops.push(text) },
     camera: { driftExitSnap: () => void calls.snaps++ },
-    ship: { setHalo: () => undefined },
+    ship: { setHalo: () => undefined, explode: () => undefined },
     onWreck: () => void calls.wrecks++,
   } as unknown as FeedbackDeps;
   return { calls, feedback: new Feedback(deps) };

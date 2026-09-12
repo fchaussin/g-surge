@@ -432,6 +432,14 @@
       rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%);
     mask-image:radial-gradient(ellipse at 50% 52%,
       rgba(0,0,0,0) 32%, rgba(0,0,0,1) 78%)}
+
+  /* Voile de dégâts : plein écran, au-dessus du canvas et sous le HUD. Va de
+     transparent à 30 % de coque restante à plein à 0 %. Piloté par
+     damage.ts, même règle que .surge : on n'écrit que quand la valeur
+     change. */
+  .damage{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;
+    --sev:0;background:radial-gradient(ellipse at 50% 52%,
+      rgba(255,25,25,0) 28%, rgba(255,25,25,var(--sev)) 100%)}
   @keyframes bstpulse{0%,100%{opacity:1}50%{opacity:.45}}
   .bstlbl{position:absolute;right:36px;
     bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
@@ -652,6 +660,7 @@
 </div>
 
 <div class="surge" id="surge"></div>
+<div class="damage" id="damage"></div>
 
 <div class="update" id="updateBar" hidden>
   <span>A new version is ready.</span>

@@ -53,6 +53,14 @@ const CORE_BY_TIER = [0xffffff, 0xffffff, 0xffe6fb, 0xfff6d0] as const;
 const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
 
+/** Débris de l'explosion : combien, combien de temps, et leur freinage dans l'air. */
+const EXPLOSION_COUNT = 28;
+const EXPLOSION_LIFE = 1.1;
+const EXPLOSION_DRAG = 2.2;
+const EXPLOSION_SPEED_MIN = 4;
+const EXPLOSION_SPEED_MAX = 9;
+const EXPLOSION_COLOURS = [0xff5a2a, 0xffae40, 0xfff0c0] as const;
+
 /**
  * Ce qu'un drift fait à la traînée de fumée : elle se courbe vers le côté d'où
  * le vaisseau vient, puisque les bouffées ont été laissées là où il n'est plus,
@@ -97,10 +105,24 @@ export class Ship {
   private readonly halo: Mesh;
   private readonly haloMaterial: MeshBasicMaterial;
   private readonly smoke: Sprite[] = [];
+  private smokeMap!: CanvasTexture;
   private smokePhase = 0;
   /** La glisse telle que la traînée la sent, −1 à 1, amortie. */
   private wake = 0;
   private wakeClock = 0;
+
+  /** Débris de l'explosion, partagent la texture de la fumée. Voir `explode`. */
+  private readonly burst: Sprite[] = [];
+  private readonly burstPX = new Float32Array(EXPLOSION_COUNT);
+  private readonly burstPY = new Float32Array(EXPLOSION_COUNT);
+  private readonly burstPZ = new Float32Array(EXPLOSION_COUNT);
+  private readonly burstVX = new Float32Array(EXPLOSION_COUNT);
+  private readonly burstVY = new Float32Array(EXPLOSION_COUNT);
+  private readonly burstVZ = new Float32Array(EXPLOSION_COUNT);
+  private exploding = false;
+  /** Vrai dès l'explosion et jusqu'à `resetExplosion` : la coque reste cachée. */
+  private destroyed = false;
+  private explodeAge = 0;
 
   /* Couleurs de travail, pour que les interpolations par frame n'allouent rien. */
   private readonly tmpA = new Color();
@@ -124,6 +146,7 @@ export class Ship {
     this.group.add(this.halo);
 
     this.buildSmoke();
+    this.buildBurst();
   }
 
   /** Place le vaisseau dans le repère de la piste. `bank` vient de la simulation. */
@@ -239,6 +262,91 @@ export class Ship {
     this.wake = 0;
     this.wakeClock = 0;
     for (const sp of this.smoke) sp.visible = false;
+  }
+
+  /**
+   * La coque cède : elle disparaît, une gerbe de débris part dans toutes les
+   * directions. Déclenché une fois par `wreck` — un second appel avant
+   * `resetExplosion` ne fait rien, la partie est déjà perdue.
+   */
+  explode(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.exploding = true;
+    this.explodeAge = 0;
+    this.body.visible = false;
+    this.halo.visible = false;
+
+    for (let i = 0; i < EXPLOSION_COUNT; i++) {
+      // Direction uniforme sur la sphère par rejet plutôt que par angles, plus
+      // simple à lire que la conversion sphérique pour un effet qui n'a besoin
+      // d'aucune propriété d'échantillonnage particulière.
+      let dx = 0,
+        dy = 0,
+        dz = 0,
+        len = 0;
+      do {
+        dx = Math.random() * 2 - 1;
+        dy = Math.random() * 2 - 1;
+        dz = Math.random() * 2 - 1;
+        len = Math.hypot(dx, dy, dz);
+      } while (len < 0.001 || len > 1);
+      const speed =
+        EXPLOSION_SPEED_MIN + Math.random() * (EXPLOSION_SPEED_MAX - EXPLOSION_SPEED_MIN);
+
+      this.burstPX[i] = 0;
+      this.burstPY[i] = 1;
+      this.burstPZ[i] = 0;
+      this.burstVX[i] = (dx / len) * speed;
+      // Biaisée vers le haut : un nuage de débris qui ne s'écrase pas au sol
+      // aussitôt se lit davantage comme une explosion que comme une chute.
+      this.burstVY[i] = (dy / len) * speed * 0.7 + 1.8;
+      this.burstVZ[i] = (dz / len) * speed;
+
+      const sp = this.burst[i]!;
+      sp.visible = true;
+      sp.material.opacity = 1;
+      sp.scale.setScalar(0.7 + Math.random() * 0.8);
+    }
+  }
+
+  /**
+   * Frame d'affichage de la gerbe de débris : ne fait rien hors explosion, et
+   * s'éteint d'elle-même sans toucher à `destroyed` — la coque reste cachée
+   * une fois les débris dissipés, jusqu'à `resetExplosion`.
+   */
+  updateExplosion(frameDt: number): void {
+    if (!this.exploding) return;
+    this.explodeAge += frameDt;
+    const t = Math.min(1, this.explodeAge / EXPLOSION_LIFE);
+    const drag = Math.max(0, 1 - frameDt * EXPLOSION_DRAG);
+
+    for (let i = 0; i < EXPLOSION_COUNT; i++) {
+      this.burstVX[i]! *= drag;
+      this.burstVY[i]! *= drag;
+      this.burstVZ[i]! *= drag;
+      this.burstPX[i]! += this.burstVX[i]! * frameDt;
+      this.burstPY[i]! += this.burstVY[i]! * frameDt;
+      this.burstPZ[i]! += this.burstVZ[i]! * frameDt;
+
+      const sp = this.burst[i]!;
+      sp.position.set(this.burstPX[i]!, this.burstPY[i]!, this.burstPZ[i]!);
+      sp.material.opacity = (1 - t) * (1 - t);
+    }
+
+    if (t >= 1) {
+      this.exploding = false;
+      for (const sp of this.burst) sp.visible = false;
+    }
+  }
+
+  /** Reforme le vaisseau pour une nouvelle partie : l'inverse de `explode`. */
+  resetExplosion(): void {
+    this.destroyed = false;
+    this.exploding = false;
+    this.explodeAge = 0;
+    this.body.visible = true;
+    for (const sp of this.burst) sp.visible = false;
   }
 
   /**
@@ -406,6 +514,7 @@ export class Ship {
     g.fillRect(0, 0, 96, 96);
 
     const map = new CanvasTexture(canvas);
+    this.smokeMap = map;
     for (let i = 0; i < SMOKE_COUNT; i++) {
       const sp = new Sprite(
         new SpriteMaterial({ map, transparent: true, opacity: 0, depthWrite: false, fog: false }),
@@ -413,6 +522,26 @@ export class Ship {
       sp.visible = false;
       this.group.add(sp);
       this.smoke.push(sp);
+    }
+  }
+
+  /** Débris de l'explosion : même dégradé que la fumée, teinté et additif. */
+  private buildBurst(): void {
+    for (let i = 0; i < EXPLOSION_COUNT; i++) {
+      const sp = new Sprite(
+        new SpriteMaterial({
+          map: this.smokeMap,
+          color: EXPLOSION_COLOURS[i % EXPLOSION_COLOURS.length],
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: AdditiveBlending,
+          fog: false,
+        }),
+      );
+      sp.visible = false;
+      this.group.add(sp);
+      this.burst.push(sp);
     }
   }
 }

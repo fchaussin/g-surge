@@ -19,6 +19,7 @@ import {
 } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
+import { DamageOverlay } from './damage.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
@@ -91,6 +92,7 @@ const ship = new Ship();
 const shield = new ShieldFx();
 const surgeMeter = new SurgeMeter();
 const surgeOverlay = new SurgeOverlay();
+const damage = new DamageOverlay();
 // Parentée au vaisseau, comme la fumée : dans le monde, une particule lâchée
 // ici croiserait la caméra 19 m derrière.
 const spray = new DriftSpray();
@@ -272,11 +274,13 @@ const feedback = new Feedback({ audio, haptics, hud, camera, ship, onWreck: () =
  */
 function resetPresentation(): void {
   ship.clearSmoke();
+  ship.resetExplosion();
   spray.reset();
   pickups.reset();
   camera.reset(sim.tuning);
   surgeMeter.reset();
   surgeOverlay.reset();
+  damage.reset();
   feedback.reset();
   shield.reset();
   lean = 0;
@@ -343,7 +347,9 @@ function renderFrame(frameDt: number): void {
   ship.setAttitude(lean, yawVisual, MathUtils.clamp(-state.vyRel * 0.018, -0.32, 0.32));
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
+  ship.updateExplosion(frameDt);
   spray.update(frameDt, state);
+  damage.update(state.hull, elapsed);
 
   // Un écran bas — un téléphone en paysage — rapproche la caméra. Lu à chaque
   // frame : `innerHeight` ne force pas de mise en page, et la rotation d'un
@@ -360,13 +366,13 @@ function renderFrame(frameDt: number): void {
   // Le flou plein écran est le seul effet dont le coût dépasse le sien : il
   // s'efface dès que la qualité a dû baisser, par le gouverneur ou à la main.
   surgeOverlay.update(surgeMeter.value, skyDetail && sim.tuning.renderScale >= 1);
-  camera.update(
-    state,
-    sim.track,
-    sim.tuning,
-    frameDt,
-    state.shake + feedback.shake + surgeMeter.value * SURGE_SHAKE,
-  );
+  // Hors partie, la simulation n'avance plus et `state.shake` reste bloqué à
+  // sa dernière valeur — sans quoi une secousse figée en la perdant tremblerait
+  // indéfiniment derrière l'écran de pause ou la modale SHIP WRECKED.
+  const shake = screens.isPlaying
+    ? state.shake + feedback.shake + surgeMeter.value * SURGE_SHAKE
+    : 0;
+  camera.update(state, sim.track, sim.tuning, frameDt, shake);
 
   const position = viewport.camera.position;
   sky.update(

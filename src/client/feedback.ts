@@ -237,6 +237,7 @@ export class Feedback {
           haptics.buzz([18, 30, 12]);
           break;
         case 'wreck':
+          this.deps.ship.explode();
           this.deps.onWreck();
           break;
         default:
