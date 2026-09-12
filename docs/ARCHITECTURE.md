@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 37 | ~7 400 |
+| `src/client/` | 38 | ~7 600 |
 | `server/src/` | 5 | ~400 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
@@ -194,6 +194,7 @@ which is what makes the step runnable outside a page.
 | `drift-spray.ts` | The lateral spray — pooled, allocated once, parented to the ship |
 | `surge.ts` | `SurgeMeter`, the intensity a surge earns by driving clean — presentation, reset for a capture |
 | `overlay.ts` | The surge's masked DOM layer: white veil and peripheral `backdrop-filter` blur |
+| `damage.ts` | The hull's DOM layer: a red veil from 30 % hull to 0, blinking under 10 |
 | `ladder.ts` | The gauge's three layers as a pure function of the state, tested in Node |
 | `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface — the HUD reads distance and `state.time`, never the score, which the end screen reveals with the average speed |
 | `preferences.ts` | `gsurge.prefs.v1` — validated on read, coalesced on write |
