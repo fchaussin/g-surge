@@ -234,7 +234,7 @@
     72%{transform:translate(1px,3px) skewY(.25deg)}
     100%{transform:translate(0,0) skewY(0deg)}}
   .hud.surge .readout,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl,
-  .hud.surge .shield,.hud.surge .shieldlbl{
+  .hud.surge .fuel,.hud.surge .fuellbl{
     animation:surgedrift 1.15s ease-in-out infinite}
   /* Simplifié plutôt qu'augmenté, comme la §10 le demande : le secondaire
      s'efface, la vitesse et les jauges restent lisibles. */
@@ -387,53 +387,53 @@
      espacées : une jauge sans libellé se devine, une jauge libellée se lit.
      Les barres partent après le plus long des libellés restants, FUEL et
      HULL, qui grandit avec l'unité du HUD : 40 px suffisent sur un téléphone,
-     pas à 1080 p. SHIELD est descendu sur le côté, voir `.shield`. */
+     pas à 1080 p. FUEL est descendu sur le côté, voir `.fuel`. */
   .glbl{position:absolute;left:8px;font-size:.72em;letter-spacing:.18em;line-height:1;
     color:var(--dim2);font-weight:700}
   .hull-lbl{top:1px}
-  .fuel-lbl{top:10px}
+  .shield-lbl{top:10px}
   .hull{position:absolute;top:0;left:max(40px,3.5em);right:0;height:9px;
     background:rgba(223,242,248,.14);overflow:hidden}
   .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
   .hull.crit{animation:critpulse .55s ease-in-out infinite}
-  /* Le carburant : une seconde barre sous la coque, plus fine, dans le rouge
-     du bidon. Une ressource permanente mérite d'être vue en permanence, et le
-     haut est l'endroit où les jauges qui ne se dépensent pas au bouton se
-     lisent d'un coup d'œil. */
-  .fuel{position:absolute;top:10px;left:max(40px,3.5em);right:0;height:6px;
-    background:rgba(232,32,42,.14);overflow:hidden}
-  .fuel i{display:block;height:100%;width:100%;background:#e8202a;
-    box-shadow:0 0 8px rgba(232,32,42,.6)}
+  /* Le carburant : la jauge verticale de gauche, symétrique de la poussée.
+     Les deux se dépensent et se regarnissent, et c'est ce qui les met face à
+     face ; la coque et le bouclier, eux, sont des états, et restent en haut.
+     Le bouclier a tenu cette place un temps — une réserve de huit secondes
+     face à la poussée — mais le carburant est la ressource qui se lit sans
+     arrêt, et la poussée est ce qui la brûle. */
+  .fuel{position:absolute;left:16px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
+    width:14px;height:40vh;max-height:320px;border-radius:7px;
+    background:rgba(232,32,42,.14);box-shadow:inset 0 0 0 1px rgba(232,32,42,.3);
+    overflow:hidden}
+  .fuel i{position:absolute;left:0;right:0;bottom:0;display:block;height:100%;
+    border-radius:7px;background:#e8202a;box-shadow:0 0 10px rgba(232,32,42,.6)}
   .fuel.low i{background:#ff5a4a}
   .fuel.dry{animation:critpulse .55s ease-in-out infinite}
   .fuel.dry i{background:#ff5a4a}
-  /* Le bouclier : la jauge de l'invincibilité, verticale à gauche et
-     symétrique de celle de poussée — même largeur, même hauteur, même
-     ancrage, l'autre bord. C'était une troisième barre horizontale sous le
-     carburant, où une réserve qui ne dure que huit secondes se perdait entre
-     deux ressources permanentes. Vide presque tout le temps, et présente quand
-     même : une jauge qui apparaît ne s'apprend pas, une jauge qui se remplit
-     se lit. Le dégradé est celui du prisme, et il défile tant que le bouclier
-     tient. Comme `.bst`, `hud.ts` n'écrit sa hauteur que lorsqu'elle change. */
-  .shield{position:absolute;left:16px;
-    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
-    width:14px;height:40vh;max-height:320px;border-radius:7px;
-    background:rgba(155,107,255,.12);box-shadow:inset 0 0 0 1px rgba(155,107,255,.3);
-    overflow:hidden}
-  .shield i{position:absolute;left:0;right:0;bottom:0;display:block;height:0;
-    border-radius:7px;
-    background:linear-gradient(0deg,#ff4d6d,#ffb347,#f9f871,#4dff88,#4dd2ff,#9b6bff,#ff4d6d);
-    background-size:100% 200%;box-shadow:0 0 10px rgba(155,107,255,.7)}
-  .shield.on i{animation:shieldflow 1.2s linear infinite}
-  @keyframes shieldflow{from{background-position:0 0}to{background-position:0 200%}}
   /* Même sens de lecture que BOOST, de bas en haut le long de sa jauge. */
-  .shieldlbl{position:absolute;left:36px;
+  .fuellbl{position:absolute;left:36px;
     bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
     font-size:.72em;letter-spacing:.22em;color:var(--dim2);
     transform:rotate(180deg);writing-mode:vertical-rl}
-  /* Gaucher : la poussée passe à gauche, le bouclier lui cède la place. */
-  body.lefty .shield{left:auto;right:16px}
-  body.lefty .shieldlbl{left:auto;right:36px}
+  /* Gaucher : la poussée passe à gauche, le carburant lui cède la place. */
+  body.lefty .fuel{left:auto;right:16px}
+  body.lefty .fuellbl{left:auto;right:36px}
+  /* Le bouclier : la barre qui décompte l'invincibilité, contre la coque.
+     Les deux disent ce que le vaisseau encaisse, donc elles se touchent — et
+     elle est presque aussi épaisse, parce qu'une jauge qui ne dure que huit
+     secondes doit se voir sans la chercher. Vide presque tout le temps, et
+     présente quand même : une jauge qui apparaît ne s'apprend pas, une jauge
+     qui se remplit se lit. Le dégradé est celui du prisme, et il défile tant
+     que le bouclier tient. */
+  .shield{position:absolute;top:10px;left:max(40px,3.5em);right:0;height:8px;
+    background:rgba(155,107,255,.12);overflow:hidden}
+  .shield i{display:block;height:100%;width:0;
+    background:linear-gradient(90deg,#ff4d6d,#ffb347,#f9f871,#4dff88,#4dd2ff,#9b6bff,#ff4d6d);
+    background-size:200% 100%;box-shadow:0 0 8px rgba(155,107,255,.7)}
+  .shield.on i{animation:shieldflow 1.2s linear infinite}
+  @keyframes shieldflow{from{background-position:0 0}to{background-position:-200% 0}}
   @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.35}}
 
   /* La jauge de poussée sur le côté : le doigt masque le bouton, pas cette
@@ -509,17 +509,17 @@
   /* Tactile : la jauge de boost se cale en haut, sous la vitesse, plutôt
      qu'au-dessus du pad où le pouce la couvrait encore. */
   @media (pointer:coarse){
-    .bst,.shield{top:calc(env(safe-area-inset-top) + 80px);bottom:auto;
+    .bst,.fuel{top:calc(env(safe-area-inset-top) + 80px);bottom:auto;
       height:38vh;max-height:260px}
-    .bstlbl,.shieldlbl{top:calc(env(safe-area-inset-top) + 80px);bottom:auto}
+    .bstlbl,.fuellbl{top:calc(env(safe-area-inset-top) + 80px);bottom:auto}
     body.lefty .bst{left:16px}
   }
   /* Un pointeur fin qui survole est un ordinateur : les pads tactiles n'y
      servent à rien et prennent la place de la jauge, qui descend et grandit. */
   @media (hover:hover) and (pointer:fine){
     .pads,.stick{display:none}
-    .bst,.shield{bottom:calc(env(safe-area-inset-bottom) + 44px);height:46vh;max-height:380px}
-    .bstlbl,.shieldlbl{bottom:calc(env(safe-area-inset-bottom) + 44px)}
+    .bst,.fuel{bottom:calc(env(safe-area-inset-bottom) + 44px);height:46vh;max-height:380px}
+    .bstlbl,.fuellbl{bottom:calc(env(safe-area-inset-bottom) + 44px)}
     /* À gauche de la jauge et de son libellé, qui occupent le coin. */
     .kb{right:64px}
   }
@@ -645,10 +645,10 @@
   <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
   <span class="glbl hull-lbl">HULL</span>
   <div class="hull"><i id="hullBar"></i></div>
-  <span class="glbl fuel-lbl">FUEL</span>
-  <div class="fuel"><i id="fuelBar"></i></div>
+  <span class="glbl shield-lbl">SHIELD</span>
   <div class="shield"><i id="shieldBar"></i></div>
-  <div class="shieldlbl">SHIELD</div>
+  <div class="fuel"><i id="fuelBar"></i></div>
+  <div class="fuellbl">FUEL</div>
   <div class="bst" id="bstBox"><i id="boostBar"></i><i class="l2"></i><i class="l3"></i></div>
   <div class="bstlbl">BOOST</div>
   <div class="stickzone" id="stickZone"></div>
@@ -765,7 +765,7 @@
           <p><b>Perfect Drift.</b> Chain drifts without touching a wall. From the third one, every drift pays points and the climb up the ladder runs faster; the window to start the next drift narrows as the combo grows, and a wall or a pause drops it.</p>
           <p><b>Near Miss.</b> Skim a wall without touching it and the pass pays points and a little boost — more the closer and the faster. Touch it and the pass pays nothing.</p>
           <p><b>Fuel.</b> The thin red bar under the hull is your tank. Boosting burns it, a super boost burns it faster, and on Medium and Hard even cruising sips at it. Red cans refill it, and a G-SURGE fills it to the brim. Run dry and the engine coughs: no boost, and the cruise falls back to about 200 km/h until the next can.</p>
-          <p><b>Invincibility.</b> A rainbow prism makes the walls harmless for a few seconds, and the SHIELD bar under the fuel counts them down — and more than harmless: lean on a wall and it pushes you faster. Ride the outside of a corner while it lasts.</p>
+          <p><b>Invincibility.</b> A rainbow prism makes the walls harmless for a few seconds, and the SHIELD bar under the hull counts them down — and more than harmless: lean on a wall and it pushes you faster. Ride the outside of a corner while it lasts.</p>
         </div>
         <div class="grp">
           <h3>Score</h3>

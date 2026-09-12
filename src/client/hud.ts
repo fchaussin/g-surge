@@ -238,26 +238,27 @@ export class Hud {
       }
     }
 
-    // Le carburant : une largeur, et deux seuils en classes — bas sous 20, à
-    // sec à zéro. Écrit au point entier près, donc rarement.
+    // Le carburant : une hauteur depuis que sa jauge est verticale, face à la
+    // poussée, et deux seuils en classes — bas sous 20, à sec à zéro. Écrit au
+    // point entier près, donc rarement.
     const fuel = Math.round(state.fuel);
     if (fuel !== this.lastFuel) {
       this.lastFuel = fuel;
       if (this.fuel) {
-        this.fuel.style.width = `${fuel}%`;
+        this.fuel.style.height = `${fuel}%`;
         this.fuel.parentElement?.classList.toggle('low', fuel > 0 && fuel < 20);
         this.fuel.parentElement?.classList.toggle('dry', fuel === 0);
       }
     }
 
     // Le bouclier : ce qui reste de l'invincibilité, en centièmes de sa durée.
-    // Vide, la barre reste là ; pleine, son dégradé défile. Une hauteur et non
-    // une largeur depuis que la jauge est verticale, symétrique de la poussée.
+    // Vide, la barre reste là ; pleine, son dégradé défile. Une largeur : sa
+    // barre est contre celle de la coque, en haut.
     const shield = state.rideT > 0 ? Math.ceil((state.rideT / tuning.rideTime) * 100) : 0;
     if (shield !== this.lastShield) {
       this.lastShield = shield;
       if (this.shield) {
-        this.shield.style.height = `${shield}%`;
+        this.shield.style.width = `${shield}%`;
         this.shield.parentElement?.classList.toggle('on', shield > 0);
       }
     }
