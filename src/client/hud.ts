@@ -29,6 +29,7 @@ export function formatClock(seconds: number): string {
 
 export class Hud {
   private readonly root = byId('hud');
+  private readonly score = byId('score');
   private readonly dist = byId('dist');
   private readonly clock = byId('clock');
   private readonly mult = byId('mult');
@@ -53,6 +54,7 @@ export class Hud {
   private readonly layers = createLayers();
 
   /* Dernières valeurs écrites, pour qu'une frame inchangée n'écrive rien. */
+  private lastScore = -1;
   private lastDist = -1;
   private lastClock = -1;
   private lastSpeed = -1;
@@ -73,8 +75,19 @@ export class Hud {
 
   /** Appelé une fois par frame pendant une partie. */
   update(state: SimState, tuning: Tuning, frameDt: number): void {
-    // La distance au centième de kilomètre et le chronomètre à la seconde :
-    // le score ne s'affiche plus pendant la partie, il se lit à la fin.
+    // Le score au point près : c'est lui la lecture centrale, le seul chiffre
+    // qui résume la partie entière — la distance, la vitesse de pointe et la
+    // moyenne sont désormais des critères du tableau classé parmi d'autres, et
+    // se lisent en petit dessous. Il monte à chaque frame en poussée, donc
+    // l'écriture y est réelle et non gaspillée ; en croisière lente il change
+    // moins souvent que la garde ne l'arrête.
+    const score = Math.round(state.score);
+    if (score !== this.lastScore) {
+      this.lastScore = score;
+      if (this.score) this.score.textContent = score.toLocaleString('en-GB');
+    }
+
+    // La distance au centième de kilomètre et le chronomètre à la seconde.
     const dist = Math.floor(state.dist / 10);
     if (dist !== this.lastDist) {
       this.lastDist = dist;
@@ -139,7 +152,7 @@ export class Hud {
 
   /** Efface tout ce qu'une partie finie a laissé derrière elle. */
   reset(): void {
-    this.lastDist = this.lastClock = this.lastSpeed = this.lastCoins = -1;
+    this.lastScore = this.lastDist = this.lastClock = this.lastSpeed = this.lastCoins = -1;
     this.lastHull = this.lastFuel = this.lastShield = -1;
     this.lastL1 = this.lastL2 = this.lastL3 = this.lastUp = -1;
     this.lastSurging = false;

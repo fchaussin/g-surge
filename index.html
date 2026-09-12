@@ -233,23 +233,28 @@
     48%{transform:translate(-3px,1px) skewY(-.5deg)}
     72%{transform:translate(1px,3px) skewY(.25deg)}
     100%{transform:translate(0,0) skewY(0deg)}}
-  .hud.surge .dist,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl{
+  .hud.surge .readout,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl{
     animation:surgedrift 1.15s ease-in-out infinite}
   /* Simplifié plutôt qu'augmenté, comme la §10 le demande : le secondaire
      s'efface, la vitesse et les jauges restent lisibles. */
   .hud.surge .r,.hud.surge .coins{opacity:.25;transition:opacity .4s}
-  .dist{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center}
-  .dist .n{font-size:3.8em;font-weight:200;letter-spacing:-.02em;line-height:1;
+  /* La lecture centrale, du plus global au plus détaillé : le score, puis le
+     chronomètre et le multiplicateur qui disent comment il monte, puis la
+     distance et le record en petit. La distance y a tenu la grande place le
+     temps que le score n'existe plus en partie ; depuis que le tableau classe
+     aussi par distance, par vitesse de pointe et par vitesse moyenne, elle
+     n'est qu'un critère parmi d'autres, et le score est le seul chiffre qui
+     les résume tous. */
+  .readout{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center}
+  .readout .n{font-size:3.8em;font-weight:200;letter-spacing:-.02em;line-height:1;
     font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(37,226,255,.45)}
-  .dist .n i{font-style:normal;font-size:.38em;font-weight:400;color:var(--dim);margin-left:3px}
-  /* Le chronomètre sous la distance : le score ne s'affiche plus en partie —
-     un compteur qui monte régulièrement ne disait rien, la distance et le
-     temps disent où l'on en est, et le score se lit à la fin. */
-  .dist .clock{margin-top:2px;font-size:1.15em;font-weight:600;letter-spacing:.08em;color:var(--dim);
+  .readout .clock{margin-top:2px;font-size:1.15em;font-weight:600;letter-spacing:.08em;color:var(--dim);
     font-variant-numeric:tabular-nums}
-  .dist .r{margin-top:5px;font-size:1em;color:var(--dim2);font-variant-numeric:tabular-nums}
-  .dist .coins{margin-top:3px;font-size:.9em;letter-spacing:.1em;color:var(--dim2)}
-  .dist .coins b{color:#ffc24a;font-weight:700;font-variant-numeric:tabular-nums}
+  .readout .r{margin-top:5px;font-size:1em;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .readout .r i{font-style:normal;margin-left:2px}
+  .readout .r .sep{margin:0 5px;opacity:.6}
+  .readout .coins{margin-top:3px;font-size:.9em;letter-spacing:.1em;color:var(--dim2)}
+  .readout .coins b{color:#ffc24a;font-weight:700;font-variant-numeric:tabular-nums}
   .pop{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:1.55em;font-weight:800;
     letter-spacing:.05em;opacity:0;transform:translateY(6px);pointer-events:none}
   .pop.on{opacity:1;transform:translateY(0);transition:opacity .1s,transform .1s}
@@ -257,11 +262,11 @@
   .spd .n{font-size:2.25em;font-weight:600;font-variant-numeric:tabular-nums;color:var(--neon);
     text-shadow:0 0 18px rgba(37,226,255,.5)}
   .spd .u{font-size:.9em;color:var(--dim2);letter-spacing:.1em;margin-top:-2px}
-  .dist .live{margin-top:2px;font-size:2em;font-weight:800;letter-spacing:.01em;color:#e0913f;
+  .readout .live{margin-top:2px;font-size:2em;font-weight:800;letter-spacing:.01em;color:#e0913f;
     font-variant-numeric:tabular-nums;text-shadow:0 0 18px currentColor;
     transition:transform .12s;transform-origin:50% 50%}
-  .dist .live.up{transform:scale(1.28)}
-  .dist .live.cut{transform:scale(0.78)}
+  .readout .live.up{transform:scale(1.28)}
+  .readout .live.cut{transform:scale(0.78)}
   .warn{position:absolute;left:0;right:0;top:27%;text-align:center;font-size:1.1em;font-weight:600;
     letter-spacing:.18em;color:var(--hot);opacity:0;transition:opacity .1s;
     text-shadow:0 0 20px rgba(255,47,154,.6)}
@@ -602,10 +607,10 @@
 <div class="fps" id="fps"><b id="fpsVal">--</b>fps</div>
 
 <div class="hud" id="hud">
-  <div class="dist"><div class="n"><span id="dist">0.00</span><i>km</i></div>
+  <div class="readout"><div class="n" id="score">0</div>
     <div class="clock" id="clock">0:00</div>
     <div class="live" id="mult">&#215;1.0</div>
-    <div class="r" id="recline">best 0 m</div>
+    <div class="r"><span id="dist">0.00</span><i>km</i><span class="sep">&#183;</span><span id="recline">best 0</span></div>
     <div class="coins"><b id="coinCount">0</b> COINS</div></div>
   <div class="spd" id="spdBox"><div class="n" id="spd">0</div><div class="u">km/h</div></div>
   <div class="warn" id="warn">WALL</div>

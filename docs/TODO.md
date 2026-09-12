@@ -100,6 +100,21 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the HUD's centre goes back to the score — 1.19.1
+
+- **"Distance has no reason to hold the centre now; put it somewhere else
+  and show a global indicator."** Asked which indicator, answered: the
+  score. It is the only number that folds distance, multiplier and
+  difficulty into one, and since the board now also ranks by distance, top
+  speed and average speed, the distance is one criterion among four rather
+  than the summary. This reopens 1.15.4, which had taken the score out of
+  the HUD because "a counter that rises steadily said nothing" — the counter
+  says something again now that the player has four ladders to place it on.
+- The centre reads score, clock, multiplier, then `0.41 km · best 0` in
+  small type, then coins. The block's CSS class stops being called `.dist`,
+  since the distance is no longer what it shows.
+
+
 ### 12 September 2026, the board reads by category — 1.19.0
 
 - **"The score shouldn't mix difficulty. A weak score on hard should still

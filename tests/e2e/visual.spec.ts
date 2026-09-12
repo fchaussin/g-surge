@@ -76,6 +76,7 @@ test.describe('rendu des écrans', () => {
     // de petits rectangles, et tout ce qui les entoure reste comparé.
     await expect(page).toHaveScreenshot('hud.png', {
       mask: [
+        page.locator('#score'),
         page.locator('#dist'),
         page.locator('#spd'),
         page.locator('#mult'),

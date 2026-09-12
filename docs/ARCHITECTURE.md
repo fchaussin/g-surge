@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 39 | ~7 800 |
+| `src/client/` | 39 | ~7 900 |
 | `server/src/` | 6 | ~500 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
@@ -197,7 +197,7 @@ which is what makes the step runnable outside a page.
 | `overlay.ts` | The surge's masked DOM layer: white veil and peripheral `backdrop-filter` blur |
 | `damage.ts` | The hull's DOM layer: a red veil from 30 % hull to 0, blinking under 10 |
 | `ladder.ts` | The gauge's three layers as a pure function of the state, tested in Node |
-| `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface — the HUD reads distance and `state.time`, never the score, which the end screen reveals with the average speed |
+| `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface — the HUD's centre readout is the score, the one number that sums a run up, with the clock and multiplier under it and the distance and record in small type; the end screen breaks the same run into seven |
 | `preferences.ts` | `gsurge.prefs.v1` — validated on read, coalesced on write |
 | `input.ts` | Devices in, `{ steer, brake, boost }` out |
 | `audio.ts`, `haptics.ts` | Feedback, driven by events |
