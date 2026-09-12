@@ -55,8 +55,9 @@ const WIND_BY_TIER = [0, 0, 1, 1] as const;
  * Il ne reste pas de place au-dessus : `boostFactor * supFactor` vaut 1,586
  * contre un plafond de 1,7, donc un quatrième barreau ne peut pas se bâtir en
  * ajoutant. Il se bâtit en retirant — les couches du moteur couchées à presque
- * rien, la bande de drift coupée, et le vent passé au travers d'un passe-bas
- * jusqu'à ne laisser qu'un souffle. Des tympans gonflés. Voir
+ * rien, la bande de drift couchée avec elles, et le vent passé au travers
+ * d'un passe-bas jusqu'à ne laisser qu'un souffle. Des tympans gonflés, pas
+ * du silence : rien n'est coupé net, tout est couché par `duck`. Voir
  * docs/FX-PALETTE.md §16.
  *
  * La constante de temps est longue à dessein : une pression qui se ferme, pas
@@ -117,9 +118,19 @@ const TURB_GAIN_DEPTH = 0.3;
  * barreau se gravit sans qu'une couleur le lui dise : dette 10, un peu
  * remboursée. Le surge n'a rien au-dessus, et son blanc coupe cette voix de
  * toute façon.
+ *
+ * La montée de fréquence est restée ; le timbre, non. Une seule triangulaire
+ * glissant vers l'aigu se lisait comme un gag de dessin animé, pas comme une
+ * charge. Deux dents de scie légèrement désaccordées battent l'une contre
+ * l'autre — plus proche d'un champ d'énergie qu'une note — et un filtre
+ * passe-bas qui s'ouvre avec la charge tient le grain de la scie sous
+ * contrôle tant que la réserve est loin d'être pleine.
  */
 const CHARGE_BASE_BY_TIER = [300, 400, 520, 520] as const;
 const CHARGE_SPAN = 560;
+const CHARGE_DETUNE_CENTS = 9;
+const CHARGE_FILTER_BASE = 650;
+const CHARGE_FILTER_SPAN = 2200;
 
 interface Band {
   filter: BiquadFilterNode;
@@ -147,7 +158,12 @@ export class Audio {
   private riding = false;
   /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
-  private charge: { osc: OscillatorNode; gain: GainNode } | null = null;
+  private charge: {
+    oscA: OscillatorNode;
+    oscB: OscillatorNode;
+    filter: BiquadFilterNode;
+    gain: GainNode;
+  } | null = null;
   /** Le bourdon du bouclier et son étincelle, ouverts par une seule intensité. */
   private shield: { gain: GainNode; filter: BiquadFilterNode; spark: Band } | null = null;
   private reverbIn: GainNode | null = null;
@@ -362,7 +378,10 @@ export class Audio {
       this.shield.spark.gain.gain.setTargetAtTime(SHIELD_SPARK_GAIN * level * level, t, 0.05);
     }
 
-    const airflow = playing && !surge ? drift * DRIFT_AIRFLOW : 0;
+    // Comme le reste sous un surge : couchée par `duck`, pas coupée net — un
+    // souffle qui reste plutôt qu'un silence, cohérent avec le vent lui-même
+    // quelques lignes plus haut.
+    const airflow = playing ? drift * DRIFT_AIRFLOW * duck : 0;
     this.driftNoise.gain.gain.setTargetAtTime(airflow, t, 0.07);
     if (this.turb) {
       // La modulation de gain est une fraction du souffle lui-même, donc elle
@@ -377,8 +396,11 @@ export class Audio {
     // vite, là que la montée compte, et là que le joueur a une raison
     // d'écouter. Un registre par barreau, voir CHARGE_BASE_BY_TIER.
     const charging = drift > 0 && charge < 0.995 && !surge;
-    this.charge.osc.frequency.setTargetAtTime(
-      CHARGE_BASE_BY_TIER[tier] + charge * CHARGE_SPAN,
+    const chargeFreq = CHARGE_BASE_BY_TIER[tier] + charge * CHARGE_SPAN;
+    this.charge.oscA.frequency.setTargetAtTime(chargeFreq, t, 0.08);
+    this.charge.oscB.frequency.setTargetAtTime(chargeFreq, t, 0.08);
+    this.charge.filter.frequency.setTargetAtTime(
+      CHARGE_FILTER_BASE + charge * CHARGE_FILTER_SPAN,
       t,
       0.08,
     );
@@ -451,15 +473,26 @@ export class Audio {
     turbAmp.connect(this.driftNoise.gain.gain);
     this.turb = { freq: turbFreq, amp: turbAmp };
 
-    const chargeOsc = ctx.createOscillator();
-    chargeOsc.type = 'triangle';
-    chargeOsc.frequency.value = 300;
+    const chargeOscA = ctx.createOscillator();
+    chargeOscA.type = 'sawtooth';
+    chargeOscA.frequency.value = 300;
+    const chargeOscB = ctx.createOscillator();
+    chargeOscB.type = 'sawtooth';
+    chargeOscB.frequency.value = 300;
+    chargeOscB.detune.value = CHARGE_DETUNE_CENTS;
+    const chargeFilter = ctx.createBiquadFilter();
+    chargeFilter.type = 'lowpass';
+    chargeFilter.Q.value = 0.6;
+    chargeFilter.frequency.value = CHARGE_FILTER_BASE;
     const chargeGain = ctx.createGain();
     chargeGain.gain.value = 0;
-    chargeOsc.connect(chargeGain);
+    chargeOscA.connect(chargeFilter);
+    chargeOscB.connect(chargeFilter);
+    chargeFilter.connect(chargeGain);
     chargeGain.connect(this.master);
-    chargeOsc.start();
-    this.charge = { osc: chargeOsc, gain: chargeGain };
+    chargeOscA.start();
+    chargeOscB.start();
+    this.charge = { oscA: chargeOscA, oscB: chargeOscB, filter: chargeFilter, gain: chargeGain };
 
     // Le bouclier. Les deux oscillateurs somment dans le passe-bas ; le
     // crépitement est un LFO carré sur un gain à mi-course, donc le bourdon
@@ -833,12 +866,20 @@ export class Audio {
     this.blip(760, 0.28, 'triangle', 0.075, 280);
   }
 
+  /**
+   * L'onde de choc de `ship.ts`, pas une gerbe : un éclair bref et aigu pour
+   * l'instant de l'impact, un souffle filtré qui balaie vers l'aigu comme
+   * l'anneau qui s'écarte, et le même poids grave qu'avant — un pouls a une
+   * masse, même magnétique. Le crissement de tôle et les six éclats aléatoires
+   * de l'ancienne gerbe de débris ont disparu avec elle.
+   */
   private crash(): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
     const t = ctx.currentTime;
     this.reverb();
-    this.noiseHit(t, 0.35, 'highpass', 2400, 900, 0.7, 0.09, true); // tôle
+    this.blip(1800, 0.09, 'triangle', 0.22, 5200); // l'éclair
+    this.noiseHit(t, 0.3, 'bandpass', 260, 3400, 3.2, 0.5, true); // l'anneau qui s'écarte
     this.noiseHit(t, 0.45, 'lowpass', 2600, 90, 1.0, 0.4, true); // impact
     this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true); // queue grave
 
@@ -855,18 +896,5 @@ export class Audio {
     if (rev) g.connect(rev);
     o.start(t);
     o.stop(t + 0.55);
-
-    for (let i = 0; i < 6; i++) {
-      this.noiseHit(
-        t + 0.04 + Math.random() * 0.5,
-        0.07 + Math.random() * 0.06,
-        'bandpass',
-        900 + Math.random() * 2800,
-        0,
-        7,
-        0.09 + Math.random() * 0.13,
-        true,
-      );
-    }
   }
 }

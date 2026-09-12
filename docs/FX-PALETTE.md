@@ -475,10 +475,11 @@ bougent pas**, seule la case 3 est neuve.
 | `THRUST_LEVELS` | ship.ts | quatrième palier de plume, couleur signature |
 
 **Le blanc audio.** Le mix ne peut pas monter — le rapport est au plafond — donc
-il descend. Moteur et vent couchés, la bande de drift coupée, et il ne reste
-qu'un souffle passé au travers d'un passe-bas autour de 300 à 400 Hz : des
-tympans gonflés. Tout existe déjà dans `audio.ts`, un `BiquadFilterNode` et un
-gain par couche, tous pilotés par `setTargetAtTime`. C'est la seule façon de
+il descend. Moteur, vent et bande de drift couchés ensemble par le même `duck`
+— rien coupé net, tout affaibli — et il ne reste qu'un souffle passé au
+travers d'un passe-bas autour de 300 à 400 Hz : des tympans gonflés, pas du
+silence. Tout existe déjà dans `audio.ts`, un `BiquadFilterNode` et un gain par
+couche, tous pilotés par `setTargetAtTime`. C'est la seule façon de
 différencier un palier quand il ne reste plus de place au-dessus, et c'est
 gratuit.
 

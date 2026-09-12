@@ -363,6 +363,9 @@ let unrankedWhy: Unranked | null = null;
 
 function endRun(): void {
   haptics.buzz([90, 60, 200]);
+  // La coque n'a plus de jauge à faire clignoter une fois explosée : sans
+  // ceci le voile rouge continuait de pulser sur l'écran de score.
+  damage.reset();
   // le score du fantôme avant `submit`, qui peut le remplacer par cette partie
   const raced = ghost.armed ? ghosts.bestScore(difficulty) : null;
   const wasRanked = ranked.active;
@@ -561,10 +564,16 @@ on('btnResume', () => screens.setMode('run'));
 on('btnRestart', play);
 on('btnQuit', () => {
   submit();
+  // Le voile de dégâts clignote encore si la coque était basse en quittant :
+  // sans ceci il continue de pulser sur le menu jusqu'à la prochaine partie.
+  damage.reset();
   screens.setMode('menu');
 });
 on('btnAgain', play);
-on('btnOverMenu', () => screens.setMode('menu'));
+on('btnOverMenu', () => {
+  damage.reset();
+  screens.setMode('menu');
+});
 on('btnHelp', () => screens.setMode('help'));
 on('btnCloseHelp', () => screens.setMode('menu'));
 on('btnSettingsMenu', () => screens.openSettings());
