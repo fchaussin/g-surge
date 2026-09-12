@@ -127,6 +127,17 @@
   .board .dt{font-size:11px;color:var(--dim2);font-variant-numeric:tabular-nums}
   .board .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
 
+  .wboardReset{margin:0 0 14px;font-size:11px;color:var(--dim2);min-height:14px}
+  .wboard ol{list-style:none;margin:0;padding:0;max-width:520px}
+  .wboard li{display:flex;align-items:baseline;gap:10px;padding:7px 0;font-size:13px;
+    border-bottom:1px solid rgba(223,242,248,.06)}
+  .wboard li:last-child{border-bottom:0}
+  .wboard .rk{width:20px;color:var(--dim2);font-size:11px;font-variant-numeric:tabular-nums}
+  .wboard .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wboard .dv{font-variant-numeric:tabular-nums;font-weight:600}
+  .wboard li:first-child .dv{color:var(--neon)}
+  .wboard .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
+
   #settings{align-items:stretch;justify-content:stretch}
   .sheet{position:relative;width:100%;height:100%;background:rgba(5,7,12,.94);
     backdrop-filter:blur(18px);display:flex;flex-direction:column}
@@ -647,6 +658,7 @@
     <button class="btn" id="btnStart">START</button>
     <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
     <button class="btn ghost" id="btnSettingsMenu">SETTINGS</button>
+    <button class="btn ghost" id="btnBoardMenu">WEEKLY BOARD</button>
     <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
     <div class="install" id="installCard" hidden>
       <p id="installText">Install G-SURGE: full screen, works offline, and it keeps itself up to date.</p>
@@ -821,6 +833,27 @@
           <div id="slidersAdv"></div>
           <button class="btn ghost" id="btnDefault">RESET EVERYTHING TO DEFAULTS</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="layer" id="board">
+  <div class="sheet">
+    <header><h2>WEEKLY BOARD</h2>
+      <button class="close" id="btnCloseBoard">✕</button></header>
+    <div class="body">
+      <div class="grp">
+        <div class="diffrow">
+          <span>DIFFICULTY</span>
+          <div class="seg navgroup" role="radiogroup" aria-label="Board difficulty" id="segBoardDiff" tabindex="0">
+            <button data-d="easy" class="on" role="radio" aria-checked="true">EASY</button>
+            <button data-d="medium" role="radio" aria-checked="false">MEDIUM</button>
+            <button data-d="hard" role="radio" aria-checked="false">HARD</button>
+          </div>
+        </div>
+        <p class="wboardReset" id="wboardReset"></p>
+        <div class="wboard" id="wboardBody"></div>
       </div>
     </div>
   </div>

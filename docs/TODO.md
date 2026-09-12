@@ -100,6 +100,23 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the board screen — 1.18.0
+
+- **"Continue the multiplayer roadmap"** after the track-crossing detour.
+  `board.ts`, a new screen reached from the menu: a difficulty selector, the
+  week's top ten, a countdown to reset, and honest states for offline,
+  loading and unreachable rather than a stale or fake answer. Closes M3.
+- **Found while testing it against the real staging API, not assumed:**
+  neither staging nor production had actually been redeployed since the
+  board/name/claim/rank routes landed in `arbiter.ts` earlier this session —
+  both were still serving the pre-M3 bundle, so `/board/:difficulty`
+  answered 404 on both. The D1 migration `0002_board.sql` was pending on
+  both databases too, applied now. Both redeployed and re-verified with a
+  real fetch before calling this done — the lesson being that "the tests
+  pass" and "the deploy matches the code" are two different claims, and only
+  one of them was checked at the time.
+
+
 ### 12 September 2026, the track can cross itself — measured, not fixed
 
 - **"The track allows self-crossing, it's a tolerated bug, fix it."**

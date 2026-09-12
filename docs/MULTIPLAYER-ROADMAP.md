@@ -34,7 +34,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 | M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 — **done**, 1.16.0 |
 | M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing — **done**, 1.16.2 |
 | M5 | The streamed track | nothing, if done right | — | phase 2 — **done**, 1.16.1 and 1.16.3; the menu switch is M3's |
-| M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 on the streamed track |
+| M3 | The weekly board | a ranked mode and a board that resets every week | — | phase 1 on the streamed track — **done**, 1.17.0 and 1.18.0 |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
 | M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers |
 | M7 | Rooms | racing others live on the same track | room size; how a race ends | phase 3 |
@@ -151,7 +151,7 @@ to confirm.
 
 **Version.** None — nothing in the bundle changes.
 
-## M3 — The weekly board — mostly done, the board screen is not
+## M3 — The weekly board — done
 
 **Goal.** Phase 1 of `NETWORK.md` on the least exposed board: a ranked mode
 where a run is played on a server-issued seed and lands, replayed, on a
@@ -169,12 +169,13 @@ board that resets weekly.
   the trace with the client's outcome as `claim`. **If the ticket request
   fails, the run starts with a local seed, unranked, and the score screen
   says so** — the offline path is the fallback, not an error. **Done.**
-- A board screen: this week's top entries per difficulty, the player's own
-  rank, the week's remaining time. **Not built.** `GET /board/:difficulty`
-  exists and is tested; nothing in the client calls it. The score screen
-  shows the rank a submission earned (`#3`), which is the closest a player
-  gets to the board today. Needs a screen and its own visual references —
-  taste the ghost toggle needed too, `M1`.
+- A board screen: this week's top entries per difficulty, the week's
+  remaining time. **Done**: `board.ts`, reached from the menu, a difficulty
+  selector, a countdown, and honest states for offline, loading and
+  unreachable rather than a stale or fake answer. The player's own rank is
+  not on this screen — the score screen already shows the rank a submission
+  earned (`#3`), and duplicating it here needs the display name to double as
+  an identity, which it deliberately does not.
 - A display name: chosen once, stored in preferences, sent with the run. No
   account, no filter — profanity is M6's problem. **Done**: a field in
   Settings, two to sixteen letters, digits, space, `-` or `_`, blank means
@@ -191,10 +192,9 @@ answered at submission — snapshotted at that moment, not recomputed once a
 later entry outscores it — and a mismatched claim flagged without being
 refused. **Not done:** an e2e test running a ranked run end to end against
 `wrangler dev` inside the Playwright container, and one with the network cut
-that lands on the local board with the unranked notice — both need the
-client actually reachable through the menu, which it now is, and the board
-screen above to read the result back through the UI rather than the score
-screen's one-line rank.
+that lands on the local board with the unranked notice — the client is
+reachable through the menu now, board screen included, so nothing but the
+test itself is left.
 
 **Author decisions taken while building, logged in `TODO.md`:** the reset is
 Monday 00:00 UTC, the board's epoch an ISO week key (`AAAA-Wss`); the name
@@ -209,8 +209,8 @@ submission. A ticket held across a page reload is lost; that is acceptable
 and said on screen. The ticket endpoint is the first thing a bot hammers:
 rate limit by IP in the Worker from day one — **not done**, still open.
 
-**Version.** Minor — 1.17.0, this pass: a real "Play ranked" reachable from
-the menu is a feature, not plumbing.
+**Version.** Minor — 1.17.0 for ranked reaching the menu, 1.18.0 for the
+board screen: each is a feature a player can reach, not plumbing.
 
 ## M4 — Public ghosts
 

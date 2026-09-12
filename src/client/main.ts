@@ -18,6 +18,7 @@ import {
   type Difficulty,
 } from '../sim/index.js';
 import { Audio } from './audio.js';
+import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
 import { installDebugSurface } from './debug.js';
@@ -133,6 +134,12 @@ const fullscreen = new Fullscreen((active, blocked) => {
   screens.buildNav();
 });
 
+const boardScreen = new BoardScreen(
+  document.getElementById('wboardBody'),
+  document.getElementById('wboardReset'),
+  prefs.values.difficulty,
+);
+
 const screens = new Screens({
   onChange(mode) {
     if (mode !== 'run') input.release();
@@ -141,6 +148,8 @@ const screens = new Screens({
     audio.resume();
     // La barre de mise à jour ne se montre qu'hors partie.
     showUpdateBar();
+    // Toujours une lecture fraîche à l'ouverture, jamais celle d'une visite précédente.
+    if (mode === 'board') boardScreen.open();
   },
 });
 
@@ -579,6 +588,19 @@ on('btnCloseHelp', () => screens.setMode('menu'));
 on('btnSettingsMenu', () => screens.openSettings());
 on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
+on('btnBoardMenu', () => screens.setMode('board'));
+on('btnCloseBoard', () => screens.setMode('menu'));
+document.getElementById('segBoardDiff')?.addEventListener('click', (e) => {
+  const button = (e.target as HTMLElement).closest<HTMLElement>('button');
+  const d = button?.dataset.d as Difficulty | undefined;
+  if (!d) return;
+  for (const b of document.querySelectorAll<HTMLElement>('#segBoardDiff button')) {
+    const on = b === button;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  }
+  boardScreen.setDifficulty(d);
+});
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());
 on('btnInstall', () => void install.prompt());

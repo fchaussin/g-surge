@@ -10,7 +10,7 @@
  * un groupe de boutons segmentés compte pour un seul arrêt — gauche et droite
  * changent alors la valeur au lieu d'avancer.
  */
-export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help';
+export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help' | 'board';
 
 /**
  * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la
@@ -26,6 +26,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
     'btnStart',
     'btnHelp',
     'btnSettingsMenu',
+    'btnBoardMenu',
     'btnFullMenu',
     'btnInstall',
     'btnInstallLater',
@@ -33,6 +34,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   help: ['btnCloseHelp'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
   over: ['btnAgain', 'btnOverMenu'],
+  board: ['segBoardDiff', 'btnCloseBoard'],
 };
 
 /** L'élément présélectionné à l'ouverture d'un écran. */
@@ -41,10 +43,11 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   pause: 'btnResume',
   over: 'btnAgain',
   help: 'btnCloseHelp',
+  board: 'btnCloseBoard',
 };
 
 /** Les écrans qui sont aussi des identifiants. `run` n'en est pas un : il montre le HUD. */
-export const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings'];
+export const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings', 'board'];
 
 export interface ScreensOptions {
   /** Appelé à chaque transition, pour que le reste du client réagisse. */
@@ -85,7 +88,7 @@ export class Screens {
     // Le bouton de son se poserait sur ces deux écrans ; et pendant une partie
     // il se décale à droite, pour que la pause ait le coin.
     const mute = document.getElementById('btnMute');
-    mute?.classList.toggle('hide', mode === 'settings' || mode === 'help');
+    mute?.classList.toggle('hide', mode === 'settings' || mode === 'help' || mode === 'board');
     mute?.classList.toggle('run', mode === 'run');
 
     this.buildNav();
@@ -239,6 +242,7 @@ export class Screens {
         this.setMode(this.settingsBack);
         break;
       case 'help':
+      case 'board':
         this.setMode('menu');
         break;
       default:

@@ -17,9 +17,9 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 38 | ~7 700 |
+| `src/client/` | 39 | ~7 800 |
 | `server/src/` | 6 | ~500 |
-| `index.html` | 1 | ~800 |
+| `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
 Line counts include comments, which this codebase writes at length, and are
@@ -188,6 +188,7 @@ which is what makes the step runnable outside a page.
 | `api.ts` | The server from the client: `API_URL` stamped at build per environment, `ticket`, `chunk`, `run`, `board`, each with a bounded timeout; empty URL means offline |
 | `stream.ts` | `TrackStream`: a `QueuedNodes` on the live track and `pump()`, once a frame — below two chunks ahead, ask for the next; a failed request is simply asked again |
 | `ranked.ts` | A ranked run from ticket to submission, every failure a fallback to the offline game: no ticket, local seed; track dry, unranked with a word; no verdict, the local score stays. `submit` sends the display name and the client's own outcome as `claim`, and keeps the `rank` the server answers |
+| `board.ts` | The weekly board screen: reads `GET /board/:difficulty` on open and on a difficulty change, never after — offline, loading and unreachable all say so rather than hold a stale answer |
 | `shield.ts` | The invincibility as it is seen: Tesla-coil arcs and a field around the hull, and the one eased intensity the rails and the hum read |
 | `pickups.ts` | Pooled coin, repair and boost meshes |
 | `drift.ts` | `SLIP_CEILING`, 35 m/s, and the one drift intensity and side every effect reads |
