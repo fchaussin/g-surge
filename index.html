@@ -255,6 +255,7 @@
   .warn.on{opacity:1}
   .warn.drift{color:var(--neon);text-shadow:0 0 20px rgba(37,226,255,.6)}
   .warn.ride{color:#c9a6ff;text-shadow:0 0 20px rgba(155,107,255,.7)}
+  .warn.dry{color:#ff5a4a;text-shadow:0 0 20px rgba(255,90,74,.6);animation:critpulse .55s ease-in-out infinite}
   .mutebtn{position:fixed;left:16px;top:calc(env(safe-area-inset-top) + 16px);z-index:30;
     width:38px;height:38px;border-radius:11px;border:1px solid var(--line);
     background:rgba(8,20,28,.55);backdrop-filter:blur(8px);color:var(--neon);
@@ -504,53 +505,11 @@
   .boot .glow{position:absolute;left:50%;top:42%;width:150vmin;height:150vmin;
     transform:translate(-50%,-50%);pointer-events:none;
     background:radial-gradient(circle,rgba(37,226,255,.16) 0%,rgba(255,47,154,.07) 35%,transparent 68%)}
-  /* La chaussée est un élément à part, les chevrons sont donc bornés par elle.
-     Pas de filter sur ce plan : sous transformation 3D le navigateur rasterise
-     à basse résolution et le flou devient de la pixellisation. Le fondu vient
-     d'une part des dégradés eux mêmes, d'autre part d'un voile en espace écran. */
-  .boot .roadwrap{position:absolute;left:0;right:0;bottom:0;height:74vh;pointer-events:none;
-    opacity:.3;filter:blur(2px);
-    perspective:300px;perspective-origin:50% 0%;
-    -webkit-mask-image:linear-gradient(transparent 1%,#000 38%);
-    mask-image:linear-gradient(transparent 1%,#000 38%)}
-  .boot .road{position:absolute;left:50%;bottom:0;width:88vw;height:170vh;
-    transform:translateX(-50%) rotateX(74deg);transform-origin:50% 100%;
-    will-change:background-position;
-    background-image:
-      repeating-linear-gradient(45deg,
-        transparent 0 8px, rgba(255,255,255,.10) 16px,
-        rgba(255,255,255,.95) 34px, rgba(255,255,255,.95) 53px,
-        rgba(255,255,255,.10) 70px, transparent 78px 96px),
-      repeating-linear-gradient(-45deg,
-        transparent 0 8px, rgba(255,255,255,.10) 16px,
-        rgba(255,255,255,.95) 34px, rgba(255,255,255,.95) 53px,
-        rgba(255,255,255,.10) 70px, transparent 78px 96px),
-      linear-gradient(90deg,rgba(37,226,255,.95) 0 1.4%,transparent 1.4% 98.6%,rgba(37,226,255,.95) 98.6%),
-      linear-gradient(#0f141e,#0f141e);
-    background-size:50% 100%, 50% 100%, 100% 100%, 100% 100%;
-    background-position:left 0, right 0, 0 0, 0 0;
-    background-repeat:no-repeat;
-    animation:roadrun .192s linear infinite}
-  @keyframes roadrun{
-    from{background-position:left 0,       right 0,       0 0, 0 0}
-    to  {background-position:left 271.53px, right 271.53px, 0 0, 0 0}
-  }
-  /* voile de flou calculé en espace écran, donc à la résolution réelle */
-  .boot .veil{position:absolute;left:0;right:0;bottom:0;height:74vh;pointer-events:none;
-    -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
-    -webkit-mask-image:linear-gradient(#000 0 30%,rgba(0,0,0,.75) 68%,rgba(0,0,0,.45) 100%);
-    mask-image:linear-gradient(#000 0 30%,rgba(0,0,0,.75) 68%,rgba(0,0,0,.45) 100%)}
-  .boot .horizon{position:absolute;left:0;right:0;top:44%;height:1px;pointer-events:none;
-    background:linear-gradient(90deg,transparent,rgba(37,226,255,.8) 38%,rgba(255,47,154,.6) 68%,transparent);
-    box-shadow:0 0 30px 8px rgba(37,226,255,.20)}
 
   .boot .mark{position:relative;text-align:center;padding:0 20px}
   .boot .mark h1{margin:0;font-size:clamp(34px,13vw,62px);font-weight:200;letter-spacing:.16em;
-    line-height:1;background:linear-gradient(100deg,#9bf0ff,#ffffff 35%,#ff6fc0 70%,#25e2ff);
-    background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
-    animation:sheen 3.4s ease-in-out infinite}
-  @keyframes sheen{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-  .boot .mark h1 b{font-weight:700}
+    line-height:1;color:var(--text)}
+  .boot .mark h1 b{font-weight:700;color:var(--neon)}
   .boot .mark p{margin:14px 0 0;font-size:11px;letter-spacing:.28em;color:rgba(223,242,248,.42)}
 
   .boot .bar{position:relative;margin-top:34px;width:min(240px,60vw);height:2px;
@@ -564,10 +523,10 @@
     color:rgba(223,242,248,.2)}
 
   /* ---- Reduced motion -----------------------------------------------------
-     Everything that moves on its own stops: the splash road and its sheen, the
-     HUD pulses, and every eased transition. The gameplay itself is left alone
-     — it is the point of the page, and stopping it would not be an
-     accessibility win but a refusal to run.
+     Everything that moves on its own stops: the HUD pulses and every eased
+     transition. The gameplay itself is left alone — it is the point of the
+     page, and stopping it would not be an accessibility win but a refusal to
+     run.
 
      `animation: none` rather than a near-zero duration, so nothing fires an
      animationend that the code might be waiting on. */
@@ -577,7 +536,6 @@
       transition: none !important;
       scroll-behavior: auto !important;
     }
-    .boot .roadwrap { display: none; }
   }
 </style>
 </head>
@@ -585,11 +543,6 @@
 
 <div class="boot" id="boot">
   <div class="glow"></div>
-  <div class="roadwrap">
-    <div class="road"></div>
-  </div>
-  <div class="veil"></div>
-  <div class="horizon"></div>
   <div class="mark">
     <h1>G-<b>SURGE</b></h1>
     <p>ANTIGRAV TIME ATTACK</p>

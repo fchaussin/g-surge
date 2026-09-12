@@ -63,12 +63,14 @@ the hull bar. It burns per second at a rate set by the thrust rung —
 overrides them: on Easy cruising burns nothing, on Medium and Hard it burns a
 little. Cans on the track return `fuelCan` points, and the G-SURGE refills the
 tank when it starts. **On an empty tank the boost is unavailable and the
-cruise falls back to `fuelDrySpeed`**, 56 m/s — about 200 km/h — at the usual
+cruise falls back to `fuelDrySpeed`**, 83.3 m/s — about 300 km/h — at the usual
 `speedGain`: the engine coughs, it does not stop. A ceiling rather than a
 factor, so the dry speed is the same anywhere on the ramp — a factor would
-have given 54 km/h at the start of a run and 200 at the end; the first design
-answer had been a factor left at 1, and a cruise at 900 km/h on an empty tank
-was found in play to make no sense. A super boost
+have given a different speed at each end of the run instead of one dry speed
+everywhere; the first design answer had been a factor left at 1, and a cruise
+at 900 km/h on an empty tank was found in play to make no sense. Raised from
+200 to 300 km/h on 12 September 2026: 200 read as a brake rather than a
+sputtering engine that still gets you somewhere. A super boost
 found on an empty tank still fires: it is a reward, it burns what is left. Fuel is meant to stay a secondary constraint, and the numbers were
 chosen so that it cannot run dry within the fifteen seconds of a frozen trace.
 

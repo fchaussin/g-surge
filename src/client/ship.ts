@@ -34,6 +34,7 @@ import {
   Material,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  RingGeometry,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
@@ -54,13 +55,17 @@ const CORE_BY_TIER = [0xffffff, 0xffffff, 0xffe6fb, 0xfff6d0] as const;
 const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
 
-/** Débris de l'explosion : combien, combien de temps, et leur freinage dans l'air. */
-const EXPLOSION_COUNT = 28;
-const EXPLOSION_LIFE = 1.1;
-const EXPLOSION_DRAG = 2.2;
-const EXPLOSION_SPEED_MIN = 4;
-const EXPLOSION_SPEED_MAX = 9;
-const EXPLOSION_COLOURS = [0xff5a2a, 0xffae40, 0xfff0c0] as const;
+/**
+ * L'onde de choc de fin : un pouls magnétique horizontal plutôt qu'une gerbe.
+ * `SHOCKWAVE_LIFE` est la durée de l'anneau qui s'étend jusqu'à
+ * `SHOCKWAVE_MAX_RADIUS` ; `FLASH_LIFE`, plus courte, celle de l'éclair plein
+ * qui marque l'instant de l'impact.
+ */
+const SHOCKWAVE_LIFE = 0.85;
+const SHOCKWAVE_MAX_RADIUS = 22;
+const SHOCKWAVE_COLOUR = 0x25e2ff;
+const FLASH_LIFE = 0.22;
+const FLASH_RADIUS = 9;
 
 /**
  * Ce qu'un drift fait à la traînée de fumée : elle se courbe vers le côté d'où
@@ -112,14 +117,11 @@ export class Ship {
   private wake = 0;
   private wakeClock = 0;
 
-  /** Débris de l'explosion, partagent la texture de la fumée. Voir `explode`. */
-  private readonly burst: Sprite[] = [];
-  private readonly burstPX = new Float32Array(EXPLOSION_COUNT);
-  private readonly burstPY = new Float32Array(EXPLOSION_COUNT);
-  private readonly burstPZ = new Float32Array(EXPLOSION_COUNT);
-  private readonly burstVX = new Float32Array(EXPLOSION_COUNT);
-  private readonly burstVY = new Float32Array(EXPLOSION_COUNT);
-  private readonly burstVZ = new Float32Array(EXPLOSION_COUNT);
+  /** L'anneau qui s'étend et l'éclair bref au centre. Voir `explode`. */
+  private readonly shockwave: Mesh;
+  private readonly shockwaveMaterial: MeshBasicMaterial;
+  private readonly flash: Mesh;
+  private readonly flashMaterial: MeshBasicMaterial;
   private exploding = false;
   /** Vrai dès l'explosion et jusqu'à `resetExplosion` : la coque reste cachée. */
   private destroyed = false;
@@ -146,8 +148,38 @@ export class Ship {
     this.halo.visible = false;
     this.group.add(this.halo);
 
+    // À plat dans le plan X/Z — horizontal, puisque le vaisseau ne bouge jamais
+    // et que Y est vertical — plutôt que dans le plan X/Y par défaut d'une
+    // géométrie plane.
+    this.shockwaveMaterial = new MeshBasicMaterial({
+      color: SHOCKWAVE_COLOUR,
+      transparent: true,
+      opacity: 0,
+      side: DoubleSide,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    this.shockwave = new Mesh(new RingGeometry(0.82, 1, 64), this.shockwaveMaterial);
+    this.shockwave.rotation.x = -Math.PI / 2;
+    this.shockwave.position.y = 0.9;
+    this.shockwave.visible = false;
+    this.group.add(this.shockwave);
+
+    this.flashMaterial = new MeshBasicMaterial({
+      color: 0xe8fbff,
+      transparent: true,
+      opacity: 0,
+      side: DoubleSide,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    this.flash = new Mesh(new CircleGeometry(1, 32), this.flashMaterial);
+    this.flash.rotation.x = -Math.PI / 2;
+    this.flash.position.y = 0.9;
+    this.flash.visible = false;
+    this.group.add(this.flash);
+
     this.buildSmoke();
-    this.buildBurst();
   }
 
   /** Place le vaisseau dans le repère de la piste. `bank` vient de la simulation. */
@@ -266,9 +298,10 @@ export class Ship {
   }
 
   /**
-   * La coque cède : elle disparaît, une gerbe de débris part dans toutes les
-   * directions. Déclenché une fois par `wreck` — un second appel avant
-   * `resetExplosion` ne fait rien, la partie est déjà perdue.
+   * La coque cède : elle disparaît, un pouls magnétique part en anneau
+   * horizontal, un éclair bref au centre marque l'instant. Déclenché une fois
+   * par `wreck` — un second appel avant `resetExplosion` ne fait rien, la
+   * partie est déjà perdue.
    */
   explode(): void {
     if (this.destroyed) return;
@@ -278,66 +311,38 @@ export class Ship {
     this.body.visible = false;
     this.halo.visible = false;
 
-    for (let i = 0; i < EXPLOSION_COUNT; i++) {
-      // Direction uniforme sur la sphère par rejet plutôt que par angles, plus
-      // simple à lire que la conversion sphérique pour un effet qui n'a besoin
-      // d'aucune propriété d'échantillonnage particulière.
-      let dx = 0,
-        dy = 0,
-        dz = 0,
-        len = 0;
-      do {
-        dx = Math.random() * 2 - 1;
-        dy = Math.random() * 2 - 1;
-        dz = Math.random() * 2 - 1;
-        len = Math.hypot(dx, dy, dz);
-      } while (len < 0.001 || len > 1);
-      const speed =
-        EXPLOSION_SPEED_MIN + Math.random() * (EXPLOSION_SPEED_MAX - EXPLOSION_SPEED_MIN);
+    this.shockwave.visible = true;
+    this.shockwave.scale.setScalar(0.001);
+    this.shockwaveMaterial.opacity = 1;
 
-      this.burstPX[i] = 0;
-      this.burstPY[i] = 1;
-      this.burstPZ[i] = 0;
-      this.burstVX[i] = (dx / len) * speed;
-      // Biaisée vers le haut : un nuage de débris qui ne s'écrase pas au sol
-      // aussitôt se lit davantage comme une explosion que comme une chute.
-      this.burstVY[i] = (dy / len) * speed * 0.7 + 1.8;
-      this.burstVZ[i] = (dz / len) * speed;
-
-      const sp = this.burst[i]!;
-      sp.visible = true;
-      sp.material.opacity = 1;
-      sp.scale.setScalar(0.7 + Math.random() * 0.8);
-    }
+    this.flash.visible = true;
+    this.flash.scale.setScalar(0.001);
+    this.flashMaterial.opacity = 1;
   }
 
   /**
-   * Frame d'affichage de la gerbe de débris : ne fait rien hors explosion, et
-   * s'éteint d'elle-même sans toucher à `destroyed` — la coque reste cachée
-   * une fois les débris dissipés, jusqu'à `resetExplosion`.
+   * Frame d'affichage du pouls : ne fait rien hors explosion, et s'éteint
+   * de lui-même sans toucher à `destroyed` — la coque reste cachée une fois
+   * l'onde dissipée, jusqu'à `resetExplosion`.
    */
   updateExplosion(frameDt: number): void {
     if (!this.exploding) return;
     this.explodeAge += frameDt;
-    const t = Math.min(1, this.explodeAge / EXPLOSION_LIFE);
-    const drag = Math.max(0, 1 - frameDt * EXPLOSION_DRAG);
+    const t = Math.min(1, this.explodeAge / SHOCKWAVE_LIFE);
 
-    for (let i = 0; i < EXPLOSION_COUNT; i++) {
-      this.burstVX[i]! *= drag;
-      this.burstVY[i]! *= drag;
-      this.burstVZ[i]! *= drag;
-      this.burstPX[i]! += this.burstVX[i]! * frameDt;
-      this.burstPY[i]! += this.burstVY[i]! * frameDt;
-      this.burstPZ[i]! += this.burstVZ[i]! * frameDt;
+    // Démarre vite, ralentit en s'élargissant — un pouls, pas une chute.
+    const eased = 1 - (1 - t) ** 3;
+    this.shockwave.scale.setScalar(0.001 + eased * SHOCKWAVE_MAX_RADIUS);
+    this.shockwaveMaterial.opacity = (1 - t) * (1 - t);
 
-      const sp = this.burst[i]!;
-      sp.position.set(this.burstPX[i]!, this.burstPY[i]!, this.burstPZ[i]!);
-      sp.material.opacity = (1 - t) * (1 - t);
-    }
+    const ft = Math.min(1, this.explodeAge / FLASH_LIFE);
+    this.flash.scale.setScalar(0.001 + ft * FLASH_RADIUS);
+    this.flashMaterial.opacity = 1 - ft;
 
     if (t >= 1) {
       this.exploding = false;
-      for (const sp of this.burst) sp.visible = false;
+      this.shockwave.visible = false;
+      this.flash.visible = false;
     }
   }
 
@@ -347,7 +352,8 @@ export class Ship {
     this.exploding = false;
     this.explodeAge = 0;
     this.body.visible = true;
-    for (const sp of this.burst) sp.visible = false;
+    this.shockwave.visible = false;
+    this.flash.visible = false;
   }
 
   /**
@@ -426,26 +432,6 @@ export class Ship {
       sp.visible = false;
       this.group.add(sp);
       this.smoke.push(sp);
-    }
-  }
-
-  /** Débris de l'explosion : même dégradé que la fumée, teinté et additif. */
-  private buildBurst(): void {
-    for (let i = 0; i < EXPLOSION_COUNT; i++) {
-      const sp = new Sprite(
-        new SpriteMaterial({
-          map: this.smokeMap,
-          color: EXPLOSION_COLOURS[i % EXPLOSION_COLOURS.length],
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-          blending: AdditiveBlending,
-          fog: false,
-        }),
-      );
-      sp.visible = false;
-      this.group.add(sp);
-      this.burst.push(sp);
     }
   }
 }

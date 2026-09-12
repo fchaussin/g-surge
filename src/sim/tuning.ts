@@ -221,19 +221,21 @@ export const DEFAULTS: Readonly<Tuning> = {
    * durant 3,8 s en brûle 11, un super boost de 5 s en brûle 30, le surge est
    * gratuit et remplit. Un bidon tous les 1,5 km environ. Moyen et difficile
    * surchargent tout cela dans DIFF. À sec : plus de boost ni de super boost,
-   * et la croisière retombe vers 200 km/h — décidé le 11 septembre 2026, en
+   * et la croisière retombe vers 300 km/h — décidé le 11 septembre 2026, en
    * deux temps : d'abord un facteur laissé à 1, puis, en jouant, un plafond,
    * parce qu'une croisière à 900 km/h sans carburant n'avait aucun sens. Un
    * plafond et non un facteur, pour que la vitesse à sec soit la même partout
-   * sur la rampe — un facteur aurait donné 54 km/h au départ et 200 à la fin.
-   * À rejuger en jouant. */
+   * sur la rampe — un facteur aurait donné une vitesse différente à chaque
+   * bout de la rampe, pas la même partout. Remonté de 200 à 300 le 12
+   * septembre 2026 : 200 se lisait comme un coup de frein plutôt qu'une panne
+   * sèche qui laisse encore rouler. À rejuger en jouant. */
   fuelCruise: 0,
   fuelBoost: 3,
   fuelSup: 6,
   fuelSurge: 0,
   fuelCanChance: 0.008,
   fuelCan: 35,
-  fuelDrySpeed: 56,
+  fuelDrySpeed: 83.3,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,

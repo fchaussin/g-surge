@@ -95,8 +95,8 @@ describe('fuel', () => {
     // La vitesse converge à speedGain = 0,42/s : quinze secondes pour s'y poser.
     run(sim, 15);
     expect(sim.state.speed).toBeCloseTo(sim.tuning.fuelDrySpeed, 0);
-    expect(sim.state.speed * 3.6).toBeGreaterThan(180);
-    expect(sim.state.speed * 3.6).toBeLessThan(220);
+    expect(sim.state.speed * 3.6).toBeGreaterThan(280);
+    expect(sim.state.speed * 3.6).toBeLessThan(320);
 
     sim.state.fuel = 50;
     run(sim, 15);
