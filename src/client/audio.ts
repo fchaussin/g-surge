@@ -870,10 +870,14 @@ export class Audio {
    * Une décharge qui emporte la coque : la forme d'un impact, le registre
    * d'une explosion.
    *
-   * Le zap d'abord — deux dents de scie désaccordées qui plongent en un quart
-   * de seconde sous un passe-bas qui se referme avec elles — puis un éclat de
-   * bruit au point de contact, puis une résonance qui s'éteint. Le corps grave
-   * porte le tout et dure le plus longtemps.
+   * Le zap d'abord — deux dents de scie désaccordées qui plongent en une
+   * demi-seconde sous un passe-bas qui se referme avec elles — puis un éclat
+   * de bruit au point de contact, puis une résonance qui s'éteint. Le corps
+   * grave porte le dessous.
+   *
+   * La descente dure, et c'est ce qui fait le laser : à un quart de seconde
+   * elle passait trop vite pour s'entendre comme une glissade, et l'oreille
+   * n'en gardait qu'un claquement.
    *
    * La première version était un vrai laser, une octave et demie au-dessus de
    * celle-ci : la plongée partait de 3200 Hz sous un passe-bas à 6000, et
@@ -894,11 +898,11 @@ export class Audio {
     filter.type = 'lowpass';
     filter.Q.value = 6;
     filter.frequency.setValueAtTime(2200, t);
-    filter.frequency.exponentialRampToValueAtTime(140, t + 0.26);
+    filter.frequency.exponentialRampToValueAtTime(140, t + 0.58);
     const zap = ctx.createGain();
     zap.gain.setValueAtTime(0.0001, t);
     zap.gain.exponentialRampToValueAtTime(0.34, t + 0.008);
-    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.72);
     filter.connect(zap);
     zap.connect(this.master!);
     if (rev) zap.connect(rev);
@@ -909,10 +913,10 @@ export class Audio {
       voice.type = 'sawtooth';
       voice.detune.value = detune;
       voice.frequency.setValueAtTime(950, t);
-      voice.frequency.exponentialRampToValueAtTime(48, t + 0.24);
+      voice.frequency.exponentialRampToValueAtTime(48, t + 0.52);
       voice.connect(filter);
       voice.start(t);
-      voice.stop(t + 0.38);
+      voice.stop(t + 0.76);
     }
 
     this.noiseHit(t, 0.5, 'bandpass', 2400, 700, 5, 0.08, true); // le point de contact
