@@ -37,6 +37,7 @@ classic scripts, and those are gone.
 | 18 | Service worker cannot name a hashed bundle | — | **done**, generated at build |
 | 20 | Modules over the 300-line rule | Low | seven; `main.ts` split from 824 to 517, the rest one thing each |
 | 21 | Comment language | — | **done**, every code file is French; interface and documents stay English |
+| 22 | The generated track can cross itself | Medium | measured, not fixed — four approaches tried, see `TRACK-CROSSING.md` |
 
 ## 3. Tests
 
@@ -500,6 +501,18 @@ English the day before for uniformity's sake, went the other way once the rule
 was settled. What stays English in code is what the player reads: labels,
 hints, tips, difficulty notes, test titles, and the generated prose of
 `GAMEPLAY.md`.
+
+## 22. The generated track can cross itself
+
+Measured, not fixed, on 12 September 2026: `TRACK-CROSSING.md` has the full
+record — how it was measured (57 to 60 of the sixty reference seeds cross
+within 30 km, first as early as 984 m), why (a run of same-signed curvature
+has nothing pulling it back toward the centre, and the curvature ceiling
+alone is enough to curl the path back on itself well inside the visible
+window), the four approaches tried and why each fell short, and the two
+directions left. The author's read there favours the simpler one: bound
+curvature more tightly while the track is still slow, rather than trying to
+out-think every chain of turns after the fact.
 
 ## What is deliberately not debt
 

@@ -100,6 +100,24 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the track can cross itself — measured, not fixed
+
+- **"The track allows self-crossing, it's a tolerated bug, fix it."**
+  Confirmed and measured: `docs/TRACK-CROSSING.md` has the full record. Four
+  approaches tried in `src/sim/generator.ts`, each implemented, measured
+  against the sixty reference seeds, and reverted — none got below roughly
+  half the seeds still crossing within 30 km, down from 57–60 out of 60
+  unmodified. Nothing committed, nothing regenerated.
+- **The author's read, recorded in `TRACK-CROSSING.md`:** of the two
+  directions left open, bounding curvature more tightly while the track is
+  still slow — where almost every measured crossing happens — is the
+  pragmatic one, ahead of a longer geometric lookahead that was still
+  improving when time ran out on the investigation but never got measured
+  far enough to trust.
+- **Waiting on the author:** whichever direction is picked moves all sixty
+  track references and the three physics ones; `npm run fixtures:update`
+  regenerates them in a commit that does nothing else.
+
 ### 12 September 2026, M3's ranked mode reaches the menu
 
 - **"Advance the roadmap, M3."** The weekly board's server half and the
