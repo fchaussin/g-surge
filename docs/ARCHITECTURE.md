@@ -16,9 +16,9 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 14 | ~2 900 |
-| `src/client/` | 34 | ~7 100 |
-| `server/src/` | 3 | ~200 |
+| `src/sim/` | 14 | ~3 000 |
+| `src/client/` | 37 | ~7 400 |
+| `server/src/` | 5 | ~400 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -185,6 +185,9 @@ which is what makes the step runnable outside a page.
 | `ship.ts` | Hull, plumes, smoke trail, halo; `hullBody` is the hull alone, shared with the ghost |
 | `ghost.ts` | The ghost: a second `Sim` fed by a `TraceCursor` in step with the live one, drawn as a translucent hull on the live track from its distance, lateral offset and hop — never inside the player's simulation |
 | `ghosts.ts` | `gsurge.ghost.v1.<difficulty>` — the best run of each difficulty, packed and base64, to race against |
+| `api.ts` | The server from the client: `API_URL` stamped at build per environment, `ticket`, `chunk`, `run`, each with a bounded timeout; empty URL means offline |
+| `stream.ts` | `TrackStream`: a `QueuedNodes` on the live track and `pump()`, once a frame — below two chunks ahead, ask for the next; a failed request is simply asked again |
+| `ranked.ts` | A ranked run from ticket to submission, every failure a fallback to the offline game: no ticket, local seed; track dry, unranked with a word; no verdict, the local score stays |
 | `shield.ts` | The invincibility as it is seen: Tesla-coil arcs and a field around the hull, and the one eased intensity the rails and the hum read |
 | `pickups.ts` | Pooled coin, repair and boost meshes |
 | `drift.ts` | `SLIP_CEILING`, 35 m/s, and the one drift intensity and side every effect reads |
@@ -256,8 +259,10 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 
 | File | Holds |
 |---|---|
-| `index.ts` | The Worker: `/health`, `/run` — body size, envelope, the core digest against its own, then a forward to the arbiter; `/debug/*` under `DEBUG=1` only, the probe and the generator for the parity measurement |
-| `arbiter.ts` | The Durable Object: `validTrace`, `replay`, the outcome written to D1. The replay lives here because a free-plan Worker has 10 ms of CPU and a replay takes sixty |
+| `index.ts` | The Worker: `/health`; `/ticket`; `/track/:ticket/:from`, passed through; `/run` — body size, envelope, the core digest against its own, then a forward to the arbiter, ranked with a ticket or replay-only without; CORS for the game's three origins; `/debug/*` under `DEBUG=1` only |
+| `arbiter.ts` | The Durable Object: issues tickets with the first chunk, serves chunks, and on a ranked run puts the ticket's seed on the trace, checks the window, `validTrace`, `replay`, writes its own outcome to D1 and consumes the ticket. The replay lives here because a free-plan Worker has 10 ms of CPU and a replay takes sixty |
+| `tickets.ts` | Tickets in the object's storage: the seed the client never sees, the issue time the submission window is measured against — one run per ticket, in real time, on the object's clock |
+| `track.ts` | `chunk(seed, difficulty, from)`: 256 segments from the seeded generator, packed — the same range always answers the same bytes |
 | `http.ts` | `json` and `refuse` |
 | `env.d.ts` | `__CORE_DIGEST__`, defined by the build |
 
@@ -310,6 +315,7 @@ draws — the same list a run start uses, plus the sky.
 | `trace(opts)` | the core's `probe` on the live simulation, outside the render loop |
 | `record()` | the live run's trace, for the browser-to-Node replay proof |
 | `ghost()` | whether a ghost is racing, whether it is drawn, its gap and its score |
+| `startRanked()` | starts a ranked run through the server; resolves why it is not ranked, or `null`. The menu's own switch comes with M3 |
 | `freeze(seed, steps)` | replays, then draws exactly one frame |
 
 `trace` is what proves the shipped bundle still plays like the source, and

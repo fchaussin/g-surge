@@ -57,6 +57,8 @@ export interface DebugSurface {
   record(): Trace;
   /** Le fantôme : en course, dessiné, son écart et son score. */
   ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
+  /** Démarre une partie classée ; résout la raison si elle ne l'est pas. L'interrupteur du menu vient en M3. */
+  startRanked(): Promise<string | null>;
 }
 
 declare global {
@@ -72,6 +74,7 @@ export interface DebugDeps {
   readonly screens: Screens;
   readonly sky: Sky;
   readonly ghost: Ghost;
+  startRanked(): Promise<string | null>;
   /**
    * Arrête la boucle, rejoue `steps` pas fixes depuis `seed` et dessine
    * exactement une frame. Fournie par le client, qui est le seul à connaître
@@ -139,6 +142,7 @@ export function installDebugSurface(deps: DebugDeps): void {
     items: () => sim.track.items.map((it) => ({ id: it.id, lat: it.lat, type: it.type })),
     trace: (opts) => trace(sim, loop, opts),
     record: () => sim.trace(),
+    startRanked: () => deps.startRanked(),
     ghost: () => ({
       armed: deps.ghost.armed,
       visible: deps.ghost.group.visible,

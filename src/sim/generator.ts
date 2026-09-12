@@ -30,6 +30,7 @@ import {
   ITEM_SUP,
   SEG,
   type Item,
+  type ItemType,
 } from './track.js';
 import { atan } from './trig.js';
 import type { Tuning } from './tuning.js';
@@ -338,4 +339,83 @@ export class QueuedNodes implements NodeSource {
   setTuning(): void {
     /* la géométrie vient d'ailleurs ; le réglage n'y change rien */
   }
+}
+
+/* ------------------------------------------------------------- sur le fil -- */
+
+/**
+ * Une tranche de nœuds telle qu'elle voyage : les trois courbes en tableaux
+ * parallèles, l'identifiant du premier seul — les autres suivent — et les
+ * objets à plat, trois nombres chacun. Sérialisable en JSON tel quel ; une
+ * tranche de 256 segments pèse une vingtaine de kilo-octets. `done` et
+ * `taken` ne voyagent pas : un objet servi n'est ni passé ni pris.
+ */
+export interface WireChunk {
+  readonly from: number;
+  readonly k: readonly number[];
+  readonly g: readonly number[];
+  readonly b: readonly number[];
+  /** `[id, lat, type, id, lat, type, …]` */
+  readonly items: readonly number[];
+  readonly extras: readonly number[];
+}
+
+export function packNodes(nodes: readonly Node[]): WireChunk {
+  const k: number[] = [];
+  const g: number[] = [];
+  const b: number[] = [];
+  const items: number[] = [];
+  const extras: number[] = [];
+  for (const n of nodes) {
+    k.push(n.k);
+    g.push(n.g);
+    b.push(n.b);
+    for (const it of n.items) items.push(it.id, it.lat, it.type);
+    for (const it of n.extras) extras.push(it.id, it.lat, it.type);
+  }
+  return { from: nodes[0]?.id ?? 0, k, g, b, items, extras };
+}
+
+/**
+ * Un type d'objet est un entier de `ITEM_COIN` à `ITEM_FUEL`. Testé par bornes
+ * et non par une table de module : ce module et track.ts s'importent l'un
+ * l'autre, et une table construite à l'évaluation depuis les constantes de
+ * track.ts se remplirait d'`undefined` — le même piège que le seuil des objets
+ * dans `next()`.
+ */
+const isItemType = (v: number): v is ItemType =>
+  Number.isInteger(v) && v >= ITEM_COIN && v <= ITEM_FUEL;
+
+/**
+ * L'inverse de `packNodes`. `null` si la tranche n'a pas la forme attendue —
+ * elle vient du réseau, et une tranche mal formée doit rendre la piste sèche
+ * plutôt que planter le pas de simulation.
+ */
+export function unpackNodes(c: WireChunk): Node[] | null {
+  const n = c.k.length;
+  if (!Number.isInteger(c.from) || c.from < 0) return null;
+  if (c.g.length !== n || c.b.length !== n) return null;
+  if (c.items.length % 3 !== 0 || c.extras.length % 3 !== 0) return null;
+  const nodes: Node[] = [];
+  for (let i = 0; i < n; i++) {
+    const k = c.k[i]!;
+    const g = c.g[i]!;
+    const b = c.b[i]!;
+    if (!Number.isFinite(k) || !Number.isFinite(g) || !Number.isFinite(b)) return null;
+    nodes.push({ k, g, b, id: c.from + i, items: NONE, extras: NONE });
+  }
+  const place = (flat: readonly number[], list: 'items' | 'extras'): boolean => {
+    for (let i = 0; i < flat.length; i += 3) {
+      const id = flat[i]!;
+      const lat = flat[i + 1]!;
+      const type = flat[i + 2]!;
+      const node = nodes[id - c.from];
+      if (!node || !Number.isFinite(lat) || !isItemType(type)) return false;
+      if (node[list] === NONE) node[list] = [];
+      node[list].push({ id, lat, type, done: false, taken: false });
+    }
+    return true;
+  };
+  if (!place(c.items, 'items') || !place(c.extras, 'extras')) return null;
+  return nodes;
 }

@@ -21,6 +21,8 @@ export interface ScoreBreakdown {
   previousBest: number;
   /** Le score du fantôme couru, s'il y en avait un. */
   ghostScore?: number | null;
+  /** Une ligne sous le score : classée ou non, et pourquoi. */
+  note?: string;
 }
 
 /** Délai entre deux lignes, et durée du comptage de chacune, en ms. */
@@ -35,6 +37,12 @@ export class ScoreScreen {
   private generation = 0;
 
   constructor(private readonly onRowDone?: (last: boolean) => void) {}
+
+  /** La ligne de classement, réécrite quand le serveur répond. */
+  note(text: string): void {
+    const el = document.getElementById('overNote');
+    if (el) el.textContent = text;
+  }
 
   show(breakdown: ScoreBreakdown): void {
     const id = ++this.generation;
@@ -90,6 +98,7 @@ export class ScoreScreen {
     if (tag) tag.textContent = '';
     const ghostTag = document.getElementById('overGhost');
     if (ghostTag) ghostTag.textContent = '';
+    this.note(breakdown.note ?? '');
 
     for (const row of rows) {
       if (!row.el) continue;

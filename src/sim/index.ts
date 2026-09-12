@@ -49,7 +49,15 @@ export {
   type Trace,
 } from './replay.js';
 export { STEER_QUANTUM, packTrace, quantiseSteer, unpackTrace } from './trace-bytes.js';
-export { QueuedNodes, SeededNodes, type Node, type NodeSource } from './generator.js';
+export {
+  packNodes,
+  QueuedNodes,
+  SeededNodes,
+  unpackNodes,
+  type Node,
+  type NodeSource,
+  type WireChunk,
+} from './generator.js';
 export {
   probe,
   type ProbeCommand,

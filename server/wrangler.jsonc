@@ -3,12 +3,19 @@
 // `main` est le bundle de scripts/build-server.mjs et non la source : c'est
 // esbuild qui estampille le condensé du noyau, et un seul chemin de bundling
 // sert aux tests (Miniflare), à `wrangler dev` et au déploiement.
+//
+// Deux environnements. Sans `--env`, la production : le Worker que le jeu
+// servi sur w23.fr appelle. `staging` est celui des préversions Pages, sur
+// *.pages.dev ; chacun a sa base, pour qu'un essai de branche ne classe pas
+// une partie sur le tableau de tout le monde. Les identifiants D1 viennent de
+// `wrangler d1 create gsurge` et `gsurge-staging`, au premier déploiement.
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "g-surge-api",
   "main": "dist/index.js",
   "no_bundle": true,
   "compatibility_date": "2026-09-01",
+  "routes": [{ "pattern": "api.g-surge.w23.fr", "custom_domain": true }],
   "durable_objects": {
     "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
   },
@@ -18,10 +25,27 @@
     {
       "binding": "DB",
       "database_name": "gsurge",
-      // À remplacer par l'identifiant que `wrangler d1 create gsurge` rend, au premier déploiement.
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations",
     },
   ],
   "observability": { "enabled": true },
+  "env": {
+    "staging": {
+      "name": "g-surge-api-staging",
+      "routes": [{ "pattern": "api-staging.g-surge.w23.fr", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "gsurge-staging",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "observability": { "enabled": true },
+    },
+  },
 }

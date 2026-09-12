@@ -30,6 +30,7 @@ interface GsNextDebug {
   }): unknown;
   record(): unknown;
   ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
+  startRanked(): Promise<string | null>;
 }
 
 declare global {

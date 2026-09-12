@@ -157,12 +157,48 @@ function coreStamp(): Plugin {
 }
 
 /**
+ * L'adresse de l'API selon l'environnement — voir src/client/api.ts.
+ *
+ * `main` est la production, toute autre branche Pages une préversion qui
+ * parle à staging, et sans `CF_PAGES_BRANCH` c'est le développement local.
+ * `GS_API_URL` l'emporte sur tout, pour viser un serveur précis. Même
+ * mécanisme et même assertion que les deux autres estampilles.
+ */
+const API_URLS = {
+  production: 'https://api.g-surge.w23.fr',
+  staging: 'https://api-staging.g-surge.w23.fr',
+  local: 'http://localhost:8787',
+} as const;
+
+export function apiUrl(env: NodeJS.ProcessEnv = process.env): string {
+  if (env.GS_API_URL !== undefined) return env.GS_API_URL;
+  const branch = env.CF_PAGES_BRANCH;
+  if (branch === undefined) return API_URLS.local;
+  return branch === 'main' ? API_URLS.production : API_URLS.staging;
+}
+
+function apiStamp(): Plugin {
+  return {
+    name: 'gs-api-url',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.endsWith('/src/client/api.ts')) return null;
+      const marker = /\/\* api:url \*\/[^\n]*/;
+      if (!marker.test(code)) {
+        throw new Error('api url: marker "api:url" not found in src/client/api.ts');
+      }
+      return code.replace(marker, `/* api:url */ export const API_URL = '${apiUrl()}';`);
+    },
+  };
+}
+
+/**
  * `publicDir` pointe sur `static/` : le défaut de Vite, `public/`, est ici le
  * dossier de sortie, et du temps de l'ancien jeu il contenait `engine.js`,
  * `game.js` et leur `index.html`, que la migration retirait précisément.
  */
 export default defineConfig({
-  plugins: [buildStamp(), coreStamp(), serviceWorkerAssets()],
+  plugins: [buildStamp(), coreStamp(), apiStamp(), serviceWorkerAssets()],
   publicDir: 'static',
   build: {
     // `public/` et non `dist/`, pour que le projet Cloudflare Pages garde son

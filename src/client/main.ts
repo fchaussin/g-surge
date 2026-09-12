@@ -34,6 +34,7 @@ import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
 import { Pickups } from './pickups.js';
 import { PreferenceStore } from './preferences.js';
+import { Ranked, type Unranked } from './ranked.js';
 import { ScoreScreen } from './score-screen.js';
 import { Scores } from './scores.js';
 import { Screens } from './screens.js';
@@ -114,6 +115,7 @@ const audio = new Audio();
 const haptics = new Haptics();
 const scores = new Scores();
 const ghosts = new GhostStore();
+const ranked = new Ranked();
 const tips = new Tips();
 const scoreScreen = new ScoreScreen(() => audio.resume());
 
@@ -298,6 +300,7 @@ function resetPresentation(): void {
 
 function startRun(): void {
   if (screens.mode === 'run') submit();
+  ranked.abandon();
   // Avec le fantôme, la partie se joue sur la piste de la meilleure : c'est la
   // seule façon de courir contre elle. Une graine épinglée par l'URL l'emporte,
   // et le fantôme ne court alors que si c'est aussi la sienne.
@@ -305,6 +308,38 @@ function startRun(): void {
   sim.reset(pinnedSeed ?? best?.trace.seed ?? freshSeed());
   if (best && best.trace.seed === sim.seed) ghost.arm(best.trace);
   else ghost.disarm();
+  launch();
+}
+
+/**
+ * Une partie classée : le ticket d'abord, la piste servie ensuite. Sans
+ * ticket — hors ligne, serveur muet — c'est `startRun`, et le joueur le sait
+ * par l'étiquette. Rend la raison si la partie n'est pas classée.
+ */
+async function startRanked(): Promise<Unranked | null> {
+  if (screens.mode === 'run') submit();
+  ranked.abandon();
+  const issued = await ranked.request(difficulty);
+  if (typeof issued === 'string') {
+    startRun();
+    hud.setBest(`unranked \u00b7 ${issued === 'offline' ? 'offline' : 'no server'}`);
+    return issued;
+  }
+  // la graine locale ne sert à rien : la piste vient de la file dès le premier pas
+  sim.reset(freshSeed());
+  ghost.disarm();
+  if (!ranked.begin(sim, issued)) {
+    startRun();
+    return 'no-ticket';
+  }
+  launch();
+  hud.setBest('ranked');
+  return null;
+}
+
+/** Ce que toute partie fait après que sa piste est en place. */
+function launch(): void {
+  unrankedWhy = null;
   tips.reset();
   resetPresentation();
   hud.reset();
@@ -312,10 +347,14 @@ function startRun(): void {
   screens.setMode('run');
 }
 
+/** Pourquoi la partie en cours, partie classée, ne l'est plus. Pour l'écran de fin. */
+let unrankedWhy: Unranked | null = null;
+
 function endRun(): void {
   haptics.buzz([90, 60, 200]);
   // le score du fantôme avant `submit`, qui peut le remplacer par cette partie
   const raced = ghost.armed ? ghosts.bestScore(difficulty) : null;
+  const wasRanked = ranked.active;
   const { wasBest, previousBest } = submit();
   screens.setMode('over');
   scoreScreen.show({
@@ -327,11 +366,42 @@ function endRun(): void {
     wasBest,
     previousBest,
     ghostScore: raced,
+    note: wasRanked
+      ? 'ranked \u00b7 checking'
+      : unrankedWhy
+        ? `unranked \u00b7 ${UNRANKED[unrankedWhy]}`
+        : '',
   });
+  if (wasRanked) {
+    // Le score du serveur remplace le local quand il arrive ; sinon le local
+    // reste, et l'étiquette dit pourquoi. La partie suivante peut déjà avoir
+    // commencé : l'écran ne bouge que s'il montre encore celle-ci.
+    const shown = runId;
+    void ranked.submit(sim).then((verdict) => {
+      if (runId !== shown) return;
+      if (typeof verdict === 'string') scoreScreen.note(`unranked \u00b7 ${UNRANKED[verdict]}`);
+      else
+        scoreScreen.note(
+          `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board`,
+        );
+    });
+  }
 }
+
+/** Le mot de l'écran de fin pour chaque façon de ne pas être classé. */
+const UNRANKED: Record<Unranked, string> = {
+  offline: 'offline',
+  'no-ticket': 'no server',
+  dry: 'connection lost',
+  refused: 'refused by the server',
+  unreachable: 'server unreachable',
+};
+/** Compte les parties, pour qu'une réponse tardive ne touche pas l'écran d'une autre. */
+let runId = 0;
 
 /** Une partie compte quand elle finit, quelle que soit la fin : crash, relance ou abandon. */
 function submit(): { wasBest: boolean; previousBest: number } {
+  runId++;
   const result = scores.submit(sim.state.score, sim.state.coins, difficulty, Date.now());
   // Toujours repeint : pendant une course au fantôme, l'étiquette montrait l'écart.
   hud.setBest(scores.bestLabel);
@@ -358,6 +428,7 @@ function renderFrame(frameDt: number): void {
   // le noyau publie, au lieu d'un seuil de vitesse qui l'approximait mal.
   pickups.update(sim.track, state.cursor, thrust, frameDt);
   ghost.update(sim);
+  ranked.pump();
   if (ghost.armed && screens.isPlaying) hud.setGap(ghost.gap);
   ship.setPose(state.lat, state.hop, bank);
   // Gîte et lacet sont montrés, pas simulés : ils traînent derrière l'état pour
@@ -444,6 +515,13 @@ const loop = new Loop({
       bank = sim.step(input.sample(), dt, false);
       feedback.consume(sim.events);
       ghost.step(dt);
+      // Piste à sec : la partie continue tout droit, mais elle n'est plus la
+      // piste du serveur, donc plus classée. Le joueur le lit tout de suite.
+      const lost = ranked.check(sim);
+      if (lost) {
+        unrankedWhy = lost;
+        hud.setBest(`unranked \u00b7 ${UNRANKED[lost]}`);
+      }
     } else if (mode === 'menu') {
       bank = sim.step(input.value, dt, true);
     }
@@ -600,4 +678,4 @@ function freeze(seed: string, steps: number): void {
   viewport.render(scene);
 }
 
-installDebugSurface({ sim, loop, viewport, screens, sky, ghost, freeze });
+installDebugSurface({ sim, loop, viewport, screens, sky, ghost, freeze, startRanked });

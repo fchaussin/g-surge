@@ -158,6 +158,13 @@ unranked with a notice, never a stall: `Track.dry` continues straight on the
 last node so the simulation keeps its invariants while the client stops it.
 The first chunk comes with the ticket, so a ranked run starts at once.
 
+Built, 1.16.3: `server/src/track.ts` and `tickets.ts` on the server,
+`src/client/stream.ts` and `ranked.ts` on the client. The ticket's window is
+measured on the object's clock — a run of `steps` cannot arrive before
+`steps × DT` seconds less two of slack, nor more than an hour after — and a
+ticket serves once. The Worker answers CORS for the game's three origins:
+`g-surge.w23.fr`, `*.g-surge.pages.dev`, `localhost`.
+
 The honest cost of that buffer: a bot sees 6 to 9 km ahead instead of the
 player's 1.4. Still bounded, still real time, still one run per ticket — and
 the horizon is a constant that can be tightened once the network's real

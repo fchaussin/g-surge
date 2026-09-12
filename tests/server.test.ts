@@ -20,13 +20,16 @@ import { coreDigest } from '../scripts/core-digest.mjs';
 import {
   DT,
   outcomeOf,
+  QueuedNodes,
   quantiseSteer,
   replay,
   Rng,
   Sim,
+  unpackNodes,
   type Difficulty,
   type Input,
   type Trace,
+  type WireChunk,
 } from '../src/sim/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,8 +47,17 @@ const REFERENCE_SCRIPT = [
   { from: 1500, steer: 0.06, brake: false, boost: true },
 ];
 
-/** Une partie au manche, comme dans `replay.test.ts` : dense, quantifiée, non triviale. */
-function play(seed: string, difficulty: Difficulty, seconds: number): { sim: Sim; trace: Trace } {
+/**
+ * Une partie au manche, comme dans `replay.test.ts` : dense, quantifiée, non
+ * triviale. `feed`, s'il est donné, est appelé avant chaque pas : c'est le
+ * client d'une partie classée qui remplit sa file de piste.
+ */
+function play(
+  seed: string,
+  difficulty: Difficulty,
+  seconds: number,
+  feed?: (sim: Sim) => void,
+): { sim: Sim; trace: Trace } {
   const sim = new Sim({ seed, difficulty });
   sim.reset(seed);
   const rng = Rng.fromSeed(seed, 'player');
@@ -53,6 +65,7 @@ function play(seed: string, difficulty: Difficulty, seconds: number): { sim: Sim
   const steps = Math.round(seconds / DT);
   for (let i = 0; i < steps && !sim.state.wrecked; i++) {
     if (i % 12 === 0) {
+      feed?.(sim);
       const s = sim.state;
       input.steer = quantiseSteer(
         Math.max(-1, Math.min(1, -(s.lat * 0.1 + s.latVel * 0.55) + rng.centered(0.6))),
@@ -69,11 +82,11 @@ let mf: Miniflare;
 let core: string;
 
 const get = (path: string) => mf.dispatchFetch(`https://api.test${path}`);
-const post = (path: string, body: unknown) =>
+const post = (path: string, body: unknown, headers?: Record<string, string>) =>
   mf.dispatchFetch(`https://api.test${path}`, {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
   });
 
 beforeAll(async () => {
@@ -153,7 +166,7 @@ describe('the server in workerd', () => {
     });
   }
 
-  it('replays a submitted run to the outcome Node computes, and records it', async () => {
+  it('replays a submitted run to the outcome Node computes, and records nothing', async () => {
     for (const diff of ['easy', 'medium', 'hard'] as const) {
       const { sim, trace } = play('submit-' + diff, diff, 40);
       const res = await post('/run', { core, trace });
@@ -162,14 +175,132 @@ describe('the server in workerd', () => {
       expect(outcome).toEqual(outcomeOf(sim.state, trace.steps));
       expect(outcome).toEqual(replay(trace));
     }
+    // rejouée, pas classée : rien n'entre au journal sans ticket
     const db = await mf.getD1Database('DB');
-    const rows = await db.prepare('SELECT difficulty, seed, score FROM runs ORDER BY id').all();
-    expect(rows.results.map((r) => [r.difficulty, r.seed])).toEqual([
-      ['easy', 'submit-easy'],
-      ['medium', 'submit-medium'],
-      ['hard', 'submit-hard'],
-    ]);
-    expect(rows.results.every((r) => (r.score as number) > 0)).toBe(true);
+    expect((await db.prepare('SELECT COUNT(*) AS n FROM runs').first<{ n: number }>())?.n).toBe(0);
+  });
+
+  /**
+   * Le chemin d'une partie classée, de bout en bout : le ticket sans la
+   * graine, la piste par tranches — ici demandées en boucle serrée par le
+   * client, le vrai les demande sous un seuil — la soumission, et le score
+   * que le serveur calcule sur sa propre piste. Le client n'a jamais vu la
+   * graine, et son issue est celle du serveur.
+   */
+  it('runs a ranked run with the seed withheld: ticket, streamed track, replay', async () => {
+    const res = await post('/ticket', { difficulty: 'medium' });
+    expect(res.status).toBe(200);
+    const issued = (await res.json()) as { ticket: string; difficulty: string; chunk: WireChunk };
+    expect(issued.ticket).toMatch(/^[0-9a-f]{32}$/);
+    expect(issued.difficulty).toBe('medium');
+    expect(issued.chunk.from).toBe(0);
+    expect(issued.chunk.k.length).toBe(256);
+
+    const queue = new QueuedNodes();
+    queue.feed(unpackNodes(issued.chunk)!);
+    // une boucle serrée jusqu'à 24 km d'avance : le client synchrone de ce test
+    // ne peut pas redemander en cours de partie, le vrai le fait sous un seuil
+    const fetchAhead = async (): Promise<void> => {
+      while (queue.ahead < 2048) {
+        const r = await get(`/track/${issued.ticket}/${queue.wanted}`);
+        expect(r.status).toBe(200);
+        expect(r.headers.get('cache-control')).toContain('max-age');
+        expect(queue.feed(unpackNodes((await r.json()) as WireChunk)!)).toBe(256);
+      }
+    };
+    await fetchAhead();
+    // la même plage, redemandée : les mêmes octets, et la file n'en garde rien
+    const again = (await (await get(`/track/${issued.ticket}/256`)).json()) as WireChunk;
+    expect(queue.feed(unpackNodes(again)!)).toBe(0);
+
+    // le client joue sur la file, sans graine ; la piste ne doit jamais être sèche
+    let attached = false;
+    const { sim, trace } = play('unknown-to-the-client', 'medium', 30, (s) => {
+      if (!attached) s.track.attach(queue);
+      attached = true;
+    });
+    // `play` a attaché la file au premier pas ; le reste s'est joué dessus
+    expect(sim.track.dry).toBe(false);
+    expect(trace.steps).toBeGreaterThan(1000);
+
+    // sans la graine : la trace part avec la sienne, factice, et le ticket
+    const sent: Trace = { ...trace, seed: 'not-the-seed' };
+    // soumise « plus tard » : la partie a duré ce qu'elle a duré, le test ne l'attend pas
+    const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) };
+    const run = await post('/run', { core, ticket: issued.ticket, trace: sent }, later);
+    expect(run.status).toBe(200);
+    const { outcome } = (await run.json()) as { outcome: unknown };
+    expect(outcome).toEqual(outcomeOf(sim.state, trace.steps));
+    // au journal, avec la graine du serveur et son score
+    const db = await mf.getD1Database('DB');
+    const rows = await db.prepare('SELECT difficulty, seed, score, steps FROM runs').all();
+    expect(rows.results.length).toBe(1);
+    expect(rows.results[0]!.difficulty).toBe('medium');
+    expect(rows.results[0]!.seed).not.toBe('not-the-seed');
+    expect(rows.results[0]!.steps).toBe(trace.steps);
+    expect(rows.results[0]!.score).toBe(sim.state.score);
+
+    // un ticket ne sert qu'une fois, et la piste avec lui
+    expect((await post('/run', { core, ticket: issued.ticket, trace: sent }, later)).status).toBe(
+      404,
+    );
+    expect((await get(`/track/${issued.ticket}/0`)).status).toBe(404);
+  });
+
+  it('holds the ticket window: too early is refused, a wrong difficulty too', async () => {
+    const issued = (await (await post('/ticket', { difficulty: 'easy' })).json()) as {
+      ticket: string;
+      chunk: WireChunk;
+    };
+    // trois minutes de partie annoncées une seconde après le ticket : impossible
+    const queue = new QueuedNodes();
+    queue.feed(unpackNodes(issued.chunk)!);
+    let attached = false;
+    const { trace } = play('x', 'easy', 5, (s) => {
+      if (!attached) s.track.attach(queue);
+      attached = true;
+    });
+    const early: Trace = { ...trace, steps: 720 * 180, from: [0], steer: [0], flags: [0] };
+    const r = await post('/run', { core, ticket: issued.ticket, trace: early });
+    expect(r.status).toBe(409);
+    expect(await r.json()).toEqual({ error: 'early' });
+    // et trop tard : plus d'une heure après la fin annoncée
+    const late = { 'x-debug-now': String(Date.now() + 3 * 3600 * 1000) };
+    const l = await post('/run', { core, ticket: issued.ticket, trace }, late);
+    expect(l.status).toBe(409);
+    expect(await l.json()).toEqual({ error: 'expired' });
+    // la difficulté du ticket fait foi
+    const wrong = await post('/run', {
+      core,
+      ticket: issued.ticket,
+      trace: { ...trace, difficulty: 'hard' },
+    });
+    expect(wrong.status).toBe(400);
+    // le ticket n'est pas consommé par un refus
+    expect((await get(`/track/${issued.ticket}/0`)).status).toBe(200);
+    expect((await post('/ticket', { difficulty: 'insane' })).status).toBe(400);
+    expect((await get('/track/nope/0')).status).toBe(404);
+    expect((await get(`/track/${issued.ticket}/-1`)).status).toBe(400);
+  });
+
+  it('answers CORS for the game origins and nothing else', async () => {
+    for (const origin of [
+      'https://g-surge.w23.fr',
+      'https://multiplayer.g-surge.pages.dev',
+      'http://localhost:5173',
+    ]) {
+      const r = await mf.dispatchFetch('https://api.test/health', { headers: { origin } });
+      expect(r.headers.get('access-control-allow-origin')).toBe(origin);
+    }
+    const r = await mf.dispatchFetch('https://api.test/health', {
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(r.headers.get('access-control-allow-origin')).toBeNull();
+    const pre = await mf.dispatchFetch('https://api.test/run', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://g-surge.w23.fr' },
+    });
+    expect(pre.status).toBe(204);
   });
 
   it('refuses what it cannot judge', async () => {

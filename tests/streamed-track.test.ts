@@ -15,14 +15,17 @@ import { describe, expect, it } from 'vitest';
 import {
   COUNT,
   DT,
+  packNodes,
   QueuedNodes,
   Rng,
   SeededNodes,
   Sim,
   Track,
   tuningFor,
+  unpackNodes,
   type Difficulty,
   type Node,
+  type WireChunk,
 } from '../src/sim/index.js';
 import { digest } from './helpers/digest.js';
 
@@ -37,10 +40,17 @@ class Server {
   constructor(seed: string, difficulty: Difficulty) {
     this.gen = new SeededNodes(tuningFor(difficulty), seed);
   }
-  /** `count` nœuds à partir de `from`. Rejouable : la même plage rend les mêmes nœuds. */
+  /**
+   * `count` nœuds à partir de `from`, passés par le fil — emballés, JSON,
+   * déballés — comme le vrai serveur les sert. Rejouable : la même plage rend
+   * les mêmes nœuds.
+   */
   chunk(from: number, count: number): Node[] {
     while (this.nodes.length < from + count) this.nodes.push(this.gen.next());
-    return this.nodes.slice(from, from + count);
+    const wire = JSON.parse(JSON.stringify(packNodes(this.nodes.slice(from, from + count))));
+    const nodes = unpackNodes(wire as WireChunk);
+    if (!nodes) throw new Error('chunk did not survive the wire');
+    return nodes;
   }
 }
 
@@ -195,6 +205,21 @@ describe('the streamed track', () => {
     expect(sim.track.nid[COUNT - 1]).toBeGreaterThan(lastId!);
     expect(Number.isFinite(sim.state.dist)).toBe(true);
     expect(sim.state.wrecked).toBe(false);
+  });
+
+  it('refuses a chunk that is not one, instead of crashing the step', () => {
+    const server = new Server('wire', 'easy');
+    const good = packNodes(server.chunk(0, 8));
+    expect(unpackNodes(good)?.length).toBe(8);
+    const bad = (patch: Partial<WireChunk>): Node[] | null => unpackNodes({ ...good, ...patch });
+    expect(bad({ from: -1 })).toBeNull();
+    expect(bad({ from: 1.5 })).toBeNull();
+    expect(bad({ g: good.g.slice(1) })).toBeNull();
+    expect(bad({ k: good.k.map((v, i) => (i === 3 ? NaN : v)) })).toBeNull();
+    expect(bad({ items: [0, 1] })).toBeNull();
+    expect(bad({ items: [99, 0, 0] })).toBeNull(); // un objet hors de la tranche
+    expect(bad({ extras: [1, 0, 7] })).toBeNull(); // un type qui n'existe pas
+    expect(bad({ extras: [1, Infinity, 3] })).toBeNull();
   });
 
   it('feeds only what extends the queue, and reports it', () => {

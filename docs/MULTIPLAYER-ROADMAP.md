@@ -33,7 +33,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 | M0 | The trace and its replay | nothing | — | primitive — **done** |
 | M1 | Ghosts, locally | their best run racing beside them | taste on the ghost's look | primitive for M4 and M7 — **done**, 1.16.0 |
 | M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing — **done**, 1.16.2 |
-| M5 | The streamed track | nothing, if done right | — | phase 2 — the core seam is **done**, 1.16.1 |
+| M5 | The streamed track | nothing, if done right | — | phase 2 — **done**, 1.16.1 and 1.16.3; the menu switch is M3's |
 | M3 | The weekly board | a ranked mode and a board that resets every week | a display name policy; the reset day; first deploy | phase 1 on the streamed track |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
 | M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers |
@@ -134,6 +134,14 @@ refused; a trace over the ticket window is refused.
 **Needs from the author.** `wrangler` and `@cloudflare/vitest-pool-workers`
 as dev dependencies; a Cloudflare account only when `deploy` comes, in M3.
 
+**Environments**, decided on 12 September 2026: a branch is a Pages preview
+on `*.pages.dev` and talks to the staging Worker, `api-staging.g-surge.w23.fr`,
+with its own D1; `main` is production on `g-surge.w23.fr` and talks to
+`api.g-surge.w23.fr`. The client's `API_URL` is stamped at build from
+`CF_PAGES_BRANCH` (`GS_API_URL` overrides), `tests/api-url.test.ts`; the
+server's two environments are in `server/wrangler.jsonc`. The hostnames
+assume the game at `g-surge.w23.fr` — to confirm.
+
 **Version.** None — nothing in the bundle changes.
 
 ## M3 — The weekly board
@@ -221,26 +229,34 @@ further than a player.
   generates. `Track.dry` goes straight on the last node when the queue is
   empty, so the simulation keeps its invariants while the client ends the
   run. The offline path never sees the queue.
-- The object generates from a seed it keeps; `GET /track/:ticket/:from`
-  serves 256-segment chunks — 3 km — idempotently. The client keeps two to
-  three chunks ahead, 6 to 9 km, and refetches below two: 15 to 22 s at the
-  ceiling to retry a failed request before the join. The first chunk comes
-  with the ticket. HTTP, not a WebSocket: retryable, cacheable per ticket,
-  and one request per 3 km fits the free plan; the socket waits for rooms.
-- The client: a `QueuedNodes` attached to `sim.track` for a ranked run, a
-  fetch loop driven by `queue.ahead`, and the unranked ending with a notice
-  when `track.dry` is seen.
-- The trace of a streamed run carries the ticket, not the seed; the object
-  replays against its own generator.
+- ~~The object generates from a seed it keeps; `GET /track/:ticket/:from`
+  serves 256-segment chunks idempotently; the first chunk comes with the
+  ticket~~ — done, 1.16.3: `server/src/tickets.ts`, `track.ts`, the arbiter's
+  `/ticket`, `/track`, `/run`. HTTP, not a WebSocket: retryable, cacheable
+  per ticket (`cache-control: private`), one request per 3 km.
+- ~~The client: a `QueuedNodes` attached to `sim.track`, a fetch loop driven
+  by `queue.ahead`, the unranked ending when `track.dry` is seen~~ — done:
+  `api.ts`, `stream.ts`, `ranked.ts`; `startRanked()` on the debug surface
+  until M3 gives the menu its switch. The HUD's record slot reads `ranked`,
+  `unranked · connection lost`, and the end screen's note the server's
+  verdict when it comes.
+- ~~The trace of a streamed run carries the ticket, not the seed~~ — done:
+  the object puts its seed on the trace and replays against its own
+  generator; the ticket's window is checked on the object's clock, both
+  ways; a ticket serves once.
 
 **Proof.** ~~The frozen track fixtures replayed through the queue source~~ —
 done, `streamed-track.test.ts`: sixty seeds and the three physics
 references through a queue fed in ragged chunks with lost requests, late
 duplicates and overlaps, bit-identical; and the dry queue ending straight.
-Still to prove with the server: a run played against the local server with
-the seed withheld replays on the server to the client's claim; a throttled
-connection in Playwright ends the run cleanly, unranked, with no frame over
-budget. The scene captures do not move.
+~~A run played against the local server with the seed withheld replays on
+the server to the client's claim~~ — done, `server.test.ts`, in workerd.
+`stream.test.ts`: the client's queue under lost requests, garbage and
+duplicates stays bit-identical to the seeded track, and runs dry cleanly at
+the metre the buffer geometry predicts. Still to prove: a throttled
+connection in Playwright ends the run cleanly with no frame over budget —
+needs the Playwright container to reach a `wrangler dev`, M3. The scene
+captures did not move.
 
 **Risks.** A stalled tab longer than the buffer ends the run — right, and
 said on screen. The buffer gives a bot 6 to 9 km of lookahead against the

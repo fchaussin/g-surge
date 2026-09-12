@@ -1,6 +1,6 @@
 {
   "name": "g-surge",
-  "version": "1.16.2",
+  "version": "1.16.3",
   "private": true,
   "description": "Endless antigrav runner built on three.js r128.",
   "type": "module",
@@ -10,6 +10,7 @@
     "server:build": "node scripts/build-server.mjs",
     "server:dev": "npm run server:build && wrangler -c server/wrangler.jsonc dev",
     "server:deploy": "npm run server:build && wrangler -c server/wrangler.jsonc deploy",
+    "server:deploy:staging": "npm run server:build && wrangler -c server/wrangler.jsonc deploy --env staging",
     "typecheck": "tsc -p src/sim && tsc -p src/client && tsc -p server && tsc -p tests",
     "lint": "eslint .",
     "test": "vitest run",

@@ -100,6 +100,25 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the streamed track, server and client — 1.16.3
+
+- **"Push `multiplayer` and continue on M5."** Pushed; the chantier had
+  landed on `main` by mistake and was moved to its branch, `main` back on
+  `origin/main`. M5 built end to end: tickets, chunks by segment id, the
+  ranked run with the seed withheld and the ticket window — proven in
+  workerd; the client's stream under a failing network, the unranked
+  endings, the server's verdict on the end screen. Reachable through
+  `__gsNext.startRanked()` until M3's menu switch.
+- **"A branch deployed on .pages.dev and production on .w23.fr."** Two
+  environments, client and server: the API URL is stamped at build from
+  `CF_PAGES_BRANCH`; `server/wrangler.jsonc` has `staging` with its own D1.
+  Assumed hostnames, to confirm: `g-surge.w23.fr` for the game,
+  `api.g-surge.w23.fr` and `api-staging.g-surge.w23.fr` for the Worker —
+  both custom domains, which need `w23.fr` on Cloudflare DNS.
+- **Waiting on the author:** `wrangler login`, `wrangler d1 create gsurge`
+  and `gsurge-staging`, the two `database_id`s into `server/wrangler.jsonc`;
+  then `npm run server:deploy:staging` first.
+
 ### 12 September 2026, the server skeleton — 1.16.2
 
 - **"Go"** on M2. `server/`: a Worker that checks size, envelope and core
