@@ -16,7 +16,8 @@
  * choc est vue. Mesuré avant qu'il existe : la carte et son voile flou
  * montaient dans les 80 ms du crash et la recouvraient entière.
  */
-export type Mode = 'menu' | 'run' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board';
+export type Mode =
+  'menu' | 'run' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board' | 'quit';
 
 /**
  * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la
@@ -41,6 +42,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
   over: ['btnAgain', 'btnOverMenu'],
   board: ['segBoardDiff', 'btnCloseBoard'],
+  quit: ['btnStay', 'btnLeave'],
 };
 
 /** L'élément présélectionné à l'ouverture d'un écran. */
@@ -50,10 +52,19 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   over: 'btnAgain',
   help: 'btnCloseHelp',
   board: 'btnCloseBoard',
+  quit: 'btnStay',
 };
 
 /** Les écrans qui sont aussi des identifiants. `run` n'en est pas un : il montre le HUD. */
-export const LAYERS: readonly Mode[] = ['menu', 'pause', 'over', 'help', 'settings', 'board'];
+export const LAYERS: readonly Mode[] = [
+  'menu',
+  'pause',
+  'over',
+  'help',
+  'settings',
+  'board',
+  'quit',
+];
 
 export interface ScreensOptions {
   /** Appelé à chaque transition, pour que le reste du client réagisse. */
@@ -191,7 +202,7 @@ export class Screens {
   private bindKeyboard(): void {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape' || e.code === 'KeyP') {
-        this.onBack();
+        this.back();
         e.preventDefault();
         return;
       }
@@ -235,24 +246,34 @@ export class Screens {
     });
   }
 
-  /** Échap et le bouton de pause arrivent tous deux ici. */
-  private onBack(): void {
+  /**
+   * Reculer d'un écran : Échap, le bouton de pause et le bouton retour du
+   * système arrivent tous ici.
+   *
+   * @returns vrai si le recul a été consommé. Faux veut dire qu'il n'y a rien
+   *   à quitter — le menu est la racine — et c'est ce que `history.ts` lit
+   *   pour décider s'il propose de sortir du jeu. Pendant l'explosion, `wreck`,
+   *   il n'y a rien à reculer non plus : l'écran de score arrive tout seul.
+   */
+  back(): boolean {
     switch (this.current) {
       case 'run':
         this.setMode('pause');
-        break;
+        return true;
       case 'pause':
         this.setMode('run');
-        break;
+        return true;
       case 'settings':
         this.setMode(this.settingsBack);
-        break;
+        return true;
       case 'help':
       case 'board':
+      case 'over':
+      case 'quit':
         this.setMode('menu');
-        break;
+        return true;
       default:
-        break;
+        return false;
     }
   }
 

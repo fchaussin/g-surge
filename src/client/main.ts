@@ -29,10 +29,11 @@ import { Feedback } from './feedback.js';
 import { Fullscreen } from './fullscreen.js';
 import { Ghost } from './ghost.js';
 import { GhostStore } from './ghosts.js';
+import { BackButton } from './history.js';
 import { Haptics } from './haptics.js';
 import { Hud } from './hud.js';
 import { InputSource } from './input.js';
-import { InstallPrompt, type InstallOffer } from './install.js';
+import { installed, InstallPrompt, type InstallOffer } from './install.js';
 import { Loop } from './loop.js';
 import { PerformanceGovernor } from './performance.js';
 import { Pickups } from './pickups.js';
@@ -140,6 +141,16 @@ const boardScreen = new BoardScreen(
   document.getElementById('wboardReset'),
   prefs.values.difficulty,
 );
+
+/**
+ * Le bouton retour du système. `screens.back` dit s'il avait quelque chose à
+ * quitter ; sinon, installé, on demande confirmation avant de sortir.
+ */
+const back = new BackButton({
+  back: () => screens.back(),
+  installed,
+  confirmQuit: () => screens.setMode('quit'),
+});
 
 const screens = new Screens({
   onChange(mode) {
@@ -614,6 +625,8 @@ on('btnSettingsMenu', () => screens.openSettings());
 on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
 on('btnBoardMenu', () => screens.setMode('board'));
+on('btnStay', () => screens.setMode('menu'));
+on('btnLeave', () => back.leave());
 on('btnCloseBoard', () => screens.setMode('menu'));
 document.getElementById('segBoardDiff')?.addEventListener('click', (e) => {
   const button = (e.target as HTMLElement).closest<HTMLElement>('button');
@@ -665,6 +678,10 @@ viewport.setRenderScale(prefs.values.renderScale);
 
 screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
+// Le retour du système remonte d'un écran plutôt que de quitter le jeu, et
+// met en pause pendant une partie. Posé après `setMode`, qui est l'état de
+// départ.
+back.start();
 settings.syncAll();
 
 // Un onglet fermé ou masqué n'exécute jamais un minuteur en attente, et les

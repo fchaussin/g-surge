@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 39 | ~8 000 |
+| `src/client/` | 40 | ~8 100 |
 | `server/src/` | 6 | ~500 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
@@ -207,6 +207,7 @@ which is what makes the step runnable outside a page.
 | `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |
+| `history.ts` | The system back button: one spare history entry, always, so a back goes up one screen instead of out of the game — and, installed, asks before leaving |
 
 **The two clocks never mix.** `simulate` only ever receives the fixed step;
 `render` only ever the real frame delta. Camera lag, smoke, thrust and every
