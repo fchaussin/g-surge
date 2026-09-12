@@ -212,7 +212,7 @@ and the table is generated from it.
 | Pickup | Look | Effect | Easy | Medium | Hard |
 |---|---|---|---|---|---|
 | Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |
-| Repair | green octahedron | hull +50 | every 8.9 km | every 11.1 km | every 13.3 km |
+| Repair | green octahedron | hull +50 | every 4.5 km | every 5.6 km | every 6.7 km |
 | Super boost | magenta cone | 5 s at ×1.22, reserve pinned full | every 5.6 km | every 5.6 km | every 7.4 km |
 | Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 4.8 km | every 4.8 km | every 4.8 km |
 | Fuel can | red cylinder | fuel +35 | every 1.5 km | every 2.4 km | every 4.0 km |
@@ -251,6 +251,14 @@ away than it did at first, so a damaged hull is not locked into a spiral. A
 sixth touch changed only the repair: with the damage judged balanced, a
 30-point repair was stingy — four or five pickups to get back to full. Two
 must do from anywhere, so `fixAmount` is 50.
+
+A seventh, on 12 September 2026, doubled `fixChance` on all three
+difficulties. One repair every 8.9 km on Easy was calibrated on a pilot who
+lasts ten minutes; a human run that ends at three or four kilometres crossed
+none, which is why the pickup read as missing rather than rare. Measured over
+six seeds a difficulty, the scripted pilot survives exactly as long as before
+— it does not aim for objects, so the figures above are unchanged for it. What
+moved is what a player who does aim can go and fetch.
 
 <!-- generated:damage -->
 | Event | Cost |

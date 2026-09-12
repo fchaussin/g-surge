@@ -269,7 +269,13 @@ export const DEFAULTS: Readonly<Tuning> = {
    * coque abîmée dans une spirale. La sixième touche ne change que la
    * réparation : les dégâts jugés équilibrés, la réparation de 30 était
    * radine — quatre ou cinq objets pour revenir au plein. Deux doivent
-   * suffire depuis n'importe où, donc 50. */
+   * suffire depuis n'importe où, donc 50. La septième double `fixChance`
+   * partout : une réparation tous les 8,9 km en facile était calibrée sur un
+   * pilote qui tient dix minutes, alors qu'une partie humaine finit à trois
+   * ou quatre kilomètres et n'en croisait aucune. Mesuré sur six graines par
+   * difficulté, le pilote scripté survit autant qu'avant — il ne vise pas les
+   * objets, donc ce réglage ne change rien pour lui ; il change ce qu'un
+   * joueur qui les vise peut aller chercher. */
   hullImpact: 1.4,
   hullImpactMax: 24,
   hullScrape: 8,
@@ -278,7 +284,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   damageSpeed: 0.22,
   damageSteer: 0.2,
   coinChance: 0.015,
-  fixChance: 0.0015,
+  fixChance: 0.003,
   fixAmount: 50,
   supChance: 0.0024,
   /* 2,6 s tant que le super boost n'était qu'un ramassage ; 5 s depuis qu'il
@@ -345,7 +351,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       hullRegen: 0.2,
       hullScrape: 14,
       multDecay: 0.14,
-      fixChance: 0.0012,
+      fixChance: 0.0024,
       rollChance: 0.18,
       climbRate: 27,
       fuelCruise: 1,
@@ -364,7 +370,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       hullRegen: 0.15,
       hullScrape: 18,
       multDecay: 0.2,
-      fixChance: 0.001,
+      fixChance: 0.002,
       supChance: 0.0018,
       rollChance: 0.24,
       climbRate: 31,
