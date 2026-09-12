@@ -100,6 +100,26 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, the board reads by category — 1.19.0
+
+- **"The score shouldn't mix difficulty. A weak score on hard should still
+  outrank a huge one on easy, and different runs can lead on different
+  numbers — top speed, average speed, distance."** Difficulty was already
+  never mixed — every board query keeps it in the `WHERE` regardless of
+  what it sorts by, unchanged here. What was missing was sorting by
+  anything but score at all. Added: a "RANKED BY" row next to difficulty,
+  four categories — score, distance, top speed, average speed — the same
+  table, a different column. `speedPeak` is the one new number this needed;
+  it did not exist anywhere, so it was added to `SimState` mirroring
+  `multPeak`'s exact pattern, threaded through `Outcome`, and put on the
+  score screen as TOP SPEED — a number the board judges a run by has to be
+  a number the player can see too, not a figure computed silently for the
+  network.
+- Migration `0003_speed_peak.sql`, applied and both environments redeployed
+  and re-verified against the real API before calling this done, the same
+  discipline as the previous entry.
+
+
 ### 12 September 2026, the board screen — 1.18.0
 
 - **"Continue the multiplayer roadmap"** after the track-crossing detour.

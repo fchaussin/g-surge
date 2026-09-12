@@ -175,6 +175,7 @@ export function step(
     state.time += dt;
     state.score += state.speed * state.mult * diffMul * dt;
     if (state.mult > state.multPeak) state.multPeak = state.mult;
+    if (state.speed > state.speedPeak) state.speedPeak = state.speed;
   }
   state.cursor += d;
   while (state.cursor >= SEG) {

@@ -70,6 +70,7 @@ export interface BoardEntry {
   dist: number;
   time: number;
   coins: number;
+  speedPeak: number;
 }
 
 export interface Board {
@@ -77,6 +78,13 @@ export interface Board {
   resetAt: number;
   entries: BoardEntry[];
 }
+
+/**
+ * La catégorie de tri du tableau. Jamais mélangée à la difficulté : chaque
+ * catégorie reste lue sur `/board/:difficulty`, une difficulté à la fois —
+ * voir `CATEGORY_ORDER` côté serveur.
+ */
+export type BoardCategory = 'score' | 'dist' | 'speedPeak' | 'avg';
 
 export const api = {
   ticket: (difficulty: Difficulty): Promise<Issued> => post('/ticket', { difficulty }),
@@ -93,5 +101,6 @@ export const api = {
     claim: Outcome,
   ): Promise<{ outcome: Outcome; rank: number }> =>
     post('/run', { core: CORE_DIGEST, ticket, trace, name, claim }),
-  board: (difficulty: Difficulty): Promise<Board> => call(`/board/${difficulty}`),
+  board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>
+    call(`/board/${difficulty}?by=${category}`),
 };

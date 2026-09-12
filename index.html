@@ -86,6 +86,8 @@
   .btn + .btn{margin-top:9px}
 
   .diffrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .diffrow.catrow{flex-wrap:wrap;row-gap:8px}
+  .diffrow.catrow .seg{flex-wrap:wrap}
   .diffrow span{font-size:10px;letter-spacing:.14em;color:var(--dim2)}
   .diffrow .seg button{padding:7px 9px;font-size:10px}
   .diffnote{margin:0 0 14px;font-size:11px;line-height:1.45;color:var(--dim2);min-height:30px}
@@ -693,6 +695,7 @@
       <div class="srow"><span>DISTANCE</span><b id="sDist">0 m</b></div>
       <div class="srow"><span>TIME</span><b id="sTime">0:00</b></div>
       <div class="srow"><span>AVERAGE SPEED <i>high with a high score: mastery</i></span><b id="sAvg">0 km/h</b></div>
+      <div class="srow"><span>TOP SPEED</span><b id="sTopSpeed">0 km/h</b></div>
       <div class="srow"><span>COINS <i id="sMul"></i></span><b id="sCoins">0</b></div>
       <div class="srow"><span>PEAK MULTIPLIER</span><b id="sBonus">×1.0</b></div>
       <div class="srow total"><span>SCORE</span><b id="sTotal">0</b></div>
@@ -850,6 +853,15 @@
             <button data-d="easy" class="on" role="radio" aria-checked="true">EASY</button>
             <button data-d="medium" role="radio" aria-checked="false">MEDIUM</button>
             <button data-d="hard" role="radio" aria-checked="false">HARD</button>
+          </div>
+        </div>
+        <div class="diffrow catrow">
+          <span>RANKED BY</span>
+          <div class="seg navgroup" role="radiogroup" aria-label="Board category" id="segBoardCategory" tabindex="0">
+            <button data-c="score" class="on" role="radio" aria-checked="true">SCORE</button>
+            <button data-c="dist" role="radio" aria-checked="false">DISTANCE</button>
+            <button data-c="speedPeak" role="radio" aria-checked="false">TOP SPEED</button>
+            <button data-c="avg" role="radio" aria-checked="false">AVG SPEED</button>
           </div>
         </div>
         <p class="wboardReset" id="wboardReset"></p>

@@ -1,12 +1,14 @@
 /**
- * L'écran de fin de partie : six chiffres comptés à la suite.
+ * L'écran de fin de partie : sept chiffres comptés à la suite.
  *
  * Le décalage n'est pas une décoration. Distance, temps, vitesse moyenne,
- * pièces, multiplicateur crête et total apparaissent dans l'ordre où ils se
- * combinent, pour que l'écran explique d'où vient le nombre — c'est le seul
- * endroit où le jeu enseigne que les pièces montent le multiplicateur et que
- * les murs le divisent par deux. La vitesse moyenne n'entre pas dans le score :
- * elle le qualifie — haute avec un score haut, c'est de la maîtrise.
+ * vitesse de pointe, pièces, multiplicateur crête et total apparaissent dans
+ * l'ordre où ils se combinent, pour que l'écran explique d'où vient le
+ * nombre — c'est le seul endroit où le jeu enseigne que les pièces montent
+ * le multiplicateur et que les murs le divisent par deux. Les deux vitesses
+ * n'entrent pas dans le score : elles le qualifient — hautes avec un score
+ * haut, c'est de la maîtrise. Le tableau classé lit les deux, avec la
+ * distance, comme autant de catégories à côté du score — voir `board.ts`.
  */
 import { formatClock } from './hud.js';
 
@@ -16,6 +18,8 @@ export interface ScoreBreakdown {
   seconds: number;
   coins: number;
   peakMultiplier: number;
+  /** m/s, la plus haute atteinte pendant la partie. */
+  topSpeed: number;
   total: number;
   wasBest: boolean;
   previousBest: number;
@@ -65,6 +69,13 @@ export class ScoreScreen {
       {
         el: document.getElementById('sAvg'),
         to: breakdown.seconds > 0 ? (breakdown.distance / breakdown.seconds) * 3.6 : 0,
+        suffix: ' km/h',
+        dec: 0,
+        prefix: '',
+      },
+      {
+        el: document.getElementById('sTopSpeed'),
+        to: breakdown.topSpeed * 3.6,
         suffix: ' km/h',
         dec: 0,
         prefix: '',

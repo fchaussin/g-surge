@@ -121,21 +121,32 @@ layers over the same trace.
 ```
 POST /ticket         { difficulty }             → { ticket, difficulty, chunk }
 POST /run            { ticket, trace, name, claim } → { outcome, rank } | refusal
-GET  /board/:difficulty                         → { epoch, resetAt, entries }
+GET  /board/:difficulty?by=category             → { epoch, resetAt, entries }
 ```
 
-Built at M3, 1.17.0. The client asks for a ticket when a ranked run starts;
-if the request fails, the run starts anyway with a local seed and is not
-ranked — the offline path is the fallback, not an error. `name` is the
-display name from preferences, sanitised again on the server since a client
-is never trusted; `claim` is the client's own outcome, ignored for scoring —
-a mismatch is a tamper or drift signal, kept as a column rather than refused.
-The server checks the ticket's window against the trace's simulated
-duration, validates, replays, records the row keyed by the week, and answers
-with its own outcome and the rank it earns at that moment. The score screen
-shows the server's numbers when they come and the local ones when they do
-not. Not yet built: the trace itself is not stored alongside the entry — M4
-adds that, to make a board entry watchable.
+Built at M3, 1.17.0 and 1.18.0. The client asks for a ticket when a ranked
+run starts; if the request fails, the run starts anyway with a local seed
+and is not ranked — the offline path is the fallback, not an error. `name`
+is the display name from preferences, sanitised again on the server since a
+client is never trusted; `claim` is the client's own outcome, ignored for
+scoring — a mismatch is a tamper or drift signal, kept as a column rather
+than refused. The server checks the ticket's window against the trace's
+simulated duration, validates, replays, records the row keyed by the week,
+and answers with its own outcome and the rank it earns at that moment. The
+score screen shows the server's numbers when they come and the local ones
+when they do not.
+
+**The board is one table, not one number.** `category` is `score` (the
+default), `dist`, `speedPeak` or `avg` — the same run judged by a different
+column, never a different run: a hard run with a poor score can still be
+first on top speed, and the reverse. What never happens is a category
+comparing across difficulties — every query keeps `difficulty` in its
+`WHERE` regardless of what it orders by, because a hard run's numbers and an
+easy run's are not the same contest. The category is a fixed lookup to a SQL
+column server-side, never a client string reaching the query directly.
+
+Not yet built: the trace itself is not stored alongside the entry — M4 adds
+that, to make a board entry watchable.
 
 ### Phase 2 — the streamed track
 

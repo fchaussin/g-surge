@@ -62,6 +62,7 @@ export interface Outcome {
   readonly time: number;
   readonly coins: number;
   readonly multPeak: number;
+  readonly speedPeak: number;
 }
 
 /**
@@ -237,5 +238,6 @@ export function outcomeOf(state: SimState, steps: number): Outcome {
     time: state.time,
     coins: state.coins,
     multPeak: state.multPeak,
+    speedPeak: state.speedPeak,
   };
 }

@@ -74,6 +74,8 @@ export interface SimState {
   mult: number;
   multPeak: number;
   score: number;
+  /** Vitesse la plus haute atteinte, m/s. Pour le tableau classé, jamais lu par la physique. */
+  speedPeak: number;
 }
 
 /** 0 croisière, 1 boost, 2 super boost, 3 G-SURGE. */
@@ -174,4 +176,5 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.mult = 1;
   state.multPeak = 1;
   state.score = 0;
+  state.speedPeak = state.speed;
 }

@@ -48,6 +48,26 @@ async function rankOf(db: D1Database, epochKey: string, difficulty: string, scor
 
 const DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 
+/**
+ * Le tableau se lit par catégorie, jamais mélangée avec la difficulté : une
+ * partie difficile au score faible ne rencontre une partie facile au score
+ * énorme sur aucun classement, parce qu'aucune requête ne les mélange —
+ * `difficulty` reste toujours dans le `WHERE`, quelle que soit la colonne du
+ * `ORDER BY`.
+ *
+ * La colonne de tri vient toujours de cette table, jamais interpolée
+ * directement depuis ce que le client envoie : une clé absente est un refus,
+ * pas une injection. La vitesse moyenne n'a pas de colonne — `dist` et
+ * `time` suffisent, gardée contre une division par zéro qu'une partie
+ * normale ne produit pas mais qu'une trace forgée pourrait.
+ */
+const CATEGORY_ORDER: Record<string, string> = {
+  score: 'score DESC',
+  dist: 'dist DESC',
+  speedPeak: 'speed_peak DESC',
+  avg: 'dist / max(time, 0.001) DESC',
+};
+
 export class Arbiter extends DurableObject<Env> {
   private readonly tickets = new Tickets(this.ctx.storage);
 
@@ -59,7 +79,7 @@ export class Arbiter extends DurableObject<Env> {
     if (parts[0] === 'run' && req.method === 'POST') return this.run(req);
     if (parts[0] === 'replay' && req.method === 'POST') return this.replayOnly(req);
     if (parts[0] === 'board' && parts.length === 2 && req.method === 'GET')
-      return this.board(parts[1]!);
+      return this.board(parts[1]!, url.searchParams.get('by') ?? 'score');
     return refuse(404, 'not-found');
   }
 
@@ -103,14 +123,16 @@ export class Arbiter extends DurableObject<Env> {
     return json({ outcome, rank });
   }
 
-  /** Les dix premières de la semaine en cours, pour une difficulté. */
-  private async board(difficulty: string): Promise<Response> {
+  /** Les dix premières de la semaine en cours, pour une difficulté et une catégorie. */
+  private async board(difficulty: string, category: string): Promise<Response> {
     if (!DIFFICULTIES.has(difficulty)) return refuse(400, 'difficulty');
+    const orderBy = CATEGORY_ORDER[category];
+    if (!orderBy) return refuse(400, 'category');
     const now = Date.now();
     const epochKey = epoch(now);
     const rows = await this.env.DB.prepare(
-      `SELECT name, score, dist, time, coins FROM runs
-       WHERE epoch = ? AND difficulty = ? ORDER BY score DESC LIMIT 10`,
+      `SELECT name, score, dist, time, coins, speed_peak AS speedPeak FROM runs
+       WHERE epoch = ? AND difficulty = ? ORDER BY ${orderBy} LIMIT 10`,
     )
       .bind(epochKey, difficulty)
       .all();
@@ -144,8 +166,8 @@ export class Arbiter extends DurableObject<Env> {
   ): Promise<void> {
     await this.env.DB.prepare(
       `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult, wrecked,
-                          submitted_at, name, epoch, claim, mismatch)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          submitted_at, name, epoch, claim, mismatch, speed_peak)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         __CORE_DIGEST__,
@@ -163,6 +185,7 @@ export class Arbiter extends DurableObject<Env> {
         epochKey,
         claim ? JSON.stringify(claim) : '',
         mismatch ? 1 : 0,
+        o.speedPeak,
       )
       .run();
   }

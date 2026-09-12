@@ -18,6 +18,7 @@ import {
   type Difficulty,
 } from '../sim/index.js';
 import { Audio } from './audio.js';
+import type { BoardCategory } from './api.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
@@ -385,6 +386,7 @@ function endRun(): void {
     seconds: sim.state.time,
     coins: sim.state.coins,
     peakMultiplier: sim.state.multPeak,
+    topSpeed: sim.state.speedPeak,
     total: sim.state.score,
     wasBest,
     previousBest,
@@ -600,6 +602,17 @@ document.getElementById('segBoardDiff')?.addEventListener('click', (e) => {
     b.setAttribute('aria-checked', String(on));
   }
   boardScreen.setDifficulty(d);
+});
+document.getElementById('segBoardCategory')?.addEventListener('click', (e) => {
+  const button = (e.target as HTMLElement).closest<HTMLElement>('button');
+  const c = button?.dataset.c as BoardCategory | undefined;
+  if (!c) return;
+  for (const b of document.querySelectorAll<HTMLElement>('#segBoardCategory button')) {
+    const on = b === button;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  }
+  boardScreen.setCategory(c);
 });
 on('tglFull', () => fullscreen.toggle());
 on('btnFullMenu', () => fullscreen.toggle());

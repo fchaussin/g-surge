@@ -176,6 +176,16 @@ board that resets weekly.
   not on this screen — the score screen already shows the rank a submission
   earned (`#3`), and duplicating it here needs the display name to double as
   an identity, which it deliberately does not.
+- **Added after M3 was first called done, on the author's request:** the
+  board reads by category, not only by score — the same "RANKED BY" row as
+  difficulty, four buttons: score, distance, top speed, average speed. A
+  hard run with a weak score can still be first on top speed; the reverse
+  holds too. Categories never mix difficulty — every query keeps it in the
+  `WHERE`, whatever it sorts by. `speedPeak`, the one number this needed
+  that did not already exist, is now a `SimState` field mirroring
+  `multPeak`'s own pattern exactly, and shown on the score screen (TOP
+  SPEED) since a number the leaderboard judges a run by has to be a number
+  the player can see too. Migration `0003_speed_peak.sql`.
 - A display name: chosen once, stored in preferences, sent with the run. No
   account, no filter — profanity is M6's problem. **Done**: a field in
   Settings, two to sixteen letters, digits, space, `-` or `_`, blank means
@@ -210,7 +220,8 @@ and said on screen. The ticket endpoint is the first thing a bot hammers:
 rate limit by IP in the Worker from day one — **not done**, still open.
 
 **Version.** Minor — 1.17.0 for ranked reaching the menu, 1.18.0 for the
-board screen: each is a feature a player can reach, not plumbing.
+board screen, 1.19.0 for reading it by category: each is a feature a player
+can reach, not plumbing.
 
 ## M4 — Public ghosts
 

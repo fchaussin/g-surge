@@ -149,7 +149,7 @@ beforeAll(async () => {
     ],
   });
   const db = await mf.getD1Database('DB');
-  for (const migration of ['0001_runs.sql', '0002_board.sql']) {
+  for (const migration of ['0001_runs.sql', '0002_board.sql', '0003_speed_peak.sql']) {
     const schema = readFileSync(join(ROOT, 'server', 'migrations', migration), 'utf8');
     // les commentaires d'abord, les instructions ensuite : un point-virgule dans
     // une phrase française couperait sinon une instruction en deux
@@ -317,6 +317,46 @@ describe('the server in workerd', () => {
       entries: [],
     });
     expect((await get('/board/insane')).status).toBe(400);
+  });
+
+  it('reads the board by category — score, distance, top speed, average — never mixing difficulty', async () => {
+    // D'autres tests de ce fichier ont déjà posé des parties sur chaque
+    // difficulté ; le test mesure l'ordre et l'appartenance, jamais un compte
+    // exact de lignes.
+    const a = await rankedRun('cat-a', 'medium', 10);
+    const b = await rankedRun('cat-b', 'medium', 16);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    const outcomeA = (a.json as { outcome: { dist: number; time: number; speedPeak: number } })
+      .outcome;
+    const outcomeB = (b.json as { outcome: { dist: number; time: number; speedPeak: number } })
+      .outcome;
+
+    const pick: Record<string, (o: { dist: number; time: number; speedPeak: number }) => number> = {
+      dist: (o) => o.dist,
+      speedPeak: (o) => o.speedPeak,
+      avg: (o) => o.dist / o.time,
+    };
+    for (const by of ['dist', 'speedPeak', 'avg'] as const) {
+      const board = (await (await get(`/board/medium?by=${by}`)).json()) as {
+        entries: { dist: number; time: number; speedPeak: number }[];
+      };
+      const values = board.entries.map(pick[by]!);
+      for (let i = 1; i < values.length; i++)
+        expect(values[i - 1]!).toBeGreaterThanOrEqual(values[i]!);
+      expect(values).toContain(pick[by]!(outcomeA));
+      expect(values).toContain(pick[by]!(outcomeB));
+    }
+
+    // une catégorie qui n'existe pas est un refus, jamais une colonne interpolée telle quelle
+    expect((await get('/board/medium?by=nonsense')).status).toBe(400);
+    // jamais mélangée à la difficulté : ces deux parties, postées en medium,
+    // ne peuvent apparaître sur aucun tableau easy, quelle que soit la catégorie
+    const easyBoard = (await (await get('/board/easy?by=dist')).json()) as {
+      entries: { dist: number }[];
+    };
+    expect(easyBoard.entries.map((e) => e.dist)).not.toContain(outcomeA.dist);
+    expect(easyBoard.entries.map((e) => e.dist)).not.toContain(outcomeB.dist);
   });
 
   it('flags a claim that disagrees with the replay, without refusing the run', async () => {

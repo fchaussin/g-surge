@@ -9,9 +9,22 @@
  * classée quelqu'un soumise.
  */
 import type { Difficulty } from '../sim/index.js';
-import { api, online, type Board } from './api.js';
+import { api, online, type Board, type BoardCategory, type BoardEntry } from './api.js';
 
 const fmt = (v: number): string => Math.round(v).toLocaleString('en-GB');
+const kmh = (mps: number): string => `${fmt(mps * 3.6)} km/h`;
+
+/**
+ * La colonne affichée par catégorie. La vitesse moyenne n'a pas de champ
+ * dédié — `dist` et `time` suffisent, gardés contre une partie à peine
+ * commencée où `time` vaut encore zéro.
+ */
+const VALUE_BY_CATEGORY: Record<BoardCategory, (e: BoardEntry) => string> = {
+  score: (e) => fmt(e.score),
+  dist: (e) => `${fmt(e.dist)} m`,
+  speedPeak: (e) => kmh(e.speedPeak),
+  avg: (e) => kmh(e.time > 0 ? e.dist / e.time : 0),
+};
 
 const ESCAPES: Record<string, string> = {
   '&': '&amp;',
@@ -34,6 +47,7 @@ function countdown(resetAt: number): string {
 
 export class BoardScreen {
   private difficulty: Difficulty;
+  private category: BoardCategory = 'score';
   /** Compte les lectures : une réponse tardive d'une difficulté quittée n'écrase pas la suivante. */
   private token = 0;
 
@@ -47,6 +61,11 @@ export class BoardScreen {
 
   setDifficulty(d: Difficulty): void {
     this.difficulty = d;
+    this.load();
+  }
+
+  setCategory(c: BoardCategory): void {
+    this.category = c;
     this.load();
   }
 
@@ -67,7 +86,7 @@ export class BoardScreen {
 
     let board: Board;
     try {
-      board = await api.board(this.difficulty);
+      board = await api.board(this.difficulty, this.category);
     } catch {
       if (shown === this.token) this.render('Could not reach the board.');
       return;
@@ -79,12 +98,13 @@ export class BoardScreen {
       this.render('No ranked runs yet this week.');
       return;
     }
+    const value = VALUE_BY_CATEGORY[this.category];
     this.body.innerHTML = `<ol>${board.entries
       .map(
         (e, i) =>
           `<li><span class="rk">${i + 1}</span>` +
           `<span class="nm">${escapeHtml(e.name)}</span>` +
-          `<span class="dv">${fmt(e.score)}</span></li>`,
+          `<span class="dv">${value(e)}</span></li>`,
       )
       .join('')}</ol>`;
   }
