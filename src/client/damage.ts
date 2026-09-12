@@ -12,11 +12,19 @@
 
 const STEPS = 32;
 
-/** Coque restante, en pourcents, entre laquelle le voile va de rien à plein. */
-const HULL_START = 30;
+/**
+ * Coque restante, en pourcents, entre laquelle le voile va de rien à plein.
+ *
+ * 30 d'abord, et jamais vu en jeu : mesuré, un frottement de mur tenu sans
+ * interruption coûte environ 3 % de coque par seconde, donc il fallait plus de
+ * vingt secondes contre la paroi pour passer la barre, et un choc franc tue
+ * bien avant. Le teintage commence maintenant là où la coque est vraiment
+ * entamée plutôt qu'au dernier tiers.
+ */
+const HULL_START = 55;
 
 /** Coque restante sous laquelle le voile clignote plutôt que de tenir. */
-const HULL_BLINK = 10;
+const HULL_BLINK = 15;
 
 const BLINK_HZ = 4;
 

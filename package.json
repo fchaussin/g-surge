@@ -1,6 +1,6 @@
 {
   "name": "g-surge",
-  "version": "1.19.2",
+  "version": "1.19.3",
   "private": true,
   "description": "Endless antigrav runner built on three.js r128.",
   "type": "module",
