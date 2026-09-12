@@ -233,7 +233,8 @@
     48%{transform:translate(-3px,1px) skewY(-.5deg)}
     72%{transform:translate(1px,3px) skewY(.25deg)}
     100%{transform:translate(0,0) skewY(0deg)}}
-  .hud.surge .readout,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl{
+  .hud.surge .readout,.hud.surge .spd,.hud.surge .hull,.hud.surge .bst,.hud.surge .bstlbl,
+  .hud.surge .shield,.hud.surge .shieldlbl{
     animation:surgedrift 1.15s ease-in-out infinite}
   /* Simplifié plutôt qu'augmenté, comme la §10 le demande : le secondaire
      s'efface, la vitesse et les jauges restent lisibles. */
@@ -384,13 +385,14 @@
   /* Plus épaisse qu'elle ne l'était : à 5 px elle se perdait dans le bord. */
   /* Les barres du haut portent leur nom à gauche, en petites capitales
      espacées : une jauge sans libellé se devine, une jauge libellée se lit.
-     Les barres partent après le plus long des libellés, SHIELD, qui grandit
-     avec l'unité du HUD : 52 px suffisent sur un téléphone, pas à 1080 p. */
+     Les barres partent après le plus long des libellés restants, FUEL et
+     HULL, qui grandit avec l'unité du HUD : 40 px suffisent sur un téléphone,
+     pas à 1080 p. SHIELD est descendu sur le côté, voir `.shield`. */
   .glbl{position:absolute;left:8px;font-size:.72em;letter-spacing:.18em;line-height:1;
     color:var(--dim2);font-weight:700}
   .hull-lbl{top:1px}
   .fuel-lbl{top:10px}
-  .hull{position:absolute;top:0;left:max(52px,4.4em);right:0;height:9px;
+  .hull{position:absolute;top:0;left:max(40px,3.5em);right:0;height:9px;
     background:rgba(223,242,248,.14);overflow:hidden}
   .hull i{display:block;height:100%;width:100%;background:hsl(120,88%,50%)}
   .hull.crit{animation:critpulse .55s ease-in-out infinite}
@@ -398,25 +400,40 @@
      du bidon. Une ressource permanente mérite d'être vue en permanence, et le
      haut est l'endroit où les jauges qui ne se dépensent pas au bouton se
      lisent d'un coup d'œil. */
-  .fuel{position:absolute;top:10px;left:max(52px,4.4em);right:0;height:6px;
+  .fuel{position:absolute;top:10px;left:max(40px,3.5em);right:0;height:6px;
     background:rgba(232,32,42,.14);overflow:hidden}
   .fuel i{display:block;height:100%;width:100%;background:#e8202a;
     box-shadow:0 0 8px rgba(232,32,42,.6)}
   .fuel.low i{background:#ff5a4a}
   .fuel.dry{animation:critpulse .55s ease-in-out infinite}
   .fuel.dry i{background:#ff5a4a}
-  /* Le bouclier : une troisième barre sous le carburant, qui décompte
-     l'invincibilité. Vide presque tout le temps, et présente quand même : une
-     jauge qui apparaît ne s'apprend pas, une jauge qui se remplit se lit. Le
-     dégradé est celui du prisme, et il défile tant que le bouclier tient. */
-  .shield-lbl{top:18px}
-  .shield{position:absolute;top:18px;left:max(52px,4.4em);right:0;height:5px;
-    background:rgba(155,107,255,.12);overflow:hidden}
-  .shield i{display:block;height:100%;width:0;
-    background:linear-gradient(90deg,#ff4d6d,#ffb347,#f9f871,#4dff88,#4dd2ff,#9b6bff,#ff4d6d);
-    background-size:200% 100%;box-shadow:0 0 8px rgba(155,107,255,.7)}
+  /* Le bouclier : la jauge de l'invincibilité, verticale à gauche et
+     symétrique de celle de poussée — même largeur, même hauteur, même
+     ancrage, l'autre bord. C'était une troisième barre horizontale sous le
+     carburant, où une réserve qui ne dure que huit secondes se perdait entre
+     deux ressources permanentes. Vide presque tout le temps, et présente quand
+     même : une jauge qui apparaît ne s'apprend pas, une jauge qui se remplit
+     se lit. Le dégradé est celui du prisme, et il défile tant que le bouclier
+     tient. Comme `.bst`, `hud.ts` n'écrit sa hauteur que lorsqu'elle change. */
+  .shield{position:absolute;left:16px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
+    width:14px;height:40vh;max-height:320px;border-radius:7px;
+    background:rgba(155,107,255,.12);box-shadow:inset 0 0 0 1px rgba(155,107,255,.3);
+    overflow:hidden}
+  .shield i{position:absolute;left:0;right:0;bottom:0;display:block;height:0;
+    border-radius:7px;
+    background:linear-gradient(0deg,#ff4d6d,#ffb347,#f9f871,#4dff88,#4dd2ff,#9b6bff,#ff4d6d);
+    background-size:100% 200%;box-shadow:0 0 10px rgba(155,107,255,.7)}
   .shield.on i{animation:shieldflow 1.2s linear infinite}
-  @keyframes shieldflow{from{background-position:0 0}to{background-position:-200% 0}}
+  @keyframes shieldflow{from{background-position:0 0}to{background-position:0 200%}}
+  /* Même sens de lecture que BOOST, de bas en haut le long de sa jauge. */
+  .shieldlbl{position:absolute;left:36px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px + 88px + 14px);
+    font-size:.72em;letter-spacing:.22em;color:var(--dim2);
+    transform:rotate(180deg);writing-mode:vertical-rl}
+  /* Gaucher : la poussée passe à gauche, le bouclier lui cède la place. */
+  body.lefty .shield{left:auto;right:16px}
+  body.lefty .shieldlbl{left:auto;right:36px}
   @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.35}}
 
   /* La jauge de poussée sur le côté : le doigt masque le bouton, pas cette
@@ -483,16 +500,17 @@
   /* Tactile : la jauge de boost se cale en haut, sous la vitesse, plutôt
      qu'au-dessus du pad où le pouce la couvrait encore. */
   @media (pointer:coarse){
-    .bst{top:calc(env(safe-area-inset-top) + 80px);bottom:auto;height:38vh;max-height:260px}
-    .bstlbl{top:calc(env(safe-area-inset-top) + 80px);bottom:auto}
+    .bst,.shield{top:calc(env(safe-area-inset-top) + 80px);bottom:auto;
+      height:38vh;max-height:260px}
+    .bstlbl,.shieldlbl{top:calc(env(safe-area-inset-top) + 80px);bottom:auto}
     body.lefty .bst{left:16px}
   }
   /* Un pointeur fin qui survole est un ordinateur : les pads tactiles n'y
      servent à rien et prennent la place de la jauge, qui descend et grandit. */
   @media (hover:hover) and (pointer:fine){
     .pads,.stick{display:none}
-    .bst{bottom:calc(env(safe-area-inset-bottom) + 44px);height:46vh;max-height:380px}
-    .bstlbl{bottom:calc(env(safe-area-inset-bottom) + 44px)}
+    .bst,.shield{bottom:calc(env(safe-area-inset-bottom) + 44px);height:46vh;max-height:380px}
+    .bstlbl,.shieldlbl{bottom:calc(env(safe-area-inset-bottom) + 44px)}
     /* À gauche de la jauge et de son libellé, qui occupent le coin. */
     .kb{right:64px}
   }
@@ -620,8 +638,8 @@
   <div class="hull"><i id="hullBar"></i></div>
   <span class="glbl fuel-lbl">FUEL</span>
   <div class="fuel"><i id="fuelBar"></i></div>
-  <span class="glbl shield-lbl">SHIELD</span>
   <div class="shield"><i id="shieldBar"></i></div>
+  <div class="shieldlbl">SHIELD</div>
   <div class="bst" id="bstBox"><i id="boostBar"></i><i class="l2"></i><i class="l3"></i></div>
   <div class="bstlbl">BOOST</div>
   <div class="stickzone" id="stickZone"></div>

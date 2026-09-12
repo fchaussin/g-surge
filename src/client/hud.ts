@@ -251,12 +251,13 @@ export class Hud {
     }
 
     // Le bouclier : ce qui reste de l'invincibilité, en centièmes de sa durée.
-    // Vide, la barre reste là ; pleine, son dégradé défile.
+    // Vide, la barre reste là ; pleine, son dégradé défile. Une hauteur et non
+    // une largeur depuis que la jauge est verticale, symétrique de la poussée.
     const shield = state.rideT > 0 ? Math.ceil((state.rideT / tuning.rideTime) * 100) : 0;
     if (shield !== this.lastShield) {
       this.lastShield = shield;
       if (this.shield) {
-        this.shield.style.width = `${shield}%`;
+        this.shield.style.height = `${shield}%`;
         this.shield.parentElement?.classList.toggle('on', shield > 0);
       }
     }
