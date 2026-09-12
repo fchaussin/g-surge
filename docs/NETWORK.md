@@ -119,19 +119,23 @@ layers over the same trace.
 ### Phase 1 — ranked solo, replay at the end
 
 ```
-POST /ticket   { difficulty }            → { ticket, seed, expires }
-POST /run      { ticket, trace, claim }  → { outcome, rank } | refusal
-GET  /board/:kind                        → entries
+POST /ticket         { difficulty }             → { ticket, difficulty, chunk }
+POST /run            { ticket, trace, name, claim } → { outcome, rank } | refusal
+GET  /board/:difficulty                         → { epoch, resetAt, entries }
 ```
 
-The client asks for a ticket when a ranked run starts; if the request fails,
-the run starts anyway with a local seed and is not ranked — the offline path
-is the fallback, not an error. `claim` is the client's own outcome; the
-server ignores it for scoring and uses a mismatch as a tamper or drift
-signal. The server checks the ticket's window against the trace's simulated
-duration, validates, replays, stores the trace with the entry, and answers
-with its own outcome. The score screen shows the server's numbers when they
-come and the local ones when they do not.
+Built at M3, 1.17.0. The client asks for a ticket when a ranked run starts;
+if the request fails, the run starts anyway with a local seed and is not
+ranked — the offline path is the fallback, not an error. `name` is the
+display name from preferences, sanitised again on the server since a client
+is never trusted; `claim` is the client's own outcome, ignored for scoring —
+a mismatch is a tamper or drift signal, kept as a column rather than refused.
+The server checks the ticket's window against the trace's simulated
+duration, validates, replays, records the row keyed by the week, and answers
+with its own outcome and the rank it earns at that moment. The score screen
+shows the server's numbers when they come and the local ones when they do
+not. Not yet built: the trace itself is not stored alongside the entry — M4
+adds that, to make a board entry watchable.
 
 ### Phase 2 — the streamed track
 

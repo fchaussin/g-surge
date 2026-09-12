@@ -28,6 +28,9 @@ interface Submission {
   /** Le ticket d'une partie classée ; absent, la trace porte sa graine et n'est que rejouée. */
   ticket?: string;
   trace: unknown;
+  /** Une partie classée seulement : le nom affiché et ce que le client a lui-même calculé. */
+  name?: string;
+  claim?: unknown;
 }
 
 /** Les origines qui ont le droit d'appeler : le jeu en production, en préversion et en développement. */
@@ -82,6 +85,12 @@ async function route(req: Request, env: Env): Promise<Response> {
     return arbiter().fetch('https://arbiter' + url.pathname);
   }
 
+  // GET /board/:difficulty — public, rien à vérifier avant de transmettre.
+  if (url.pathname.startsWith('/board/')) {
+    if (req.method !== 'GET') return refuse(405, 'method');
+    return arbiter().fetch('https://arbiter' + url.pathname);
+  }
+
   if (url.pathname === '/run') {
     if (req.method !== 'POST') return refuse(405, 'method');
     // L'en-tête d'abord, pour refuser sans lire ; le corps ensuite, parce
@@ -108,7 +117,11 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (debugNow) headers['x-debug-now'] = debugNow;
     return arbiter().fetch(ranked ? 'https://arbiter/run' : 'https://arbiter/replay', {
       method: 'POST',
-      body: JSON.stringify(ranked ? { ticket: body.ticket, trace: body.trace } : body.trace),
+      body: JSON.stringify(
+        ranked
+          ? { ticket: body.ticket, trace: body.trace, name: body.name, claim: body.claim }
+          : body.trace,
+      ),
       headers,
     });
   }

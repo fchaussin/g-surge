@@ -13,6 +13,7 @@
  */
 import { DurableObject } from 'cloudflare:workers';
 import { DT, replay, validTrace, type Outcome, type Trace } from '../../src/sim/index.js';
+import { epoch, nextReset } from './epoch.js';
 import type { Env } from './index.js';
 import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
@@ -22,6 +23,27 @@ import { chunk } from './track.js';
 export interface RankedRun {
   ticket: string;
   trace: Trace;
+  /** Facultatif : une partie sans nom choisi entre encore, sous un nom générique. */
+  name?: string;
+  /** Ce que le client a lui-même calculé — jamais ce qui compte, seulement ce qui est comparé. */
+  claim?: Outcome;
+}
+
+/** Deux à seize caractères, sans quoi le nom générique du client tient lieu. */
+const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u;
+
+function sanitiseName(name: string | undefined): string {
+  const trimmed = (name ?? '').trim();
+  return NAME_RE.test(trimmed) ? trimmed : 'PILOT';
+}
+
+/** Le meilleur score de l'entrée, un de plus que ce qui la bat déjà. */
+async function rankOf(db: D1Database, epochKey: string, difficulty: string, score: number) {
+  const row = await db
+    .prepare('SELECT COUNT(*) AS n FROM runs WHERE epoch = ? AND difficulty = ? AND score > ?')
+    .bind(epochKey, difficulty, score)
+    .first<{ n: number }>();
+  return (row?.n ?? 0) + 1;
 }
 
 const DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
@@ -36,6 +58,8 @@ export class Arbiter extends DurableObject<Env> {
     if (parts[0] === 'track' && parts.length === 3) return this.track(parts[1]!, parts[2]!);
     if (parts[0] === 'run' && req.method === 'POST') return this.run(req);
     if (parts[0] === 'replay' && req.method === 'POST') return this.replayOnly(req);
+    if (parts[0] === 'board' && parts.length === 2 && req.method === 'GET')
+      return this.board(parts[1]!);
     return refuse(404, 'not-found');
   }
 
@@ -65,12 +89,32 @@ export class Arbiter extends DurableObject<Env> {
     if (!ticket) return refuse(404, 'ticket');
     const trace: Trace = { ...body.trace, seed: ticket.seed };
     if (!validTrace(trace) || trace.difficulty !== ticket.difficulty) return refuse(400, 'trace');
-    const late = Tickets.window(ticket, trace.steps * DT * 1000, this.now(req));
+    const now = this.now(req);
+    const late = Tickets.window(ticket, trace.steps * DT * 1000, now);
     if (late) return refuse(409, late);
     await this.tickets.consume(body.ticket);
     const outcome = replay(trace);
-    await this.record(trace, outcome);
-    return json({ outcome });
+    const epochKey = epoch(now);
+    const name = sanitiseName(body.name);
+    const mismatch =
+      body.claim !== undefined && JSON.stringify(body.claim) !== JSON.stringify(outcome);
+    await this.record(trace, outcome, epochKey, name, body.claim, mismatch);
+    const rank = await rankOf(this.env.DB, epochKey, ticket.difficulty, outcome.score);
+    return json({ outcome, rank });
+  }
+
+  /** Les dix premières de la semaine en cours, pour une difficulté. */
+  private async board(difficulty: string): Promise<Response> {
+    if (!DIFFICULTIES.has(difficulty)) return refuse(400, 'difficulty');
+    const now = Date.now();
+    const epochKey = epoch(now);
+    const rows = await this.env.DB.prepare(
+      `SELECT name, score, dist, time, coins FROM runs
+       WHERE epoch = ? AND difficulty = ? ORDER BY score DESC LIMIT 10`,
+    )
+      .bind(epochKey, difficulty)
+      .all();
+    return json({ epoch: epochKey, resetAt: nextReset(now), entries: rows.results });
   }
 
   /**
@@ -90,10 +134,18 @@ export class Arbiter extends DurableObject<Env> {
     return json({ outcome: replay(trace) });
   }
 
-  private async record(trace: Trace, o: Outcome): Promise<void> {
+  private async record(
+    trace: Trace,
+    o: Outcome,
+    epochKey: string,
+    name: string,
+    claim: Outcome | undefined,
+    mismatch: boolean,
+  ): Promise<void> {
     await this.env.DB.prepare(
-      `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult, wrecked, submitted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult, wrecked,
+                          submitted_at, name, epoch, claim, mismatch)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         __CORE_DIGEST__,
@@ -107,6 +159,10 @@ export class Arbiter extends DurableObject<Env> {
         o.multPeak,
         o.wrecked ? 1 : 0,
         Date.now(),
+        name,
+        epochKey,
+        claim ? JSON.stringify(claim) : '',
+        mismatch ? 1 : 0,
       )
       .run();
   }

@@ -100,6 +100,55 @@ Third play: Medium "to be seen later" — kept open.
 
 ## Log — answered, newest first
 
+### 12 September 2026, M3's ranked mode reaches the menu
+
+- **"Advance the roadmap, M3."** The weekly board's server half and the
+  client wiring, decided and built without stopping to ask, since each call
+  was low-stakes and reversible:
+  - **Reset day and hour:** Monday 00:00 UTC. `server/src/epoch.ts`'s
+    `epoch(now)` keys the ISO week (`AAAA-Wss`), `nextReset(now)` is the
+    board's countdown. Change either function alone to move it.
+  - **Name rule:** two to sixteen letters, digits, space, `-` or `_`; blank
+    means "not chosen". Enforced twice — `preferences.ts`'s `NAME_RE` before
+    it leaves the client, `arbiter.ts`'s copy server-side, since a client is
+    never trusted — an invalid or missing name falls back to `PILOT` rather
+    than refusing the run.
+  - **The mismatch log** is a column, not the separate table `NETWORK.md`
+    sketched: `runs.claim` (the client's own outcome, JSON) and
+    `runs.mismatch`, set when it disagrees with the replay. Simpler for one
+    extra table's worth of rows nobody queries yet; revisit if M6's
+    plausibility flags need more than a boolean.
+  - **The "RANKED" copy** is "Play ranked", noting the board and that the
+    track is the server's own.
+  - **Rank is a snapshot at submission**, not recomputed as later runs beat
+    it — the board itself, `GET /board/:difficulty`, is always current; only
+    the number a score screen already showed can go stale, same as any
+    leaderboard.
+  `Ranked` on the client now drives from the menu: a "RANKED" toggle and a
+  name field in Settings, `btnStart`/`btnRestart`/`btnAgain` asking for a
+  ticket when it's on. Previously reachable only through
+  `__gsNext.startRanked()`, still there for the console. 1.17.0.
+- **Waiting on the author:** the board screen itself — reading
+  `GET /board/:difficulty` and showing it, reached from the menu — is not
+  built. It needs a look, the way the ghost's did at M1; the score screen's
+  new `#3` after a ranked score is the only place a rank shows today. Also
+  open: an e2e proof of a ranked run and of the offline fallback, both
+  waiting on that screen to have something to assert against through the
+  UI rather than the console; and rate-limiting `/ticket` by IP, named a
+  risk in `MULTIPLAYER-ROADMAP.md` and not yet done.
+- **A pre-existing flake, found while checking `main` merged in cleanly:**
+  `tests/e2e/ghost.spec.ts` on the `mobile` project timed out four times
+  running the full suite back to back, each at a different line — a click
+  that never resolves, a wait that never sees `travel` advance, a mid-test
+  browser closure. A full run also once failed `visual.spec.ts`'s HUD
+  capture on `desktop` waiting on fonts — and passed in under four seconds
+  run alone straight after. Both read as this sandbox's resources under a
+  full suite's load, not a regression: neither touches code this session or
+  the `main` merge changed, both pass alone, and `screens.spec.ts`'s own
+  mobile run exercises the same start-a-run path the ghost test times out
+  on, stably. Not chased further; worth a second look if either reproduces
+  on a real machine.
+
 ### 12 September 2026, the D1 databases and the first deploy
 
 - **"Go on Cloudflare, staging and prod."** `gsurge` and `gsurge-staging`

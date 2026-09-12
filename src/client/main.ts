@@ -178,6 +178,8 @@ const input = new InputSource({
 let difficulty: Difficulty = prefs.values.difficulty;
 /** Courir contre sa meilleure partie, sur sa piste. */
 let ghostOn = prefs.values.ghost;
+/** Une partie lancée depuis le menu demande un ticket plutôt qu'une graine locale. */
+let rankedOn = prefs.values.ranked;
 let showFps = prefs.values.showFps;
 
 const perf = new PerformanceGovernor({
@@ -262,6 +264,11 @@ const settings = new Settings({
     ghostOn = on;
     prefs.set('ghost', on);
   },
+  setRanked: (on) => {
+    rankedOn = on;
+    prefs.set('ranked', on);
+  },
+  setName: (n) => prefs.set('name', n),
   clearScores: () => {
     scores.clear();
     ghosts.clear();
@@ -381,12 +388,13 @@ function endRun(): void {
     // reste, et l'étiquette dit pourquoi. La partie suivante peut déjà avoir
     // commencé : l'écran ne bouge que s'il montre encore celle-ci.
     const shown = runId;
-    void ranked.submit(sim).then((verdict) => {
+    void ranked.submit(sim, prefs.values.name).then((verdict) => {
       if (runId !== shown) return;
       if (typeof verdict === 'string') scoreScreen.note(`unranked \u00b7 ${UNRANKED[verdict]}`);
       else
         scoreScreen.note(
-          `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board`,
+          `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board` +
+            (ranked.rank ? ` \u00b7 #${ranked.rank}` : ''),
         );
     });
   }
@@ -540,19 +548,22 @@ const loop = new Loop({
 const on = (id: string, handler: () => void) =>
   document.getElementById(id)?.addEventListener('click', handler);
 
-on('btnStart', startRun);
+/** Ce que chaque bouton qui lance une partie appelle : classée si le réglage l'est. */
+const play = () => void (rankedOn ? startRanked() : startRun());
+
+on('btnStart', play);
 on('btnPause', () => {
   const el = document.getElementById('pauseDist');
   if (el) el.textContent = Math.round(sim.state.score).toLocaleString('en-GB');
   screens.setMode('pause');
 });
 on('btnResume', () => screens.setMode('run'));
-on('btnRestart', startRun);
+on('btnRestart', play);
 on('btnQuit', () => {
   submit();
   screens.setMode('menu');
 });
-on('btnAgain', startRun);
+on('btnAgain', play);
 on('btnOverMenu', () => screens.setMode('menu'));
 on('btnHelp', () => screens.setMode('help'));
 on('btnCloseHelp', () => screens.setMode('menu'));

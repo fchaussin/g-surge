@@ -190,6 +190,10 @@
     background:var(--dim);transition:transform .18s,background .18s}
   .toggle.on{background:rgba(37,226,255,.2)}
   .toggle.on::after{transform:translateX(21px);background:var(--neon)}
+  .switch input[type=text]{width:160px;flex:none;background:rgba(223,242,248,.06);
+    border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;
+    padding:8px 10px;font-family:inherit}
+  .switch input[type=text]::placeholder{color:var(--dim2)}
   .sheet .body .btn{max-width:520px;margin-top:10px}
 
   /* Une unité pour tout le HUD, tirée de la hauteur d'écran et bornée : à 720 p
@@ -840,8 +844,19 @@
         </div>
       </div>
       <div class="grp">
+        <h3>Ranked</h3>
+        <div class="switch">
+          <span>Play ranked<small>This week's board, on a track the server keeps to itself</small></span>
+          <button class="toggle" id="tglRanked" aria-pressed="false"></button>
+        </div>
+        <div class="switch">
+          <span>Display name<small>Sent with a ranked run. Left blank, the board shows a generic one.</small></span>
+          <input type="text" id="nameInput" placeholder="PILOT" maxlength="16" aria-label="Display name">
+        </div>
+      </div>
+      <div class="grp">
         <h3>Data</h3>
-        <p>The leaderboard and your ghost runs are stored on this device only.</p>
+        <p>The local leaderboard and your ghost runs are stored on this device only. A ranked run also reaches the server that keeps the weekly board.</p>
         <button class="btn danger" id="btnClear">CLEAR LEADERBOARD</button>
       </div>
       </div>

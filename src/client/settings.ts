@@ -48,6 +48,8 @@ export interface SettingsOptions {
   hapticsAvailable: boolean;
   setTips: (on: boolean) => void;
   setGhost: (on: boolean) => void;
+  setRanked: (on: boolean) => void;
+  setName: (name: string) => void;
   setLefty: (on: boolean) => void;
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
@@ -212,6 +214,8 @@ export class Settings {
 
     simple('tglTips', initial.tips, (on) => this.options.setTips(on));
     simple('tglGhost', initial.ghost, (on) => this.options.setGhost(on));
+    simple('tglRanked', initial.ranked, (on) => this.options.setRanked(on));
+    this.bindName(initial.name);
     simple('tglSky', initial.sky, (on) => this.options.setSky(on));
     simple('tglSkyHi', initial.skyDetail, (on) => this.options.setSkyDetail(on));
     simple('tglFps', initial.showFps, (on) => {
@@ -262,5 +266,16 @@ export class Settings {
         button.textContent = 'CLEAR LEADERBOARD';
       }, 1600);
     });
+  }
+
+  /** Le nom envoyé avec une partie classée. Assaini à chaque frappe, poussé au repos. */
+  private bindName(start: string): void {
+    const el = byId('nameInput') as HTMLInputElement | null;
+    if (!el) return;
+    el.value = start;
+    el.addEventListener('input', () => {
+      el.value = el.value.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0, 16);
+    });
+    el.addEventListener('change', () => this.options.setName(el.value.trim()));
   }
 }

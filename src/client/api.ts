@@ -63,10 +63,35 @@ export class ApiError extends Error {
   }
 }
 
+/** Une entrée du tableau hebdomadaire, telle que le serveur la rend. */
+export interface BoardEntry {
+  name: string;
+  score: number;
+  dist: number;
+  time: number;
+  coins: number;
+}
+
+export interface Board {
+  epoch: string;
+  resetAt: number;
+  entries: BoardEntry[];
+}
+
 export const api = {
   ticket: (difficulty: Difficulty): Promise<Issued> => post('/ticket', { difficulty }),
   chunk: (ticket: string, from: number): Promise<WireChunk> => call(`/track/${ticket}/${from}`),
-  /** Une partie classée. La graine de la trace est ignorée par le serveur, qui a la sienne. */
-  run: (ticket: string, trace: Trace): Promise<{ outcome: Outcome }> =>
-    post('/run', { core: CORE_DIGEST, ticket, trace }),
+  /**
+   * Une partie classée. La graine de la trace est ignorée par le serveur, qui
+   * a la sienne ; `claim` est ce que le client a lui-même calculé, comparé
+   * mais jamais cru — un écart est un signal, pas un refus.
+   */
+  run: (
+    ticket: string,
+    trace: Trace,
+    name: string,
+    claim: Outcome,
+  ): Promise<{ outcome: Outcome; rank: number }> =>
+    post('/run', { core: CORE_DIGEST, ticket, trace, name, claim }),
+  board: (difficulty: Difficulty): Promise<Board> => call(`/board/${difficulty}`),
 };

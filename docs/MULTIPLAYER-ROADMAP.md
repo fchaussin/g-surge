@@ -151,7 +151,7 @@ to confirm.
 
 **Version.** None — nothing in the bundle changes.
 
-## M3 — The weekly board
+## M3 — The weekly board — mostly done, the board screen is not
 
 **Goal.** Phase 1 of `NETWORK.md` on the least exposed board: a ranked mode
 where a run is played on a server-issued seed and lands, replayed, on a
@@ -162,39 +162,55 @@ board that resets weekly.
 - The ticket: `POST /ticket { difficulty }` answers a seed, an expiry and a
   token; the object keeps issued tickets in its storage with their issue
   time. A submission must arrive after at least the trace's simulated
-  duration and within the expiry — one run per ticket, in real time.
-- The client: a "RANKED" toggle on the menu; when on, `startRun` asks for a
-  ticket and seeds the run with it, and `endRun` posts the trace with the
-  client's outcome as `claim`. **If the ticket request fails, the run starts
-  with a local seed, unranked, and the menu says so** — the offline path is
-  the fallback, not an error. The score screen shows the server's numbers
-  when they come and the local ones when they do not.
+  duration and within the expiry — one run per ticket, in real time. **Done**
+  since M5, 1.16.3.
+- The client: a "RANKED" toggle in Settings; when on, `btnStart`/`btnRestart`/
+  `btnAgain` ask for a ticket instead of seeding locally, and `endRun` posts
+  the trace with the client's outcome as `claim`. **If the ticket request
+  fails, the run starts with a local seed, unranked, and the score screen
+  says so** — the offline path is the fallback, not an error. **Done.**
 - A board screen: this week's top entries per difficulty, the player's own
-  rank, the week's remaining time. Reached from the menu; the local board
-  stays where it is.
-- A display name: chosen once, stored in preferences, sent with the run.
-  No account. Profanity is a moderation problem for M6, not a filter here.
-- The mismatch log: a `claim` that differs from the replay is recorded with
-  both outcomes and the digest. It is a tamper signal or a drift signal, and
-  which one is the first thing to read after launch.
+  rank, the week's remaining time. **Not built.** `GET /board/:difficulty`
+  exists and is tested; nothing in the client calls it. The score screen
+  shows the rank a submission earned (`#3`), which is the closest a player
+  gets to the board today. Needs a screen and its own visual references —
+  taste the ghost toggle needed too, `M1`.
+- A display name: chosen once, stored in preferences, sent with the run. No
+  account, no filter — profanity is M6's problem. **Done**: a field in
+  Settings, two to sixteen letters, digits, space, `-` or `_`, blank means
+  "not chosen", the server falls back to a generic name rather than refuse.
+- The mismatch log: a `claim` that differs from the replay is flagged and
+  kept, never refused — a tamper signal or a drift signal, and which one is
+  the first thing to read after launch. **Done**, as a column rather than a
+  separate table: `runs.mismatch`, `runs.claim` holds the client's outcome as
+  JSON.
 
-**Proof.** The unit and server tests of M2 extended to the ticket window:
-too early refused, in time accepted, expired refused. An e2e test runs a
-ranked run against `wrangler dev` inside the Playwright container, reads the
-board back and finds the entry with the server's score. An e2e test with the
-network blocked plays a run, lands on the local board and shows the
-unranked notice — the offline guarantee, checked by cutting the wire.
+**Proof.** The server tests of M2 extended: the ticket window (too early,
+expired, wrong difficulty), a name kept or falling back to generic, the rank
+answered at submission — snapshotted at that moment, not recomputed once a
+later entry outscores it — and a mismatched claim flagged without being
+refused. **Not done:** an e2e test running a ranked run end to end against
+`wrangler dev` inside the Playwright container, and one with the network cut
+that lands on the local board with the unranked notice — both need the
+client actually reachable through the menu, which it now is, and the board
+screen above to read the result back through the UI rather than the score
+screen's one-line rank.
 
-**Needs from the author.** The reset day and hour; the name rules; the first
-`wrangler deploy` and the D1 database on the account; a `RANKED` copy line.
+**Author decisions taken while building, logged in `TODO.md`:** the reset is
+Monday 00:00 UTC, the board's epoch an ISO week key (`AAAA-Wss`); the name
+rule is above; the copy is "Play ranked" with a note naming the board and
+that the track is the server's own. Revisit any of the three by editing
+`server/src/epoch.ts`, `preferences.ts`'s `NAME_RE`, or the Settings markup —
+none is load-bearing elsewhere.
 
 **Risks.** Clock skew between the object and the client does not matter —
 the window is measured on the server's own clock at issue and at
 submission. A ticket held across a page reload is lost; that is acceptable
 and said on screen. The ticket endpoint is the first thing a bot hammers:
-rate limit by IP in the Worker from day one.
+rate limit by IP in the Worker from day one — **not done**, still open.
 
-**Version.** Minor.
+**Version.** Minor — 1.17.0, this pass: a real "Play ranked" reachable from
+the menu is a feature, not plumbing.
 
 ## M4 — Public ghosts
 

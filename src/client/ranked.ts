@@ -12,7 +12,7 @@
  * L'interrupteur « RANKED » du menu vient au jalon M3 ; d'ici là la voie
  * s'ouvre par `startRanked()` sur la surface de débogage.
  */
-import type { Difficulty, Outcome, Sim } from '../sim/index.js';
+import { outcomeOf, type Difficulty, type Outcome, type Sim } from '../sim/index.js';
 import { api, online, type Issued } from './api.js';
 import { TrackStream } from './stream.js';
 
@@ -65,16 +65,24 @@ export class Ranked {
     return null;
   }
 
+  /** Le rang de la dernière soumission acceptée, ou nul avant toute partie classée. */
+  rank: number | null = null;
+
   /**
-   * Soumet la partie finie. Résout l'issue du serveur, ou la raison pour
-   * laquelle le score reste local. Détache la partie dans tous les cas.
+   * Soumet la partie finie sous `name`. Résout l'issue du serveur, ou la
+   * raison pour laquelle le score reste local. Détache la partie dans tous
+   * les cas. `claim` est ce que le client a lui-même calculé — envoyé pour
+   * être comparé, jamais pour compter : le serveur rejoue et n'en croit rien.
    */
-  async submit(sim: Sim): Promise<Outcome | Unranked> {
+  async submit(sim: Sim, name: string): Promise<Outcome | Unranked> {
     const stream = this.stream;
     this.stream = null;
     if (!stream) return 'offline';
     try {
-      const { outcome } = await api.run(stream.ticket, sim.trace());
+      const trace = sim.trace();
+      const claim = outcomeOf(sim.state, trace.steps);
+      const { outcome, rank } = await api.run(stream.ticket, trace, name, claim);
+      this.rank = rank;
       return outcome;
     } catch (e) {
       return e instanceof Error && 'status' in e ? 'refused' : 'unreachable';

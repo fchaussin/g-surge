@@ -89,6 +89,38 @@ const post = (path: string, body: unknown, headers?: Record<string, string>) =>
     headers: { 'content-type': 'application/json', ...headers },
   });
 
+/**
+ * Une partie classée complète, courte : le ticket, la piste entière tirée
+ * d'avance — inutile de la redemander pour quelques secondes — puis la
+ * soumission. `body` permet de forcer `name` ou `claim` sur ce qu'un client
+ * hostile ou dérivé enverrait.
+ */
+async function rankedRun(
+  seed: string,
+  difficulty: Difficulty,
+  seconds: number,
+  body: Record<string, unknown> = {},
+): Promise<{ status: number; json: Record<string, unknown> }> {
+  const issued = (await (await post('/ticket', { difficulty })).json()) as {
+    ticket: string;
+    chunk: WireChunk;
+  };
+  const queue = new QueuedNodes();
+  queue.feed(unpackNodes(issued.chunk)!);
+  while (queue.ahead < 512) {
+    const r = await get(`/track/${issued.ticket}/${queue.wanted}`);
+    queue.feed(unpackNodes((await r.json()) as WireChunk)!);
+  }
+  let attached = false;
+  const { trace } = play(seed, difficulty, seconds, (s) => {
+    if (!attached) s.track.attach(queue);
+    attached = true;
+  });
+  const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) };
+  const res = await post('/run', { core, ticket: issued.ticket, trace, ...body }, later);
+  return { status: res.status, json: (await res.json()) as Record<string, unknown> };
+}
+
 beforeAll(async () => {
   const script = join(ROOT, 'server', 'dist', 'index.js');
   core = await buildServer(script);
@@ -117,15 +149,17 @@ beforeAll(async () => {
     ],
   });
   const db = await mf.getD1Database('DB');
-  const schema = readFileSync(join(ROOT, 'server', 'migrations', '0001_runs.sql'), 'utf8');
-  // les commentaires d'abord, les instructions ensuite : un point-virgule dans
-  // une phrase française couperait sinon une instruction en deux
-  const statements = schema
-    .split('\n')
-    .filter((l) => !l.trim().startsWith('--'))
-    .join('\n')
-    .split(';');
-  for (const stmt of statements) if (stmt.trim()) await db.prepare(stmt).run();
+  for (const migration of ['0001_runs.sql', '0002_board.sql']) {
+    const schema = readFileSync(join(ROOT, 'server', 'migrations', migration), 'utf8');
+    // les commentaires d'abord, les instructions ensuite : un point-virgule dans
+    // une phrase française couperait sinon une instruction en deux
+    const statements = schema
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('--'))
+      .join('\n')
+      .split(';');
+    for (const stmt of statements) if (stmt.trim()) await db.prepare(stmt).run();
+  }
 }, 60_000);
 
 afterAll(async () => {
@@ -229,8 +263,10 @@ describe('the server in workerd', () => {
     const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) };
     const run = await post('/run', { core, ticket: issued.ticket, trace: sent }, later);
     expect(run.status).toBe(200);
-    const { outcome } = (await run.json()) as { outcome: unknown };
+    const { outcome, rank } = (await run.json()) as { outcome: unknown; rank: number };
     expect(outcome).toEqual(outcomeOf(sim.state, trace.steps));
+    // seule entrée de la semaine sur cette difficulté : première place
+    expect(rank).toBe(1);
     // au journal, avec la graine du serveur et son score
     const db = await mf.getD1Database('DB');
     const rows = await db.prepare('SELECT difficulty, seed, score, steps FROM runs').all();
@@ -245,6 +281,60 @@ describe('the server in workerd', () => {
       404,
     );
     expect((await get(`/track/${issued.ticket}/0`)).status).toBe(404);
+  });
+
+  it('keeps a weekly board: a valid name kept, an invalid one falls back, rank reflects the score', async () => {
+    const a = await rankedRun('board-a', 'hard', 8, { name: 'Néo 01' });
+    const b = await rankedRun('board-b', 'hard', 8, { name: 'x' }); // trop court
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+
+    const db = await mf.getD1Database('DB');
+    const rows = (
+      await db.prepare("SELECT name, score FROM runs WHERE difficulty = 'hard' ORDER BY id").all()
+    ).results as { name: string; score: number }[];
+    expect(rows[0]!.name).toBe('Néo 01');
+    expect(rows[1]!.name).toBe('PILOT');
+
+    // le rang est celui au moment de la soumission, pas une fois les deux posées :
+    // « a » est seule sur la difficulté quand elle arrive, forcément première
+    expect(a.json.rank).toBe(1);
+    // « b » arrive quand « a » est déjà là : un de plus que ce qui la bat des deux
+    const scores = rows.map((r) => r.score);
+    expect(b.json.rank).toBe(1 + scores.filter((s) => s > rows[1]!.score).length);
+
+    const board = (await (await get('/board/hard')).json()) as {
+      epoch: string;
+      resetAt: number;
+      entries: { name: string; score: number }[];
+    };
+    expect(board.epoch).toMatch(/^\d{4}-W\d{2}$/);
+    expect(board.resetAt).toBeGreaterThan(Date.now());
+    expect(board.entries.map((e) => e.name).sort()).toEqual(['Néo 01', 'PILOT']);
+    expect(board.entries[0]!.score).toBeGreaterThanOrEqual(board.entries[1]!.score);
+    // une difficulté sans partie cette semaine : un tableau vide, pas une erreur
+    expect((await (await get('/board/easy')).json()) as { entries: unknown[] }).toMatchObject({
+      entries: [],
+    });
+    expect((await get('/board/insane')).status).toBe(400);
+  });
+
+  it('flags a claim that disagrees with the replay, without refusing the run', async () => {
+    const fake = await rankedRun('claim-fake', 'easy', 6, {
+      claim: { steps: 1, wrecked: false, score: 1, dist: 1, time: 1, coins: 0, multPeak: 1 },
+    });
+    expect(fake.status).toBe(200); // signalé, pas refusé
+    const noClaim = await rankedRun('claim-none', 'easy', 6);
+    expect(noClaim.status).toBe(200);
+
+    const db = await mf.getD1Database('DB');
+    const rows = (
+      await db.prepare("SELECT mismatch, claim FROM runs WHERE difficulty = 'easy'").all()
+    ).results as { mismatch: number; claim: string }[];
+    // le faux claim ('"score":1', quasi impossible sur une vraie partie) est signalé
+    expect(rows.find((r) => r.claim.includes('"score":1'))?.mismatch).toBe(1);
+    // pas de claim du tout : rien à comparer, rien à signaler
+    expect(rows.find((r) => r.claim === '')?.mismatch).toBe(0);
   });
 
   it('holds the ticket window: too early is refused, a wrong difficulty too', async () => {
