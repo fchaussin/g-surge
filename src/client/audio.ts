@@ -867,14 +867,20 @@ export class Audio {
   }
 
   /**
-   * Un impact laser, pas une explosion chimique : la coque prend une décharge.
+   * Une décharge qui emporte la coque : la forme d'un impact, le registre
+   * d'une explosion.
    *
-   * Le zap d'abord — deux dents de scie désaccordées qui plongent de l'aigu au
-   * grave en un cinquième de seconde, sous un passe-bas qui se referme avec
-   * elles — puis un éclat de bruit très court et très aigu au point de
-   * contact, puis une résonance métallique serrée qui s'éteint. Le corps grave
-   * reste mais court : sans lui l'impact sonne en l'air, avec trop il redevient
-   * le boum qu'il ne doit plus être. Les deux versions d'avant — le fracas de
+   * Le zap d'abord — deux dents de scie désaccordées qui plongent en un quart
+   * de seconde sous un passe-bas qui se referme avec elles — puis un éclat de
+   * bruit au point de contact, puis une résonance qui s'éteint. Le corps grave
+   * porte le tout et dure le plus longtemps.
+   *
+   * La première version était un vrai laser, une octave et demie au-dessus de
+   * celle-ci : la plongée partait de 3200 Hz sous un passe-bas à 6000, et
+   * l'éclat de contact était à 5200. Ça sonnait comme une arme, pas comme un
+   * vaisseau qui se démonte — juste, mais trop aigu pour ce que l'image
+   * montre. Tout est descendu d'autant, et le corps grave a pris le poids que
+   * l'aigu avait de trop. Les deux versions d'avant celles-là — le fracas de
    * tôle de la gerbe de débris, puis le souffle balayé de l'anneau — sont
    * parties avec les effets qu'elles accompagnaient.
    */
@@ -887,12 +893,12 @@ export class Audio {
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.Q.value = 6;
-    filter.frequency.setValueAtTime(6000, t);
-    filter.frequency.exponentialRampToValueAtTime(400, t + 0.2);
+    filter.frequency.setValueAtTime(2200, t);
+    filter.frequency.exponentialRampToValueAtTime(140, t + 0.26);
     const zap = ctx.createGain();
     zap.gain.setValueAtTime(0.0001, t);
-    zap.gain.exponentialRampToValueAtTime(0.32, t + 0.006);
-    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    zap.gain.exponentialRampToValueAtTime(0.34, t + 0.008);
+    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
     filter.connect(zap);
     zap.connect(this.master!);
     if (rev) zap.connect(rev);
@@ -902,27 +908,27 @@ export class Audio {
       const voice = ctx.createOscillator();
       voice.type = 'sawtooth';
       voice.detune.value = detune;
-      voice.frequency.setValueAtTime(3200, t);
-      voice.frequency.exponentialRampToValueAtTime(150, t + 0.18);
+      voice.frequency.setValueAtTime(950, t);
+      voice.frequency.exponentialRampToValueAtTime(48, t + 0.24);
       voice.connect(filter);
       voice.start(t);
-      voice.stop(t + 0.3);
+      voice.stop(t + 0.38);
     }
 
-    this.noiseHit(t, 0.5, 'bandpass', 5200, 1800, 7, 0.05, true); // le point de contact
-    this.noiseHit(t + 0.02, 0.16, 'bandpass', 2400, 820, 9, 0.7, true); // la résonance
+    this.noiseHit(t, 0.5, 'bandpass', 2400, 700, 5, 0.08, true); // le point de contact
+    this.noiseHit(t + 0.02, 0.2, 'bandpass', 900, 260, 7, 0.9, true); // la résonance
 
     const body = ctx.createOscillator();
     const bodyGain = ctx.createGain();
     body.type = 'sine';
-    body.frequency.setValueAtTime(180, t);
-    body.frequency.exponentialRampToValueAtTime(54, t + 0.14);
-    bodyGain.gain.setValueAtTime(0.26, t);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    body.frequency.setValueAtTime(120, t);
+    body.frequency.exponentialRampToValueAtTime(32, t + 0.22);
+    bodyGain.gain.setValueAtTime(0.44, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
     body.connect(bodyGain);
     bodyGain.connect(this.master!);
     if (rev) bodyGain.connect(rev);
     body.start(t);
-    body.stop(t + 0.34);
+    body.stop(t + 0.54);
   }
 }
