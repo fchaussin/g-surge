@@ -867,34 +867,62 @@ export class Audio {
   }
 
   /**
-   * L'onde de choc de `ship.ts`, pas une gerbe : un éclair bref et aigu pour
-   * l'instant de l'impact, un souffle filtré qui balaie vers l'aigu comme
-   * l'anneau qui s'écarte, et le même poids grave qu'avant — un pouls a une
-   * masse, même magnétique. Le crissement de tôle et les six éclats aléatoires
-   * de l'ancienne gerbe de débris ont disparu avec elle.
+   * Un impact laser, pas une explosion chimique : la coque prend une décharge.
+   *
+   * Le zap d'abord — deux dents de scie désaccordées qui plongent de l'aigu au
+   * grave en un cinquième de seconde, sous un passe-bas qui se referme avec
+   * elles — puis un éclat de bruit très court et très aigu au point de
+   * contact, puis une résonance métallique serrée qui s'éteint. Le corps grave
+   * reste mais court : sans lui l'impact sonne en l'air, avec trop il redevient
+   * le boum qu'il ne doit plus être. Les deux versions d'avant — le fracas de
+   * tôle de la gerbe de débris, puis le souffle balayé de l'anneau — sont
+   * parties avec les effets qu'elles accompagnaient.
    */
   private crash(): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
     const t = ctx.currentTime;
-    this.reverb();
-    this.blip(1800, 0.09, 'triangle', 0.22, 5200); // l'éclair
-    this.noiseHit(t, 0.3, 'bandpass', 260, 3400, 3.2, 0.5, true); // l'anneau qui s'écarte
-    this.noiseHit(t, 0.45, 'lowpass', 2600, 90, 1.0, 0.4, true); // impact
-    this.noiseHit(t + 0.015, 0.18, 'lowpass', 700, 55, 0.9, 1.5, true); // queue grave
-
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(115, t);
-    o.frequency.exponentialRampToValueAtTime(32, t + 0.32);
-    g.gain.setValueAtTime(0.4, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-    o.connect(g);
-    g.connect(this.master!);
     const rev = this.reverb();
-    if (rev) g.connect(rev);
-    o.start(t);
-    o.stop(t + 0.55);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 6;
+    filter.frequency.setValueAtTime(6000, t);
+    filter.frequency.exponentialRampToValueAtTime(400, t + 0.2);
+    const zap = ctx.createGain();
+    zap.gain.setValueAtTime(0.0001, t);
+    zap.gain.exponentialRampToValueAtTime(0.32, t + 0.006);
+    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+    filter.connect(zap);
+    zap.connect(this.master!);
+    if (rev) zap.connect(rev);
+    // Deux voix : désaccordées de neuf centièmes de demi-ton, elles battent
+    // l'une contre l'autre pendant la descente au lieu de siffler d'un trait.
+    for (const detune of [0, 9]) {
+      const voice = ctx.createOscillator();
+      voice.type = 'sawtooth';
+      voice.detune.value = detune;
+      voice.frequency.setValueAtTime(3200, t);
+      voice.frequency.exponentialRampToValueAtTime(150, t + 0.18);
+      voice.connect(filter);
+      voice.start(t);
+      voice.stop(t + 0.3);
+    }
+
+    this.noiseHit(t, 0.5, 'bandpass', 5200, 1800, 7, 0.05, true); // le point de contact
+    this.noiseHit(t + 0.02, 0.16, 'bandpass', 2400, 820, 9, 0.7, true); // la résonance
+
+    const body = ctx.createOscillator();
+    const bodyGain = ctx.createGain();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(180, t);
+    body.frequency.exponentialRampToValueAtTime(54, t + 0.14);
+    bodyGain.gain.setValueAtTime(0.26, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    body.connect(bodyGain);
+    bodyGain.connect(this.master!);
+    if (rev) bodyGain.connect(rev);
+    body.start(t);
+    body.stop(t + 0.34);
   }
 }

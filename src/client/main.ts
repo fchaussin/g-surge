@@ -38,7 +38,7 @@ import { PerformanceGovernor } from './performance.js';
 import { Pickups } from './pickups.js';
 import { PreferenceStore } from './preferences.js';
 import { Ranked, type Unranked } from './ranked.js';
-import { ScoreScreen } from './score-screen.js';
+import { ScoreScreen, type ScoreBreakdown } from './score-screen.js';
 import { Scores } from './scores.js';
 import { Screens } from './screens.js';
 import { Settings } from './settings.js';
@@ -371,6 +371,13 @@ function launch(): void {
 /** Pourquoi la partie en cours, partie classée, ne l'est plus. Pour l'écran de fin. */
 let unrankedWhy: Unranked | null = null;
 
+/**
+ * Ce que l'onde de choc a pour elle avant que la carte de score la couvre, en
+ * ms. Un peu moins que `SHOCKWAVE_LIFE` : la fin de l'onde est déjà presque
+ * transparente, et l'écran de fin n'a pas à attendre qu'elle s'éteigne.
+ */
+const WRECK_HOLD_MS = 620;
+
 function endRun(): void {
   haptics.buzz([90, 60, 200]);
   // La coque n'a plus de jauge à faire clignoter une fois explosée : sans
@@ -380,8 +387,10 @@ function endRun(): void {
   const raced = ghost.armed ? ghosts.bestScore(difficulty) : null;
   const wasRanked = ranked.active;
   const { wasBest, previousBest } = submit();
-  screens.setMode('over');
-  scoreScreen.show({
+  // Le monde est déjà figé — `wreck` ne joue pas plus qu'`over` — mais rien
+  // n'est encore posé par-dessus : l'explosion a l'écran pour elle.
+  screens.setMode('wreck');
+  const card: ScoreBreakdown = {
     distance: sim.state.dist,
     seconds: sim.state.time,
     coins: sim.state.coins,
@@ -396,20 +405,34 @@ function endRun(): void {
       : unrankedWhy
         ? `unranked \u00b7 ${UNRANKED[unrankedWhy]}`
         : '',
-  });
+  };
+
+  // `show` compte ses sept lignes en les faisant sonner : elle ne peut pas
+  // tourner derrière un calque caché, donc elle attend avec lui.
+  let carded = false;
+  const shown = runId;
+  window.setTimeout(() => {
+    if (runId !== shown) return;
+    carded = true;
+    screens.setMode('over');
+    scoreScreen.show(card);
+  }, WRECK_HOLD_MS);
+
   if (wasRanked) {
     // Le score du serveur remplace le local quand il arrive ; sinon le local
     // reste, et l'étiquette dit pourquoi. La partie suivante peut déjà avoir
-    // commencé : l'écran ne bouge que s'il montre encore celle-ci.
-    const shown = runId;
+    // commencé : l'écran ne bouge que s'il montre encore celle-ci. Une réponse
+    // plus rapide que le délai ci-dessus n'est pas perdue : elle va dans la
+    // carte, que `show` lira en montant.
     void ranked.submit(sim, prefs.values.name).then((verdict) => {
       if (runId !== shown) return;
-      if (typeof verdict === 'string') scoreScreen.note(`unranked \u00b7 ${UNRANKED[verdict]}`);
-      else
-        scoreScreen.note(
-          `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board` +
-            (ranked.rank ? ` \u00b7 #${ranked.rank}` : ''),
-        );
+      const text =
+        typeof verdict === 'string'
+          ? `unranked \u00b7 ${UNRANKED[verdict]}`
+          : `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board` +
+            (ranked.rank ? ` \u00b7 #${ranked.rank}` : '');
+      card.note = text;
+      if (carded) scoreScreen.note(text);
     });
   }
 }
@@ -471,7 +494,7 @@ function renderFrame(frameDt: number): void {
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   ship.updateExplosion(frameDt);
   spray.update(frameDt, state);
-  damage.update(state.hull, elapsed);
+  damage.update(state.hull, elapsed, screens.isPlaying);
 
   // Un écran bas — un téléphone en paysage — rapproche la caméra. Lu à chaque
   // frame : `innerHeight` ne force pas de mise en page, et la rotation d'un

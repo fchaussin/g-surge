@@ -30,10 +30,22 @@ export class DamageOverlay {
    * @param hull la coque restante, 0 à 100.
    * @param elapsed horloge d'affichage : seule l'oscillation du clignotement
    *   la lit, jamais la simulation.
+   * @param playing hors partie le voile est éteint, quoi que vaille la coque.
+   *   Sans ce drapeau la remise à zéro de la fin de partie était réécrite à la
+   *   frame suivante — `hull` reste à zéro après un crash, et cette fonction
+   *   tourne aussi sur l'écran de score, sur le menu et pendant l'attract —
+   *   donc le voile continuait de clignoter, remis à zéro ou non.
    */
-  update(hull: number, elapsed: number): void {
+  update(hull: number, elapsed: number, playing = true): void {
     const el = this.element;
     if (!el) return;
+    if (!playing) {
+      if (this.last !== 0) {
+        this.last = 0;
+        el.style.opacity = '0';
+      }
+      return;
+    }
 
     const severity = Math.min(1, Math.max(0, (HULL_START - hull) / HULL_START));
     let level = severity;

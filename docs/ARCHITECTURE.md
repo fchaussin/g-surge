@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 39 | ~7 900 |
+| `src/client/` | 39 | ~8 000 |
 | `server/src/` | 6 | ~500 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->

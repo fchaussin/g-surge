@@ -9,8 +9,14 @@
  * La navigation est une liste plate par écran, rebâtie à chaque transition, où
  * un groupe de boutons segmentés compte pour un seul arrêt — gauche et droite
  * changent alors la valeur au lieu d'avancer.
+ *
+ * `wreck` est le seul mode sans calque : entre l'explosion et la carte de
+ * score, l'écran ne montre que la scène. Il gèle le monde comme `over` et
+ * cache le HUD comme lui, mais ne pose rien par-dessus — c'est là que l'onde de
+ * choc est vue. Mesuré avant qu'il existe : la carte et son voile flou
+ * montaient dans les 80 ms du crash et la recouvraient entière.
  */
-export type Mode = 'menu' | 'run' | 'pause' | 'over' | 'settings' | 'help' | 'board';
+export type Mode = 'menu' | 'run' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board';
 
 /**
  * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la

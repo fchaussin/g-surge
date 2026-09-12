@@ -34,9 +34,9 @@ import {
   Material,
   MeshBasicMaterial,
   MeshLambertMaterial,
-  RingGeometry,
   SphereGeometry,
   Sprite,
+  ShaderMaterial,
   SpriteMaterial,
 } from 'three';
 import type { ThrustTier } from '../sim/index.js';
@@ -56,16 +56,60 @@ const SMOKE_COUNT = 18;
 const TRAIL_LENGTH = 11;
 
 /**
- * L'onde de choc de fin : un pouls magnétique horizontal plutôt qu'une gerbe.
- * `SHOCKWAVE_LIFE` est la durée de l'anneau qui s'étend jusqu'à
- * `SHOCKWAVE_MAX_RADIUS` ; `FLASH_LIFE`, plus courte, celle de l'éclair plein
- * qui marque l'instant de l'impact.
+ * L'onde de choc de fin : une sphère qui enfle, pas un anneau à plat.
+ *
+ * L'anneau horizontal disait le pouls magnétique, mais vu de la caméra —
+ * derrière et au-dessus — un disque qui s'ouvre se lit de biais et s'aplatit
+ * dès qu'il dépasse les bords de la piste. Une sphère se lit pareil d'où
+ * qu'on la regarde, ce qui est la seule propriété qui compte pour un effet
+ * qu'on ne voit qu'une fois par partie et jamais deux fois du même angle.
+ *
+ * Deux coques concentriques, toutes deux additives : `SHOCKWAVE_*` est
+ * l'enveloppe, large et faible, qui s'étend loin et s'éteint en s'étalant ;
+ * `FLASH_*`, plus courte et plus brillante, est le cœur qui marque l'instant
+ * de l'impact.
+ *
+ * L'enveloppe porte un fresnel, comme la bulle de `shield.ts` et pour la même
+ * raison : une sphère additive à opacité constante accumule autant au centre
+ * qu'au bord, et mesurée à l'écran elle se lit comme une bulle pleine qui
+ * délave la scène, pas comme une onde. L'alpha suit donc l'incidence — nul là
+ * où la surface fait face à la caméra, plein au silhouettage — ce qui ne
+ * laisse briller que l'anneau, de n'importe quel angle. Aucun paramètre de
+ * `MeshBasicMaterial` ne dépend de la vue, d'où le shader.
  */
 const SHOCKWAVE_LIFE = 0.85;
-const SHOCKWAVE_MAX_RADIUS = 22;
+const SHOCKWAVE_MAX_RADIUS = 20;
 const SHOCKWAVE_COLOUR = 0x25e2ff;
-const FLASH_LIFE = 0.22;
-const FLASH_RADIUS = 9;
+const FLASH_LIFE = 0.14;
+const FLASH_RADIUS = 5;
+
+/** Combien l'anneau est serré : plus haut, plus fin. Réglé à l'œil. */
+const SHOCKWAVE_RIM = 2.6;
+
+/* Pas de `precision` déclarée : three.js pose `highp`, et le ciel a déjà payé
+   ce qu'un `mediump` coûte ici. */
+const SHOCKWAVE_VERT = `
+varying vec3 vNormalW;
+varying vec3 vViewW;
+void main() {
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  vNormalW = normalize(mat3(modelMatrix) * normal);
+  vViewW = cameraPosition - world.xyz;
+  gl_Position = projectionMatrix * viewMatrix * world;
+}
+`;
+
+const SHOCKWAVE_FRAG = `
+uniform vec3 uColour;
+uniform float uOpacity;
+varying vec3 vNormalW;
+varying vec3 vViewW;
+void main() {
+  float facing = abs(dot(normalize(vNormalW), normalize(vViewW)));
+  float rim = pow(1.0 - facing, ${SHOCKWAVE_RIM.toFixed(1)});
+  gl_FragColor = vec4(uColour, uOpacity * rim);
+}
+`;
 
 /**
  * Ce qu'un drift fait à la traînée de fumée : elle se courbe vers le côté d'où
@@ -117,9 +161,9 @@ export class Ship {
   private wake = 0;
   private wakeClock = 0;
 
-  /** L'anneau qui s'étend et l'éclair bref au centre. Voir `explode`. */
+  /** La coque d'onde qui enfle et le cœur bref qu'elle entoure. Voir `explode`. */
   private readonly shockwave: Mesh;
-  private readonly shockwaveMaterial: MeshBasicMaterial;
+  private readonly shockwaveMaterial: ShaderMaterial;
   private readonly flash: Mesh;
   private readonly flashMaterial: MeshBasicMaterial;
   private exploding = false;
@@ -148,19 +192,22 @@ export class Ship {
     this.halo.visible = false;
     this.group.add(this.halo);
 
-    // À plat dans le plan X/Z — horizontal, puisque le vaisseau ne bouge jamais
-    // et que Y est vertical — plutôt que dans le plan X/Y par défaut d'une
-    // géométrie plane.
-    this.shockwaveMaterial = new MeshBasicMaterial({
-      color: SHOCKWAVE_COLOUR,
+    // Les deux faces : le shader ne laisse passer que le silhouettage, donc
+    // l'avant et l'arrière de la coque se superposent exactement sur l'anneau
+    // et le doublent, ce qui est le but.
+    this.shockwaveMaterial = new ShaderMaterial({
+      uniforms: {
+        uColour: { value: new Color(SHOCKWAVE_COLOUR) },
+        uOpacity: { value: 0 },
+      },
+      vertexShader: SHOCKWAVE_VERT,
+      fragmentShader: SHOCKWAVE_FRAG,
       transparent: true,
-      opacity: 0,
       side: DoubleSide,
       blending: AdditiveBlending,
       depthWrite: false,
     });
-    this.shockwave = new Mesh(new RingGeometry(0.82, 1, 64), this.shockwaveMaterial);
-    this.shockwave.rotation.x = -Math.PI / 2;
+    this.shockwave = new Mesh(new SphereGeometry(1, 28, 18), this.shockwaveMaterial);
     this.shockwave.position.y = 0.9;
     this.shockwave.visible = false;
     this.group.add(this.shockwave);
@@ -169,12 +216,10 @@ export class Ship {
       color: 0xe8fbff,
       transparent: true,
       opacity: 0,
-      side: DoubleSide,
       blending: AdditiveBlending,
       depthWrite: false,
     });
-    this.flash = new Mesh(new CircleGeometry(1, 32), this.flashMaterial);
-    this.flash.rotation.x = -Math.PI / 2;
+    this.flash = new Mesh(new SphereGeometry(1, 20, 14), this.flashMaterial);
     this.flash.position.y = 0.9;
     this.flash.visible = false;
     this.group.add(this.flash);
@@ -298,10 +343,9 @@ export class Ship {
   }
 
   /**
-   * La coque cède : elle disparaît, un pouls magnétique part en anneau
-   * horizontal, un éclair bref au centre marque l'instant. Déclenché une fois
-   * par `wreck` — un second appel avant `resetExplosion` ne fait rien, la
-   * partie est déjà perdue.
+   * La coque cède : elle disparaît, une coque d'onde enfle tout autour et un
+   * cœur bref marque l'instant. Déclenché une fois par `wreck` — un second
+   * appel avant `resetExplosion` ne fait rien, la partie est déjà perdue.
    */
   explode(): void {
     if (this.destroyed) return;
@@ -313,7 +357,7 @@ export class Ship {
 
     this.shockwave.visible = true;
     this.shockwave.scale.setScalar(0.001);
-    this.shockwaveMaterial.opacity = 1;
+    this.shockwaveMaterial.uniforms.uOpacity!.value = 1;
 
     this.flash.visible = true;
     this.flash.scale.setScalar(0.001);
@@ -330,14 +374,19 @@ export class Ship {
     this.explodeAge += frameDt;
     const t = Math.min(1, this.explodeAge / SHOCKWAVE_LIFE);
 
-    // Démarre vite, ralentit en s'élargissant — un pouls, pas une chute.
+    // Démarre vite, ralentit en s'élargissant — un pouls, pas une chute. La
+    // coque s'éteint plus vite qu'elle ne grandit : une sphère dont la surface
+    // croît comme le carré du rayon garderait sinon trop de lumière à la fin.
     const eased = 1 - (1 - t) ** 3;
     this.shockwave.scale.setScalar(0.001 + eased * SHOCKWAVE_MAX_RADIUS);
-    this.shockwaveMaterial.opacity = (1 - t) * (1 - t);
+    this.shockwaveMaterial.uniforms.uOpacity!.value = (1 - t) ** 3;
 
     const ft = Math.min(1, this.explodeAge / FLASH_LIFE);
-    this.flash.scale.setScalar(0.001 + ft * FLASH_RADIUS);
-    this.flashMaterial.opacity = 1 - ft;
+    this.flash.scale.setScalar(0.001 + (1 - (1 - ft) ** 2) * FLASH_RADIUS);
+    this.flashMaterial.opacity = (1 - ft) ** 3;
+    // Éteint pour de bon, et pas seulement transparent : mesuré à l'écran, le
+    // cœur laissait une bille grise dans l'onde bien après sa fin de vie.
+    if (ft >= 1) this.flash.visible = false;
 
     if (t >= 1) {
       this.exploding = false;
