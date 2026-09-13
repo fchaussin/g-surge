@@ -18,11 +18,13 @@ import type { Env } from './index.js';
 import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
 import { chunk } from './track.js';
+import { asTrace } from './wire.js';
 
 /** Ce que le Worker transmet pour une partie classée : le ticket et la trace sans sa graine. */
 export interface RankedRun {
   ticket: string;
-  trace: Trace;
+  /** Compacte en base64, ou la forme JSON d'un bundle d'avant. Voir `wire.ts`. */
+  trace: string | Trace;
   /** Facultatif : une partie sans nom choisi entre encore, sous un nom générique. */
   name?: string;
   /** Ce que le client a lui-même calculé — jamais ce qui compte, seulement ce qui est comparé. */
@@ -107,7 +109,9 @@ export class Arbiter extends DurableObject<Env> {
     const body = (await req.json()) as RankedRun;
     const ticket = await this.tickets.get(body.ticket);
     if (!ticket) return refuse(404, 'ticket');
-    const trace: Trace = { ...body.trace, seed: ticket.seed };
+    const sent = asTrace(body.trace);
+    if (!sent) return refuse(400, 'trace');
+    const trace: Trace = { ...sent, seed: ticket.seed };
     if (!validTrace(trace) || trace.difficulty !== ticket.difficulty) return refuse(400, 'trace');
     const now = this.now(req);
     const late = Tickets.window(ticket, trace.steps * DT * 1000, now);
@@ -151,8 +155,8 @@ export class Arbiter extends DurableObject<Env> {
 
   /** Une trace avec sa graine, rejouée sans ticket ni tableau : la voie des tests et des fantômes. */
   private async replayOnly(req: Request): Promise<Response> {
-    const trace = (await req.json()) as Trace;
-    if (!validTrace(trace)) return refuse(400, 'trace');
+    const trace = asTrace(await req.json());
+    if (!trace || !validTrace(trace)) return refuse(400, 'trace');
     return json({ outcome: replay(trace) });
   }
 

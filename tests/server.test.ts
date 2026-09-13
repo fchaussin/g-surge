@@ -20,6 +20,7 @@ import { coreDigest } from '../scripts/core-digest.mjs';
 import {
   DT,
   outcomeOf,
+  packTrace,
   QueuedNodes,
   quantiseSteer,
   replay,
@@ -212,6 +213,29 @@ describe('the server in workerd', () => {
     // rejouée, pas classée : rien n'entre au journal sans ticket
     const db = await mf.getD1Database('DB');
     expect((await db.prepare('SELECT COUNT(*) AS n FROM runs').first<{ n: number }>())?.n).toBe(0);
+  });
+
+  /**
+   * La forme compacte sur le fil, qui est celle que le client envoie.
+   *
+   * Mesuré : trois minutes au manche font 360 Ko en JSON contre 70 en octets,
+   * et une partie de dix minutes passait au-dessus du méga-octet que le
+   * Worker refuse. Ce qui est vérifié ici est que les deux formes rendent
+   * exactement la même issue — sans quoi le gain serait payé d'un score.
+   */
+  it('reads a trace packed and base64 exactly as it reads the JSON one', async () => {
+    const { sim, trace } = play('packed-easy', 'easy', 40);
+    const packed = Buffer.from(packTrace(trace)).toString('base64');
+    const res = await post('/run', { core, trace: packed });
+    expect(res.status).toBe(200);
+    const { outcome } = (await res.json()) as { outcome: unknown };
+    expect(outcome).toEqual(outcomeOf(sim.state, trace.steps));
+
+    const asJson = await post('/run', { core, trace });
+    expect(((await asJson.json()) as { outcome: unknown }).outcome).toEqual(outcome);
+
+    // du base64 qui ne porte pas une trace est refusé, pas rejoué
+    expect((await post('/run', { core, trace: 'bm90IGEgdHJhY2U=' })).status).toBe(400);
   });
 
   /**

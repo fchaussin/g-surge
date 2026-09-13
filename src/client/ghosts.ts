@@ -12,6 +12,7 @@
  * pire qu'un jeu qui l'oublie.
  */
 import { packTrace, unpackTrace, validTrace, type Difficulty, type Trace } from '../sim/index.js';
+import { fromBase64, toBase64 } from './base64.js';
 
 /** Suit la forme de la trace, pas la version du jeu : `packTrace` dit `FORMAT`, ceci dit où. */
 const KEY = 'gsurge.ghost.v1';
@@ -19,22 +20,6 @@ const KEY = 'gsurge.ghost.v1';
 interface Stored {
   score: number;
   bytes: string;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let s = '';
-  // par tranches : `fromCharCode` sur cent mille arguments dépasse la pile
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
-  }
-  return btoa(s);
-}
-
-function fromBase64(s: string): Uint8Array {
-  const bin = atob(s);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
 }
 
 export class GhostStore {

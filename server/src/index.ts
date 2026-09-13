@@ -19,7 +19,12 @@ export interface Env {
   DEBUG?: string;
 }
 
-/** Une trace de trois minutes au manche fait ~300 Ko en JSON ; au-delà d'un méga-octet, ce n'en est pas une. */
+/**
+ * Mesuré : trois minutes au manche font ~360 Ko en JSON et ~70 Ko en forme
+ * compacte, dix minutes quatre fois plus. Le méga-octet tenait donc la forme
+ * JSON d'une partie courte et refusait une partie longue ; il est large pour
+ * la forme compacte, qui est celle que le client envoie.
+ */
 const MAX_BODY = 1 << 20;
 
 /** Ce que le client envoie : le condensé de son noyau, et la partie. */
@@ -110,7 +115,11 @@ async function route(req: Request, env: Env): Promise<Response> {
       return refuse(400, 'envelope');
     }
     if (body.core !== __CORE_DIGEST__) return refuse(409, 'core', { expected: __CORE_DIGEST__ });
-    if (typeof body.trace !== 'object' || body.trace === null) return refuse(400, 'trace');
+    // Compacte ou JSON : `asTrace`, dans l'arbitre, tranche. Ici on ne vérifie
+    // que la présence, pour refuser une enveloppe vide sans réveiller l'objet.
+    if (typeof body.trace !== 'string' && (typeof body.trace !== 'object' || body.trace === null)) {
+      return refuse(400, 'trace');
+    }
     if (body.ticket !== undefined && typeof body.ticket !== 'string') return refuse(400, 'ticket');
     const ranked = body.ticket !== undefined;
     const headers: Record<string, string> = { 'content-type': 'application/json' };

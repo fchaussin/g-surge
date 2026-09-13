@@ -17,8 +17,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 40 | ~8 200 |
-| `server/src/` | 6 | ~500 |
+| `src/client/` | 41 | ~8 200 |
+| `server/src/` | 7 | ~600 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -206,6 +206,7 @@ which is what makes the step runnable outside a page.
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
 | `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
+| `base64.ts` | The bytes of a trace either way, for local ghosts and for the wire — the core cannot hold it, `src/sim/` has neither `btoa` nor `atob` |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |
 | `history.ts` | The system back button: one spare history entry, always, so a back goes up one screen instead of out of the game — and, installed, asks before leaving |
 
@@ -267,6 +268,7 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 | `tickets.ts` | Tickets in the object's storage: the seed the client never sees, the issue time the submission window is measured against — one run per ticket, in real time, on the object's clock |
 | `track.ts` | `chunk(seed, difficulty, from)`: 256 segments from the seeded generator, packed — the same range always answers the same bytes |
 | `epoch.ts` | `epoch(now)`, the ISO week key the board resets on — Monday 00:00 UTC — and `nextReset(now)` for the board's countdown |
+| `wire.ts` | `asTrace`: the body's trace, packed and base64 as the client now sends it, or the JSON shape a bundle from before a deploy still sends |
 | `http.ts` | `json` and `refuse` |
 | `env.d.ts` | `__CORE_DIGEST__`, defined by the build |
 

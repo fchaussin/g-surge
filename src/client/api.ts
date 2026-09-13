@@ -13,7 +13,14 @@
  * Chaque appel a un délai borné. Un serveur qui ne répond pas n'est pas une
  * exception à afficher, c'est le mode hors ligne qui reprend la main.
  */
-import type { Difficulty, Outcome, Trace, WireChunk } from '../sim/index.js';
+import {
+  packTrace,
+  type Difficulty,
+  type Outcome,
+  type Trace,
+  type WireChunk,
+} from '../sim/index.js';
+import { toBase64 } from './base64.js';
 import { CORE_DIGEST } from './core.js';
 
 /* api:url */ export const API_URL = '';
@@ -100,7 +107,10 @@ export const api = {
     name: string,
     claim: Outcome,
   ): Promise<{ outcome: Outcome; rank: number }> =>
-    post('/run', { core: CORE_DIGEST, ticket, trace, name, claim }),
+    // La trace part sous sa forme compacte : mesuré, trois minutes au manche
+    // font 360 Ko en JSON contre 70 ici, et une partie de dix minutes passait
+    // au-dessus du méga-octet que le Worker refuse. Le serveur lit les deux.
+    post('/run', { core: CORE_DIGEST, ticket, trace: toBase64(packTrace(trace)), name, claim }),
   board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>
     call(`/board/${difficulty}?by=${category}`),
 };
