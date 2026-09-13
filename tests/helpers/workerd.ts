@@ -133,6 +133,7 @@ export function flare(extra: Vars = {}): Miniflare {
           },
           env: {
             ARBITER: { type: 'durable-object', worker: 'api', exportName: 'Arbiter' },
+            ROOM: { type: 'durable-object', worker: 'api', exportName: 'Room' },
             DB: { type: 'd1', id: 'gsurge' },
             DEBUG: text('1'),
             SESSION_SECRET: text(SESSION_SECRET),
@@ -141,7 +142,10 @@ export function flare(extra: Vars = {}): Miniflare {
             OIDC_TEST_CLIENT_SECRET: text(IDP.clientSecret),
             ...extra,
           },
-          exports: { Arbiter: { type: 'durable-object', storage: 'sqlite' } },
+          exports: {
+            Arbiter: { type: 'durable-object', storage: 'sqlite' },
+            Room: { type: 'durable-object', storage: 'sqlite' },
+          },
         },
         // Tout `fetch` sortant du serveur arrive chez le faux fournisseur. Sous
         // `dev`, à côté de la configuration : c'est là que Miniflare le lit.

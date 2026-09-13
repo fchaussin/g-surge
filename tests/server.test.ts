@@ -829,6 +829,132 @@ describe('the server in workerd', () => {
     ).toBe(0);
   });
 
+  /**
+   * Un salon, à deux membres scriptés : c'est la preuve que M7 demande —
+   * l'état relayé d'un membre est exactement ce qu'un rejeu Node de ses
+   * morceaux donne. Le membre A joue une vraie partie sur la piste que le
+   * salon sert, envoie ses fenêtres à 10 Hz avec la distance qu'il affiche ;
+   * le membre B reçoit six nombres, et ils sont ceux de la simulation de A
+   * au bit près. Puis A ment sur sa distance, et la prise se ferme.
+   */
+  it('runs a duel: same track for both, chunks replayed and relayed exactly, liars ejected', async () => {
+    const a = await signIn('Ada L');
+    const b = await signIn('Bob B');
+    const c = await signIn('Carl C');
+
+    const opened = await post('/room', { difficulty: 'easy' }, a);
+    expect(opened.status).toBe(200);
+    const room = (await opened.json()) as {
+      room: string;
+      member: string;
+      difficulty: string;
+      seats: number;
+      chunk: WireChunk;
+    };
+    expect(room.room).toMatch(/^[0-9a-f]{16}$/);
+    expect(room.seats).toBe(1);
+    const joined = await post(`/room/${room.room}/join`, {}, b);
+    expect(joined.status).toBe(200);
+    const seatB = (await joined.json()) as { member: string; seats: number; chunk: WireChunk };
+    expect(seatB.seats).toBe(2);
+    // deux places, pas trois ; et sans compte, pas de salon du tout
+    expect((await post(`/room/${room.room}/join`, {}, c)).status).toBe(409);
+    expect((await post('/room', { difficulty: 'easy' })).status).toBe(401);
+    // la même piste pour les deux : la première tranche est identique
+    expect(seatB.chunk).toEqual(room.chunk);
+
+    // les deux prises
+    const socketOf = async (member: string) => {
+      const res = await mf.dispatchFetch(`https://api.test/room/${room.room}/ws?member=${member}`, {
+        headers: { upgrade: 'websocket' },
+      });
+      expect(res.status).toBe(101);
+      // `accept` est celui de workerd, pas du DOM : le type du navigateur ne le connaît pas
+      const ws = (res as unknown as { webSocket: WebSocket & { accept(): void } }).webSocket;
+      ws.accept();
+      return ws;
+    };
+    const wsA = await socketOf(room.member);
+    const wsB = await socketOf(seatB.member);
+    const relays: Record<string, unknown>[] = [];
+    wsB.addEventListener('message', (ev) => relays.push(JSON.parse(String(ev.data))));
+    const closedA = new Promise<number>((resolve) =>
+      wsA.addEventListener('close', (ev) => resolve((ev as CloseEvent).code)),
+    );
+
+    // A joue sur la piste du salon, tirée par tranches comme un client
+    const queue = new QueuedNodes();
+    queue.feed(unpackNodes(room.chunk)!);
+    while (queue.ahead < 1024) {
+      const r = await get(`/room/${room.room}/track/${queue.wanted}`, a);
+      expect(r.status).toBe(200);
+      queue.feed(unpackNodes((await r.json()) as WireChunk)!);
+    }
+    const sim = new Sim({ seed: 'not-the-seed', difficulty: 'easy' });
+    sim.reset('not-the-seed');
+    sim.track.attach(queue);
+    const rng = Rng.fromSeed('duel', 'player');
+    const input: Input = { steer: 0, brake: false, boost: true };
+    const perChunk = 72; // 10 Hz à 720 pas par seconde
+    let sentUpTo = 0;
+    const send = () => {
+      const t = sim.trace();
+      const keep: number[] = [];
+      for (let i = 0; i < t.from.length; i++) if (t.from[i]! >= sentUpTo) keep.push(i);
+      const w: Trace = {
+        seed: '',
+        difficulty: 'easy',
+        steps: t.steps - sentUpTo,
+        from: keep.map((i) => t.from[i]! - sentUpTo),
+        steer: keep.map((i) => t.steer[i]!),
+        flags: keep.map((i) => t.flags[i]!),
+        truncated: false,
+      };
+      sentUpTo = t.steps;
+      wsA.send(
+        JSON.stringify({ t: Buffer.from(packTrace(w)).toString('base64'), d: sim.state.dist }),
+      );
+    };
+    for (let i = 0; i < perChunk * 30; i++) {
+      if (i % 12 === 0) input.steer = quantiseSteer(Math.max(-1, Math.min(1, rng.centered(0.4))));
+      sim.step(input, DT);
+      if ((i + 1) % perChunk === 0) send();
+    }
+    // le relais arrive dans l'ordre ; on attend le dernier
+    await new Promise<void>((resolve) => {
+      const tick = () => (relays.length >= 30 ? resolve() : setTimeout(tick, 20));
+      tick();
+    });
+    const last = relays[relays.length - 1]!;
+    expect(last.who).toBe(room.member);
+    expect(last.steps).toBe(perChunk * 30);
+    expect(last.dist).toBe(sim.state.dist);
+    expect(last.lat).toBe(sim.state.lat);
+    expect(last.hop).toBe(sim.state.hop);
+    expect(last.yaw).toBe(sim.state.yaw);
+    expect(last.wrecked).toBe(sim.state.wrecked);
+
+    // A prétend cinq mètres de plus : éjecté, avec le code qui le dit
+    for (let i = 0; i < perChunk; i++) sim.step(input, DT);
+    const t = sim.trace();
+    const keep: number[] = [];
+    for (let i = 0; i < t.from.length; i++) if (t.from[i]! >= sentUpTo) keep.push(i);
+    const w: Trace = {
+      seed: '',
+      difficulty: 'easy',
+      steps: t.steps - sentUpTo,
+      from: keep.map((i) => t.from[i]! - sentUpTo),
+      steer: keep.map((i) => t.steer[i]!),
+      flags: keep.map((i) => t.flags[i]!),
+      truncated: false,
+    };
+    wsA.send(
+      JSON.stringify({ t: Buffer.from(packTrace(w)).toString('base64'), d: sim.state.dist + 5 }),
+    );
+    expect(await closedA).toBe(4001);
+    wsB.close();
+  }, 60_000);
+
   it('answers CORS for the game origins and nothing else', async () => {
     for (const origin of [
       'https://g-surge.w23.fr',

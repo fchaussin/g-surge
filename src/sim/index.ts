@@ -39,6 +39,8 @@ export {
   type Tuning,
 } from './tuning.js';
 export {
+  BOOST,
+  BRAKE,
   MAX_SPANS,
   MAX_TRACE_STEPS,
   Recorder,

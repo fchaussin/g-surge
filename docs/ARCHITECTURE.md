@@ -18,7 +18,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
 | `src/client/` | 42 | ~8 600 |
-| `server/src/` | 10 | ~1 400 |
+| `server/src/` | 11 | ~1 800 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -266,6 +266,7 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 |---|---|
 | `index.ts` | The Worker: `/health`; `/ticket`; `/track/:ticket/:from` and `/board/:difficulty`, passed through; `/run` — body size, envelope, the core digest against its own, then a forward to the arbiter, ranked with a ticket or replay-only without, `name` and `claim` along for a ranked one; CORS for the game's three origins; `/debug/*` under `DEBUG=1` only |
 | `arbiter.ts` | The Durable Object: issues tickets with the first chunk, serves chunks, and on a ranked run puts the ticket's seed on the trace, checks the window, `validTrace`, `replay`; stamps the week, sanitises the name, flags a `claim` that disagrees with its own replay, writes the row to D1, answers the rank, consumes the ticket. `/board/:difficulty` reads the ten best of the current week, and `/trace/:id` the bytes of a kept run. Nothing accumulates: every submission prunes its week and difficulty to the union of the top twenty of each category — a run first on top speed and four-hundredth on score stays, or its column would lie — and the traces follow, this week's only The replay lives here because a free-plan Worker has 10 ms of CPU and a replay takes sixty |
+| `room.ts` | The Durable Object of a duel: owns the seed neither member sees, serves the track in chunks to both, replays each member's trace incrementally from the windows they send at 10 Hz, ejects one whose claimed distance diverges from the replay, and relays six numbers to the other — nothing else ever crosses |
 | `tickets.ts` | Tickets in the object's storage: the seed the client never sees, the issue time the submission window is measured against — one run per ticket, in real time, on the object's clock |
 | `track.ts` | `chunk(seed, difficulty, from)`: 256 segments from the seeded generator, packed — the same range always answers the same bytes |
 | `epoch.ts` | `epoch(now)`, the ISO week key the board resets on — Monday 00:00 UTC — and `nextReset(now)` for the board's countdown |

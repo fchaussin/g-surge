@@ -23,9 +23,12 @@ import { json, refuse } from './http.js';
 import { allowedOrigin } from './origins.js';
 
 export { Arbiter } from './arbiter.js';
+export { Room } from './room.js';
 
 export interface Env {
   ARBITER: DurableObjectNamespace;
+  /** Un objet par salon, nommé par l'identifiant du lien d'invitation. */
+  ROOM: DurableObjectNamespace;
   DB: D1Database;
   DEBUG?: string;
   /**
@@ -183,6 +186,50 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return refuse(405, 'method');
     const { name } = (await req.json()) as { name?: string };
     return json({ token: await debugLogin(env, typeof name === 'string' ? name : 'PILOT', now) });
+  }
+
+  // Les salons. Un identifiant tiré ici nomme l'objet ; tout le reste est
+  // à lui. Chaque entrée demande un compte : un salon est une partie
+  // classée à deux, et le classé se joue connecté.
+  const room = url.pathname.match(/^\/room(?:\/([0-9a-f]{16}))?(?:\/(join|ws|track\/\d+))?$/);
+  if (room) {
+    const [, id, action] = room;
+    if (!id && req.method === 'POST' && !action) {
+      const account = await accountOf(env, req, now);
+      if (!account) return refuse(401, 'sign-in');
+      const fresh = [...crypto.getRandomValues(new Uint8Array(8))]
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const body = await req.text();
+      if (body.length > 256) return refuse(413, 'size');
+      const res = await env.ROOM.get(env.ROOM.idFromName(fresh)).fetch('https://room/open', {
+        method: 'POST',
+        body,
+        headers: { ...ipHeaders(req, env), ...accountHeaders(account) },
+      });
+      if (!res.ok) return res;
+      return json({ room: fresh, ...((await res.json()) as object) });
+    }
+    if (!id) return refuse(404, 'not-found');
+    const stub = env.ROOM.get(env.ROOM.idFromName(id));
+    if (action === 'join') {
+      if (req.method !== 'POST') return refuse(405, 'method');
+      const account = await accountOf(env, req, now);
+      if (!account) return refuse(401, 'sign-in');
+      return stub.fetch('https://room/join', {
+        method: 'POST',
+        headers: { ...ipHeaders(req, env), ...accountHeaders(account) },
+      });
+    }
+    if (action?.startsWith('track/')) {
+      if (req.method !== 'GET') return refuse(405, 'method');
+      return stub.fetch('https://room/' + action, { headers: ipHeaders(req, env) });
+    }
+    if (action === 'ws') {
+      // La requête d'ouverture passe telle quelle : l'objet fait l'échange.
+      return stub.fetch('https://room/ws' + url.search, req);
+    }
+    return refuse(404, 'not-found');
   }
 
   if (url.pathname === '/ticket') {

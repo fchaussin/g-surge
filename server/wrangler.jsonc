@@ -17,10 +17,16 @@
   "compatibility_date": "2026-09-01",
   "routes": [{ "pattern": "gsurge-api.w23.fr", "custom_domain": true }],
   "durable_objects": {
-    "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
+    "bindings": [
+      { "name": "ARBITER", "class_name": "Arbiter" },
+      { "name": "ROOM", "class_name": "Room" },
+    ],
   },
   // SQLite, pas le stockage clé-valeur : c'est le seul disponible sur le plan gratuit.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Arbiter"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Arbiter"] },
+    { "tag": "v2", "new_sqlite_classes": ["Room"] },
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -61,7 +67,10 @@
         "GOOGLE_CLIENT_ID": "742047604269-4qqnm7q5ar3glad8q4fchbf1oo3h8r9l.apps.googleusercontent.com",
       },
       "durable_objects": {
-        "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
+        "bindings": [
+          { "name": "ARBITER", "class_name": "Arbiter" },
+          { "name": "ROOM", "class_name": "Room" },
+        ],
       },
       "d1_databases": [
         {
