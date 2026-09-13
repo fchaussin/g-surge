@@ -365,6 +365,90 @@ and the obligations stay small.
 **Version.** Minor. Major only if a board key breaks, which the epoch design
 avoids.
 
+## Before M7 — the review of 13 September 2026
+
+Four independent readers went over the core, the client, the server and the
+tests; every finding that mattered was re-verified on the code. What follows
+is the part that gates the roadmap, in the order to do it. M7 builds on the
+run lifecycle in `main.ts`, and three of these findings come from that
+lifecycle having four owners of "a run ended" — building rooms on it first
+would compound them.
+
+**Live, fix first — a patch on its own.**
+
+1. Watching a board entry to its wreck runs the player's end-of-run path:
+   `watch` hands `sim.events` to `feedback.consume`, `wreck` calls `endRun()`,
+   `submit()` writes the watched score into the player's local top five and
+   offers the stranger's trace as their ghost. Route `wreck` away from
+   `onWreck` in the `watch` branch. `main.ts:663-668`.
+2. `watchEntry`/`stopWatching` call `sim.setDifficulty` without the
+   `renderScale` save/restore that the settings path does; after a watch the
+   tuning says 1 while the viewport is at what the governor set. Extract the
+   save/restore, it already exists twice. `main.ts:425, 442`.
+3. RESTART from pause never records the run: `startRun` submits only when
+   the mode is `run`. `main.ts:350`.
+
+**In 1.24.0, before it is deployed — sign-in hardening, one commit.**
+
+4. The callback is not bound to the browser that started the flow, and the
+   client stores any `#session=` fragment: a link plants a session, an
+   intercepted callback URL signs the victim in as the attacker. At `/start`
+   set an `HttpOnly; Secure; SameSite=Lax` cookie on the API origin holding
+   `hmac(state)` and require it at `/callback`; on the client, accept the
+   fragment only when a `sessionStorage` flag set before navigating to
+   `/start` is present. `auth.ts:285-320`, `session.ts:91-99`.
+5. `finish` trusts `state.r` on the HMAC alone; re-check `allowedOrigin`
+   there, refuse to start under 32 characters of `SESSION_SECRET`, compare
+   digests in constant time. `auth.ts:296, 319`.
+6. A ticket is not bound to the account that submits it: compare
+   `x-gs-account` with `ticket.account` in `run()`, 403 otherwise.
+   `arbiter.ts:148-183`.
+
+**Live — the single arbiter can be taken down by one host.**
+
+7. The replay-only `/run` needs no account; `/track/:ticket/:from` is not
+   rate-limited and regenerates from segment 0 (48 ms at `from=100000`,
+   measured); the limiter keys on the exact IPv6 address. Session or `DEBUG`
+   for replay-only, `track` in `PER_MINUTE` with `from` bounded by the
+   ticket's age, /64 keys and a hard cap on the table.
+
+**Validation edges, one commit.**
+
+8. `validTrace` uses `in` on `DIFF` (`"toString"` is a difficulty) and
+   throws on a trace without arrays; `CATEGORY_ORDER[category]` reaches
+   prototype members (`?by=constructor` → 500). `Object.hasOwn`,
+   `Array.isArray` in `asTrace`.
+
+**Deploy plumbing.**
+
+9. `vars` are not inherited by `env.staging` — repeat the block there.
+10. Nothing deploys the Worker on a push; a `src/sim/` change leaves it on
+    the old digest and every ranked run gets a 409 after a full run — the
+    incident of 12 September. A `deploy-server` job on push to `main` after
+    `verify` and `e2e`; needs `CLOUDFLARE_API_TOKEN` and
+    `CLOUDFLARE_ACCOUNT_ID` as repository secrets, from the author.
+
+**Tests that lie, or are missing.**
+
+11. `sim-parity` recreates a missing fixture and passes: throw instead.
+12. The mobile ghost "flake" is a 30 s budget on a three-run test under the
+    frame cap (6/6 measured, passes at 45 s): `test.slow()`, and no CI
+    retry to hide it. `measure:ladder` has the same shape of bug, a 5 s
+    vitest timeout.
+13. The browser path a real ranked run takes — `toBase64`, the bearer, `/run`,
+    the 401 that forgets the token — is stubbed nowhere: a `base64.test.ts`
+    and a `/ticket`+`/run` route in `session.spec`.
+
+**Noted, not gating:** prune not atomic (one `DELETE` with four `NOT IN`
+subqueries in a `db.batch`); sessions never swept and `claim` stored raw;
+bodies read before the size check; no auto-pause on `visibilitychange`;
+double-tap START starts two ranked runs; two unguarded DOM writes a frame;
+the one per-step allocation in the core (`scrape`/`ride` events); the
+`setDifficulty`-after-`reset` footgun; `history.go(-2)` on a fresh PWA;
+the core digest is not recursive. The full write-up with scenarios and
+confidence per finding was delivered on 13 September; the actionable part
+is this list.
+
 ## M7 — Rooms
 
 **Goal.** Phase 3: several players on one track at once, each running their
