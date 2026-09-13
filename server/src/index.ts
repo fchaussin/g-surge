@@ -11,6 +11,7 @@
 import { probe, Sim, type ProbeOptions } from '../../src/sim/index.js';
 import {
   accountOf,
+  BIND_COOKIE,
   debugLogin,
   deleteAccount,
   finish,
@@ -95,6 +96,16 @@ export default {
  * Ce que l'arbitre doit savoir de l'appelant : son adresse, que `fetch` vers
  * un Durable Object ne transporte pas, et l'heure feinte sous `DEBUG=1`.
  */
+/** La valeur d'un cookie dans l'en-tête, ou `null`. */
+function cookieValue(header: string | null, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq > 0 && part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+  }
+  return null;
+}
+
 /** Le compte résolu, pour l'arbitre : il ne voit jamais un jeton, seulement qui c'est. */
 const accountHeaders = (a: { id: number; name: string }): Record<string, string> => ({
   'x-gs-account': String(a.id),
@@ -133,11 +144,20 @@ async function route(req: Request, env: Env): Promise<Response> {
     const callbackUrl = `${url.origin}/auth/${provider.name}/callback`;
     if (auth[2] === 'start') {
       const returnTo = url.searchParams.get('return') ?? '';
-      const to = await startUrl(env, provider, returnTo, callbackUrl, now);
-      if (!to) return refuse(400, 'return');
-      return Response.redirect(to, 302);
+      const started = await startUrl(env, provider, returnTo, callbackUrl, now);
+      if (!started) return refuse(400, 'return');
+      // Le cookie de liaison : dix minutes, l'origine de l'API seulement, et
+      // le seul chemin qui le lit.
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: started.url,
+          'set-cookie': `${BIND_COOKIE}=${started.bind}; Max-Age=600; Path=/auth; HttpOnly; Secure; SameSite=Lax`,
+        },
+      });
     }
-    const done = await finish(env, provider, url, callbackUrl, now);
+    const bind = cookieValue(req.headers.get('cookie'), BIND_COOKIE);
+    const done = await finish(env, provider, url, callbackUrl, bind, now);
     if ('error' in done) return refuse(400, done.error);
     // Le fragment ne quitte jamais le navigateur : c'est là que le jeton va.
     return Response.redirect(`${done.returnTo}/#session=${done.token}`, 302);

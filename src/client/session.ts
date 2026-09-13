@@ -16,6 +16,13 @@
 import { api, API_URL, ApiError, setAuthToken, type Account } from './api.js';
 
 const KEY = 'gsurge.session.v1';
+/**
+ * Posé dans `sessionStorage` juste avant de partir chez le fournisseur, et
+ * exigé pour lire `#session=` au retour : un lien reçu avec un fragment ne
+ * connecte pas — il faut être parti d'ici. `sessionStorage` vit dans l'onglet
+ * et survit à la navigation aller-retour, ce qui est exactement sa portée.
+ */
+const STARTED = 'gsurge.signin';
 
 const storage = (): Storage | null => {
   try {
@@ -47,6 +54,16 @@ export class Session {
   /** L'adresse chez le serveur qui ouvre la connexion : une navigation, pas un `fetch`. */
   signInUrl(provider: string): string {
     return `${API_URL}/auth/${provider}/start?return=${encodeURIComponent(window.location.origin)}`;
+  }
+
+  /** Part se connecter : marque le départ, puis navigue. Le fournisseur veut la page entière. */
+  signIn(provider: string): void {
+    try {
+      window.sessionStorage.setItem(STARTED, '1');
+    } catch {
+      // sans stockage de session, le retour ne sera pas lu ; mieux que l'inverse
+    }
+    window.location.assign(this.signInUrl(provider));
   }
 
   /** Demande au serveur qui l'on est. Sans jeton ne fait rien ; sur 401, oublie. */
@@ -93,7 +110,15 @@ export class Session {
     if (!hash.startsWith('#')) return;
     const token = new URLSearchParams(hash.slice(1)).get('session');
     if (!token) return;
-    storage()?.setItem(KEY, token);
+    let started = false;
+    try {
+      started = window.sessionStorage.getItem(STARTED) === '1';
+      window.sessionStorage.removeItem(STARTED);
+    } catch {
+      started = false;
+    }
+    // Un fragment sans départ d'ici est un lien reçu : effacé, jamais rangé.
+    if (started) storage()?.setItem(KEY, token);
     // Effacé sans recharger : l'adresse redevient celle du jeu.
     history.replaceState(history.state, '', window.location.pathname + window.location.search);
   }

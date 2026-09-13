@@ -26,6 +26,8 @@ test.describe('the session', () => {
       route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }),
     );
 
+    // parti d'ici : la marque que `signIn` pose avant de naviguer
+    await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
     // l'adresse ne porte plus le jeton, le stockage si
@@ -43,6 +45,14 @@ test.describe('the session', () => {
     await expect(page.locator('#btnSignIn')).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('gsurge.session.v1'))).toBeNull();
     expect(await game.mode()).toBe('settings');
+  });
+
+  /** Un lien reçu avec un fragment ne connecte pas : il faut être parti d'ici. */
+  test('ignores a session fragment that did not start from here', async ({ page }) => {
+    await page.goto('/#session=' + TOKEN);
+    await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    expect(new URL(page.url()).hash).toBe('');
+    expect(await page.evaluate(() => localStorage.getItem('gsurge.session.v1'))).toBeNull();
   });
 
   test('a ranked run without an account starts unranked and says so', async ({ game, page }) => {

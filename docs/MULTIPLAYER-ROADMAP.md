@@ -402,7 +402,7 @@ run lifecycle in `main.ts`, and three of these findings come from that
 lifecycle having four owners of "a run ended" — building rooms on it first
 would compound them.
 
-**Live, fix first — a patch on its own.**
+**Live, fix first — a patch on its own. Done, 1.23.2.**
 
 1. Watching a board entry to its wreck runs the player's end-of-run path:
    `watch` hands `sim.events` to `feedback.consume`, `wreck` calls `endRun()`,
@@ -416,7 +416,7 @@ would compound them.
 3. RESTART from pause never records the run: `startRun` submits only when
    the mode is `run`. `main.ts:350`.
 
-**In 1.24.0, before it is deployed — sign-in hardening, one commit.**
+**In 1.24.0, before it is deployed — sign-in hardening, one commit. Done, 1.24.1.**
 
 4. The callback is not bound to the browser that started the flow, and the
    client stores any `#session=` fragment: a link plants a session, an

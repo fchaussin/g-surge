@@ -72,12 +72,26 @@ export function providerFor(name: string, env: Env): Resolved | null {
   const clientId = env[p.clientIdVar];
   const clientSecret = env[p.clientSecretVar];
   if (!clientId || !clientSecret) return null;
+  // Sans secret de session digne de ce nom, pas de connexion du tout : le
+  // `state` signé est ce qui empêche un retour forgé, et un secret court se
+  // devine. `/health` ne liste alors aucun fournisseur, le menu n'offre rien.
+  if (!env.SESSION_SECRET || env.SESSION_SECRET.length < MIN_SECRET) return null;
   return { name, issuer: p.issuer, aliases: p.aliases ?? [], clientId, clientSecret };
 }
 
 /** Durée d'une session, et d'un `state` en attente. */
 export const SESSION_MS = 30 * 24 * 3600 * 1000;
 const STATE_MS = 10 * 60 * 1000;
+/** Longueur minimale de `SESSION_SECRET`, en caractères. */
+export const MIN_SECRET = 32;
+/**
+ * Le cookie qui lie le retour au navigateur qui a commencé. Posé sur
+ * l'origine de l'API au départ, exigé au retour : une URL de retour
+ * interceptée et envoyée à quelqu'un d'autre ne vaut rien chez lui, il n'a
+ * pas le cookie. `SameSite=Lax` suffit — le retour du fournisseur est une
+ * navigation de premier niveau, et celles-là portent les cookies Lax.
+ */
+export const BIND_COOKIE = 'gs_auth';
 
 /* ------------------------------------------------------------ encodage -- */
 
@@ -134,11 +148,19 @@ async function signState(env: Env, state: State): Promise<string> {
   return `${payload}.${await hmac(env.SESSION_SECRET, payload)}`;
 }
 
+/** Comparaison à temps constant : la durée ne dit pas où deux condensés divergent. */
+function sameDigest(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function readState(env: Env, token: string, now: number): Promise<State | null> {
   const dot = token.indexOf('.');
   if (dot < 0) return null;
   const payload = token.slice(0, dot);
-  if ((await hmac(env.SESSION_SECRET, payload)) !== token.slice(dot + 1)) return null;
+  if (!sameDigest(await hmac(env.SESSION_SECRET, payload), token.slice(dot + 1))) return null;
   try {
     const state = JSON.parse(new TextDecoder().decode(fromB64u(payload))) as State;
     if (typeof state.e !== 'number' || state.e < now) return null;
@@ -252,14 +274,14 @@ async function verifyIdToken(
 
 /* ---------------------------------------------------------------- flux -- */
 
-/** L'URL chez le fournisseur, `state` signé compris. `null` si l'origine de retour n'est pas la nôtre. */
+/** Le départ : l'URL chez le fournisseur et le cookie de liaison à poser. `null` si l'origine de retour n'est pas la nôtre. */
 export async function startUrl(
   env: Env,
   provider: Resolved,
   returnTo: string,
   callbackUrl: string,
   now: number,
-): Promise<string | null> {
+): Promise<{ url: string; bind: string } | null> {
   if (!allowedOrigin(returnTo)) return null;
   const nonce = randomB64u(16);
   const state = await signState(env, {
@@ -276,7 +298,7 @@ export async function startUrl(
   url.searchParams.set('scope', 'openid profile');
   url.searchParams.set('state', state);
   url.searchParams.set('nonce', nonce);
-  return url.toString();
+  return { url: url.toString(), bind: await hmac(env.SESSION_SECRET, `bind:${state}`) };
 }
 
 export type Finished = { returnTo: string; token: string } | { error: string };
@@ -287,13 +309,21 @@ export async function finish(
   provider: Resolved,
   url: URL,
   callbackUrl: string,
+  bind: string | null,
   now: number,
 ): Promise<Finished> {
   const code = url.searchParams.get('code');
   const stateToken = url.searchParams.get('state');
   if (!code || !stateToken) return { error: 'callback' };
+  // Le navigateur qui revient est celui qui est parti, ou rien ne se passe.
+  if (!bind || !sameDigest(bind, await hmac(env.SESSION_SECRET, `bind:${stateToken}`)))
+    return { error: 'bind' };
   const state = await readState(env, stateToken, now);
   if (!state || state.p !== provider.name) return { error: 'state' };
+  // La signature ne suffit pas : l'origine de retour est revérifiée ici, où
+  // le jeton part. Un `state` forgé avec un secret deviné y enverrait sinon
+  // la session d'une victime.
+  if (!allowedOrigin(state.r)) return { error: 'state' };
 
   const { token_endpoint } = await discover(provider.issuer);
   const res = await fetch(token_endpoint, {

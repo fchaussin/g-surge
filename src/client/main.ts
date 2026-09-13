@@ -297,10 +297,7 @@ const settings = new Settings({
   },
   account: () => session.account,
   signedIn: () => session.signedIn,
-  signIn: (provider) => {
-    // Une navigation, pas un fetch : le fournisseur veut la page entière.
-    window.location.assign(session.signInUrl(provider));
-  },
+  signIn: (provider) => session.signIn(provider),
   signOut: () => session.signOut(),
   deleteAccount: () => session.deleteAccount(),
   clearScores: () => {

@@ -149,6 +149,11 @@ export class Arbiter extends DurableObject<Env> {
     const body = (await req.json()) as RankedRun;
     const ticket = await this.tickets.get(body.ticket);
     if (!ticket) return refuse(404, 'ticket');
+    // Le ticket est à celui qui l'a demandé : soumis sous une autre session,
+    // la ligne porterait le nom de l'un et le compte de l'autre, et la
+    // suppression de l'un laisserait le nom de l'autre au tableau.
+    if (Number(req.headers.get('x-gs-account') ?? 0) !== ticket.account)
+      return refuse(403, 'ticket');
     const sent = asTrace(body.trace);
     if (!sent) return refuse(400, 'trace');
     const trace: Trace = { ...sent, seed: ticket.seed };

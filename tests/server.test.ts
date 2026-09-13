@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Miniflare } from 'miniflare';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { bootServer, flare } from './helpers/workerd.js';
+import { bootServer, flare, SESSION_SECRET } from './helpers/workerd.js';
 import { coreDigest } from '../scripts/core-digest.mjs';
 import { PER_MINUTE } from '../server/src/limits.js';
 import {
@@ -624,6 +624,10 @@ describe('the server in workerd', () => {
       { redirect: 'manual', headers: from() },
     );
     expect(start.status).toBe(302);
+    // le cookie de liaison, que le navigateur rapportera au retour
+    const bind = start.headers.get('set-cookie')!;
+    expect(bind).toMatch(/^gs_auth=.+; Max-Age=600; Path=\/auth; HttpOnly; Secure; SameSite=Lax$/);
+    const cookie = { cookie: bind.split(';')[0]! };
     const atIdp = new URL(start.headers.get('location')!);
     expect(atIdp.origin + atIdp.pathname).toBe('https://idp.test/authorize');
     expect(atIdp.searchParams.get('redirect_uri')).toBe('https://api.test/auth/test/callback');
@@ -637,7 +641,14 @@ describe('the server in workerd', () => {
     const callback = back.headers.get('location')!;
     expect(callback.startsWith('https://api.test/auth/test/callback?')).toBe(true);
 
-    const done = await mf.dispatchFetch(callback, { redirect: 'manual', headers: from() });
+    // sans le cookie, le retour ne vaut rien : une URL interceptée n'ouvre rien ailleurs
+    expect((await mf.dispatchFetch(callback, { redirect: 'manual', headers: from() })).status).toBe(
+      400,
+    );
+    const done = await mf.dispatchFetch(callback, {
+      redirect: 'manual',
+      headers: { ...from(), ...cookie },
+    });
     expect(done.status).toBe(302);
     const landed = new URL(done.headers.get('location')!);
     expect(landed.origin).toBe('https://g-surge.w23.fr');
@@ -664,6 +675,50 @@ describe('the server in workerd', () => {
         })
       ).status,
     ).toBe(400);
+  });
+
+  /**
+   * Même signé juste, un `state` dont l'origine de retour n'est pas la nôtre
+   * est refusé au retour, pas seulement au départ : c'est là que le jeton
+   * part, et un secret deviné ne doit pas suffire à l'envoyer ailleurs.
+   */
+  it('refuses a correctly signed state whose return origin is foreign', async () => {
+    const { createHmac } = await import('node:crypto');
+    const b64u = (b: Buffer) => b.toString('base64url');
+    const payload = b64u(
+      Buffer.from(
+        JSON.stringify({
+          p: 'test',
+          r: 'https://evil.example',
+          n: 'nonce',
+          e: Date.now() + 60_000,
+        }),
+      ),
+    );
+    const state = `${payload}.${b64u(createHmac('sha256', SESSION_SECRET).update(payload).digest())}`;
+    const bind = b64u(createHmac('sha256', SESSION_SECRET).update(`bind:${state}`).digest());
+    // le code est faux aussi, mais le refus doit venir avant l'échange
+    const res = await mf.dispatchFetch(
+      `https://api.test/auth/test/callback?code=x&state=${encodeURIComponent(state)}`,
+      { redirect: 'manual', headers: { cookie: `gs_auth=${bind}` } },
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('state');
+  });
+
+  it('refuses a ticket submitted under another account', async () => {
+    const alice = await signIn('Alice A');
+    const bob = await signIn('Bob B');
+    const issued = (await (await post('/ticket', { difficulty: 'easy' }, alice)).json()) as {
+      ticket: string;
+    };
+    const { trace } = play('stolen', 'easy', 4);
+    const res = await post(
+      '/run',
+      { core, ticket: issued.ticket, trace },
+      { ...bob, 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) },
+    );
+    expect(res.status).toBe(403);
   });
 
   it('plays ranked signed in only, under the account name, and forgets everything on delete', async () => {

@@ -42,8 +42,11 @@ export type Vars = Record<string, { type: 'text'; value: string }>;
 export const IDP = {
   issuer: 'https://idp.test',
   clientId: 'gsurge-test',
-  clientSecret: 'not-a-secret',
+  clientSecret: 'not-a-secret', // secret-guard:allow
 };
+
+/** Le secret de session du montage — trente-deux caractères au moins, comme le serveur l'exige. */
+export const SESSION_SECRET = 'test-session-secret-long-enough-for-hmac'; // secret-guard:allow
 
 /**
  * Le faux fournisseur : un module ESM de quelques lignes. Il génère sa paire
@@ -132,7 +135,7 @@ export function flare(extra: Vars = {}): Miniflare {
             ARBITER: { type: 'durable-object', worker: 'api', exportName: 'Arbiter' },
             DB: { type: 'd1', id: 'gsurge' },
             DEBUG: text('1'),
-            SESSION_SECRET: text('test-session-secret'),
+            SESSION_SECRET: text(SESSION_SECRET),
             OIDC_TEST_ISSUER: text(IDP.issuer),
             OIDC_TEST_CLIENT_ID: text(IDP.clientId),
             OIDC_TEST_CLIENT_SECRET: text(IDP.clientSecret),
