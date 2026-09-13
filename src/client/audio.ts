@@ -15,6 +15,25 @@
 import type { SimEvent, ThrustTier } from '../sim/index.js';
 
 /** Longueur de l'impulsion de réverbération, en secondes. Bâtie une fois, au premier usage. */
+/* --- L'explosion finale, d'après le modèle décrit dans `crash` --- */
+
+/** La coupe du modèle, fondu de sortie compris. */
+const CRASH_SECONDS = 2.82;
+/** Le canal droit, décalé : de la largeur, pas un écho. */
+const CRASH_SHIFT = 0.05;
+/** Étages d'allpass du phaser. Le modèle en demande quatorze, voir `crash`. */
+const CRASH_STAGES = 8;
+const CRASH_LFO_HZ = 0.1;
+const CRASH_FEEDBACK = 0.7;
+/** Le bas et le haut du balayage des allpass, en Hz. */
+const CRASH_SWEEP_FROM = 420;
+const CRASH_SWEEP_DEPTH = 1100;
+/** Les deux plateaux de tonalité, en dB. Le grave est bridé, voir `crash`. */
+const CRASH_BASS_DB = 18;
+const CRASH_TREBLE_DB = 7;
+/** Ce qui sort, après le compresseur qui tient le grave. */
+const CRASH_LEVEL = 0.42;
+
 const REVERB_SECONDS = 3;
 
 /**
@@ -867,72 +886,167 @@ export class Audio {
   }
 
   /**
-   * Une décharge qui emporte la coque : la forme d'un impact, le registre
-   * d'une explosion.
+   * L'explosion finale : un tir de laser long, très grave, et qui tourne.
    *
-   * Le zap d'abord — deux dents de scie désaccordées qui plongent en une
-   * demi-seconde sous un passe-bas qui se referme avec elles — puis un éclat
-   * de bruit au point de contact, puis une résonance qui s'éteint. Le corps
-   * grave porte le dessous.
+   * Bâti d'après un modèle décrit par l'auteur — le premier échantillon des
+   * « laser gun blasts #2 » de jgrzinich, coupé à 2,818 s avec un fondu de
+   * sortie, le canal droit décalé de 0,05 s, puis dans Audacity un
+   * rehaussement de grave de +30 dB avec +7 d'aigu et un phaser à quatorze
+   * étages, réinjection 70, LFO à 0,1 Hz.
    *
-   * La descente dure, et c'est ce qui fait le laser : à un quart de seconde
-   * elle passait trop vite pour s'entendre comme une glissade, et l'oreille
-   * n'en gardait qu'un claquement.
+   * **Le jeu n'embarque aucun fichier audio, et c'est une décision** — voir
+   * `CLAUDE.md` : pas de modèles, pas de textures, pas de sons, ce qui est
+   * pourquoi la charge tient en 160 ko compressés, three.js compris. Ce qui
+   * est repris ici est donc la chaîne, pas l'échantillon : la durée, le fondu,
+   * le décalage entre canaux, les deux plateaux de tonalité et le phaser sont
+   * reproduits en synthèse, avec une source qui tient lieu du tir.
    *
-   * La première version était un vrai laser, une octave et demie au-dessus de
-   * celle-ci : la plongée partait de 3200 Hz sous un passe-bas à 6000, et
-   * l'éclat de contact était à 5200. Ça sonnait comme une arme, pas comme un
-   * vaisseau qui se démonte — juste, mais trop aigu pour ce que l'image
-   * montre. Tout est descendu d'autant, et le corps grave a pris le poids que
-   * l'aigu avait de trop. Les deux versions d'avant celles-là — le fracas de
-   * tôle de la gerbe de débris, puis le souffle balayé de l'anneau — sont
-   * parties avec les effets qu'elles accompagnaient.
+   * Trois écarts assumés, chacun pour une raison :
+   *
+   * - **+18 dB de grave et non +30.** Le modèle sort d'un fichier qu'on
+   *   normalise après coup ; ici le gain part directement dans le mélange, et
+   *   +30 dB sous 120 Hz écrêterait. Un compresseur tient la sortie derrière.
+   * - **Huit étages d'allpass, pas quatorze.** Au-delà, dans un graphe
+   *   WebAudio construit à chaque explosion, le coût monte sans que l'oreille
+   *   distingue un creux de plus.
+   * - **La phase de départ du LFO est approchée par la fréquence de base des
+   *   allpass**, parce qu'un `OscillatorNode` ne se démarre pas à une phase
+   *   choisie. À 0,1 Hz, le balayage ne fait de toute façon qu'un quart de
+   *   tour pendant les 2,8 s : c'est une montée lente, pas un cycle.
+   *
+   * Les versions d'avant, dans l'ordre : le fracas de tôle de la gerbe de
+   * débris, le souffle balayé de l'anneau, un laser trop aigu, le même
+   * descendu d'une octave et demie, puis sa glissade étalée à une
+   * demi-seconde. Chacune est partie parce que l'image ou l'oreille l'a
+   * démentie.
    */
   private crash(): void {
     const ctx = this.ctx;
-    if (!ctx || this.muted) return;
+    if (!ctx || this.muted || !this.noise) return;
     const t = ctx.currentTime;
+    const end = t + CRASH_SECONDS;
     const rev = this.reverb();
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.Q.value = 6;
-    filter.frequency.setValueAtTime(2200, t);
-    filter.frequency.exponentialRampToValueAtTime(140, t + 0.58);
-    const zap = ctx.createGain();
-    zap.gain.setValueAtTime(0.0001, t);
-    zap.gain.exponentialRampToValueAtTime(0.34, t + 0.008);
-    zap.gain.exponentialRampToValueAtTime(0.0001, t + 0.72);
-    filter.connect(zap);
-    zap.connect(this.master!);
-    if (rev) zap.connect(rev);
-    // Deux voix : désaccordées de neuf centièmes de demi-ton, elles battent
-    // l'une contre l'autre pendant la descente au lieu de siffler d'un trait.
-    for (const detune of [0, 9]) {
+    /* La chaîne, bâtie de la sortie vers la source.
+
+       Le canal droit est le gauche retardé : deux entrées d'un `ChannelMerger`
+       nourries par le même signal, l'une à travers un délai. Sous le seuil de
+       l'écho, un décalage entre oreilles ne s'entend pas comme un second son
+       mais comme de la largeur. */
+    const merger = ctx.createChannelMerger(2);
+    const shift = ctx.createDelay(0.5);
+    shift.delayTime.value = CRASH_SHIFT;
+    merger.connect(this.master!);
+    if (rev) merger.connect(rev);
+
+    // Le grave qu'on ajoute revient par la sortie : sans quoi il écrête.
+    const guard = ctx.createDynamicsCompressor();
+    guard.threshold.value = -18;
+    guard.ratio.value = 12;
+    guard.attack.value = 0.002;
+    guard.release.value = 0.25;
+    const out = ctx.createGain();
+    out.gain.value = CRASH_LEVEL;
+    guard.connect(out);
+    out.connect(merger, 0, 0);
+    out.connect(shift);
+    shift.connect(merger, 0, 1);
+
+    const bass = ctx.createBiquadFilter();
+    bass.type = 'lowshelf';
+    bass.frequency.value = 120;
+    bass.gain.value = CRASH_BASS_DB;
+    const treble = ctx.createBiquadFilter();
+    treble.type = 'highshelf';
+    treble.frequency.value = 3500;
+    treble.gain.value = CRASH_TREBLE_DB;
+    bass.connect(treble);
+    treble.connect(guard);
+
+    /* Le phaser : une file d'allpass dont la fréquence est balayée ensemble,
+       et la sortie réinjectée à l'entrée. Ce sont les creux d'interférence
+       entre le signal et sa copie déphasée qui font le balayage. */
+    const stages: BiquadFilterNode[] = [];
+    for (let i = 0; i < CRASH_STAGES; i++) {
+      const ap = ctx.createBiquadFilter();
+      ap.type = 'allpass';
+      ap.Q.value = 0.7;
+      ap.frequency.value = CRASH_SWEEP_FROM;
+      stages.push(ap);
+    }
+    for (let i = 0; i < stages.length - 1; i++) stages[i]!.connect(stages[i + 1]!);
+    const last = stages[stages.length - 1]!;
+    last.connect(bass);
+
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = CRASH_LFO_HZ;
+    const depth = ctx.createGain();
+    depth.gain.value = CRASH_SWEEP_DEPTH;
+    lfo.connect(depth);
+    for (const ap of stages) depth.connect(ap.frequency);
+    lfo.start(t);
+    lfo.stop(end);
+
+    const feedback = ctx.createGain();
+    feedback.gain.value = CRASH_FEEDBACK;
+    const loop = ctx.createDelay(0.05);
+    loop.delayTime.value = 0.0045;
+    last.connect(loop);
+    loop.connect(feedback);
+    feedback.connect(stages[0]!);
+
+    /* L'enveloppe : l'attaque, le corps, puis la queue qui s'éteint jusqu'à la
+       fin. C'est le fondu de sortie du modèle. */
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(1, t + 0.012);
+    env.gain.exponentialRampToValueAtTime(0.3, t + 0.6);
+    env.gain.exponentialRampToValueAtTime(0.0001, end);
+    env.connect(stages[0]!);
+
+    // Le tir : deux dents de scie désaccordées qui plongent, et tiennent
+    // ensuite le grave que le phaser fait tourner.
+    for (const detune of [0, 11]) {
       const voice = ctx.createOscillator();
       voice.type = 'sawtooth';
       voice.detune.value = detune;
-      voice.frequency.setValueAtTime(950, t);
-      voice.frequency.exponentialRampToValueAtTime(48, t + 0.52);
-      voice.connect(filter);
+      voice.frequency.setValueAtTime(900, t);
+      voice.frequency.exponentialRampToValueAtTime(38, t + 0.9);
+      voice.connect(env);
       voice.start(t);
-      voice.stop(t + 0.76);
+      voice.stop(end);
     }
 
-    this.noiseHit(t, 0.5, 'bandpass', 2400, 700, 5, 0.08, true); // le point de contact
-    this.noiseHit(t + 0.02, 0.2, 'bandpass', 900, 260, 7, 0.9, true); // la résonance
+    // Le souffle du départ, dans la même chaîne : passé par le phaser, il est
+    // ce qui lui donne de quoi tourner.
+    const air = ctx.createBufferSource();
+    air.buffer = this.noise;
+    air.loop = true;
+    const airBand = ctx.createBiquadFilter();
+    airBand.type = 'bandpass';
+    airBand.Q.value = 1.2;
+    airBand.frequency.setValueAtTime(2600, t);
+    airBand.frequency.exponentialRampToValueAtTime(180, t + 1.1);
+    const airGain = ctx.createGain();
+    airGain.gain.setValueAtTime(0.85, t);
+    airGain.gain.exponentialRampToValueAtTime(0.12, t + 0.5);
+    air.connect(airBand);
+    airBand.connect(airGain);
+    airGain.connect(env);
+    air.start(t);
+    air.stop(end);
 
+    // Le corps, hors phaser : un grave qui tourne perd le coup de poing.
     const body = ctx.createOscillator();
     const bodyGain = ctx.createGain();
     body.type = 'sine';
-    body.frequency.setValueAtTime(120, t);
-    body.frequency.exponentialRampToValueAtTime(32, t + 0.22);
-    bodyGain.gain.setValueAtTime(0.44, t);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    body.frequency.setValueAtTime(110, t);
+    body.frequency.exponentialRampToValueAtTime(28, t + 0.3);
+    bodyGain.gain.setValueAtTime(0.5, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
     body.connect(bodyGain);
-    bodyGain.connect(this.master!);
-    if (rev) bodyGain.connect(rev);
+    bodyGain.connect(guard);
     body.start(t);
-    body.stop(t + 0.54);
+    body.stop(t + 0.95);
   }
 }
