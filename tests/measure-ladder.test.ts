@@ -61,5 +61,7 @@ describe.skipIf(!process.env.MEASURE)('the ladder, as a scripted pilot climbs it
         '',
       ].join('\n'),
     );
-  });
+    // dix-huit fois cinq minutes à 720 Hz : bien au-delà des 5 s par défaut,
+    // qui coupaient la mesure avant la première ligne
+  }, 300_000);
 });

@@ -615,6 +615,24 @@ describe('the server in workerd', () => {
     }
   });
 
+  /**
+   * Les bords que la revue a trouvés : des clés du prototype prises pour des
+   * valeurs, et une forme manquante qui levait au lieu de refuser. Cinq
+   * sondes répondaient 500 ; elles répondent 400.
+   */
+  it('refuses prototype keys and shapeless traces with a 400, never a 500', async () => {
+    expect((await get('/board/easy?by=constructor')).status).toBe(400);
+    expect((await get('/board/easy?by=__proto__')).status).toBe(400);
+    const { trace } = play('edges', 'easy', 4);
+    expect((await post('/run', { core, trace: { ...trace, difficulty: 'toString' } })).status).toBe(
+      400,
+    );
+    expect(
+      (await post('/run', { core, trace: { seed: 'x', difficulty: 'easy', steps: 1 } })).status,
+    ).toBe(400);
+    expect((await post('/run', { core, trace: { ...trace, from: 'nope' } })).status).toBe(400);
+  });
+
   it('refuses a trace that claims more steps than an hour of play', async () => {
     const { trace } = play('too-long', 'easy', 4);
     const absurd = { ...trace, steps: MAX_TRACE_STEPS + 1 };

@@ -165,9 +165,16 @@ export class Recorder {
  * faire, sa propre trace l'est par construction.
  */
 export function validTrace(t: Trace): boolean {
+  // La forme d'abord : une trace JSON venue du réseau peut ne pas avoir ses
+  // tableaux, et lire `.length` sur rien levait au lieu de refuser — un 500
+  // là où le serveur promet un 400.
+  if (typeof t !== 'object' || t === null) return false;
+  if (!Array.isArray(t.from) || !Array.isArray(t.steer) || !Array.isArray(t.flags)) return false;
   if (t.truncated || !(t.steps >= 0) || !Number.isInteger(t.steps)) return false;
   if (t.steps > MAX_TRACE_STEPS) return false;
-  if (!(t.difficulty in DIFF)) return false;
+  // `in` parcourt le prototype : `"toString"` passait pour une difficulté, et
+  // le rejeu tournait avec un réglage par défaut et un multiplicateur indéfini.
+  if (typeof t.difficulty !== 'string' || !Object.hasOwn(DIFF, t.difficulty)) return false;
   const n = t.from.length;
   if (n > MAX_SPANS) return false;
   if (t.steer.length !== n || t.flags.length !== n) return false;

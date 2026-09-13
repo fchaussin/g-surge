@@ -32,10 +32,16 @@ const UPDATE = !!process.env.UPDATE_FIXTURES;
 function matchFixture(name: string, value: unknown): void {
   const path = join(FIXTURES, `${name}.json`);
   const serialised = `${JSON.stringify(value, null, 2)}\n`;
-  if (UPDATE || !existsSync(path)) {
+  if (UPDATE) {
     writeFileSync(path, serialised);
     return;
   }
+  // Une référence absente n'est pas une référence à créer : c'était le cas,
+  // et une clé renommée ou un fichier perdu dans une fusion régénérait la
+  // « référence » depuis le comportement courant, en vert. Ce générateur est
+  // celui qui définit la référence pour les deux autres moteurs.
+  if (!existsSync(path))
+    throw new Error(`missing fixture ${path} — run \`npm run fixtures:update\` deliberately`);
   expect(JSON.parse(serialised)).toEqual(JSON.parse(readFileSync(path, 'utf8')));
 }
 

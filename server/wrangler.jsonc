@@ -50,6 +50,10 @@
       // sommet du fichier — le domaine personnalisé de la production —
       // et un déploiement de staging le lui reprend. Vécu une fois.
       "routes": [],
+      // Les `vars` du sommet ne sont pas héritées — wrangler le dit : « not
+      // inherited and must be explicitly specified in every environment ».
+      // Sans ceci, staging n'avait ni coupe-circuit ni client Google.
+      "vars": { "RANKED_OFF": "0", "GOOGLE_CLIENT_ID": "" },
       "durable_objects": {
         "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
       },

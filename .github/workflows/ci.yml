@@ -57,3 +57,32 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+  # The Worker follows every push to main that passed both checks. Without
+  # this job a change under src/sim/ rebuilt the client with a new core
+  # digest while the Worker kept the old one, and every ranked run got a 409
+  # after a full run — 12 September 2026. No path filter: the deploy is
+  # idempotent and the digest is what matters. The job skips itself, green,
+  # until the two repository secrets exist; they are the author's to set.
+  deploy-server:
+    name: Deploy the Worker
+    needs: [verify, e2e]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - uses: actions/setup-node@v5
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - run: npm run server:deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - run: echo "CLOUDFLARE_API_TOKEN is not set — the Worker was not deployed. See .env.example."
+        if: env.CLOUDFLARE_API_TOKEN == ''

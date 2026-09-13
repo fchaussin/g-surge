@@ -216,7 +216,9 @@ export class Arbiter extends DurableObject<Env> {
   /** Les dix premières de la semaine en cours, pour une difficulté et une catégorie. */
   private async board(difficulty: string, category: string): Promise<Response> {
     if (!DIFFICULTIES.has(difficulty)) return refuse(400, 'difficulty');
-    const orderBy = CATEGORY_ORDER[category];
+    // `hasOwn`, pas une lecture nue : `?by=constructor` atteignait sinon
+    // `ORDER BY` avec le source d'une fonction native — une erreur SQL, un 500.
+    const orderBy = Object.hasOwn(CATEGORY_ORDER, category) ? CATEGORY_ORDER[category] : undefined;
     if (!orderBy) return refuse(400, 'category');
     const now = Date.now();
     const epochKey = epoch(now);

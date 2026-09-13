@@ -9,7 +9,10 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // Pas de seconde chance : un test qui passe une fois sur deux est un bug
+  // — le fantôme sur mobile en était un, un budget de 30 s sur trois parties —
+  // et une reprise le maquillait en vert.
+  retries: 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
 
   use: {

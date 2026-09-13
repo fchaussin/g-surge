@@ -6,6 +6,8 @@
  * partie classée demandée sans compte qui dit pourquoi elle ne l'est pas.
  */
 import { expect, test } from './fixtures.js';
+import { replay, unpackTrace, validTrace } from '../../src/sim/index.js';
+import { chunk } from '../../server/src/track.js';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -53,6 +55,96 @@ test.describe('the session', () => {
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
     expect(new URL(page.url()).hash).toBe('');
     expect(await page.evaluate(() => localStorage.getItem('gsurge.session.v1'))).toBeNull();
+  });
+
+  /**
+   * Le chemin qu'une vraie partie classée prend depuis le navigateur — le
+   * ticket sous le porteur, la piste par tranches, la trace en octets sur
+   * `/run` — n'était exercé nulle part : le test workerd bâtit le corps
+   * avec `Buffer`. Ici le serveur est le test, et il lit ce que le jeu envoie
+   * avec les mêmes fonctions que le vrai.
+   */
+  test('a signed-in ranked run sends the bearer and a trace the server can replay', async ({
+    game,
+    page,
+  }) => {
+    test.slow();
+    const seed = 'browser-ranked';
+    const seen: { auth: string; body: string }[] = [];
+    await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
+    await page.route('**/me', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 3, name: 'Ada L' }),
+      }),
+    );
+    await page.route('**/ticket', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ticket: 'a'.repeat(32),
+          difficulty: 'easy',
+          chunk: chunk(seed, 'easy', 0),
+        }),
+      }),
+    );
+    await page.route('**/track/**', (route) => {
+      const from = Number(route.request().url().split('/').pop());
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(chunk(seed, 'easy', from)),
+      });
+    });
+    await page.route('**/run', (route) => {
+      seen.push({
+        auth: route.request().headers()['authorization'] ?? '',
+        body: route.request().postData() ?? '',
+      });
+      const trace = unpackTrace(Buffer.from(JSON.parse(seen[0]!.body).trace, 'base64'))!;
+      const outcome = replay({ ...trace, seed });
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ outcome, rank: 1 }),
+      });
+    });
+
+    await page.goto('/#session=' + TOKEN);
+    await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    await page.locator('#btnSettingsMenu').click();
+    await page.locator('#tglRanked').click();
+    await page.keyboard.press('Escape');
+    await page.locator('#btnStart').click();
+    await expect.poll(() => game.mode()).toBe('run');
+    await expect(page.locator('#recline')).toHaveText('ranked');
+    await page.waitForFunction(() => window.__gsNext.state().travel > 40);
+    await page.evaluate(() => {
+      (window.__gsNext.state() as unknown as { hull: number }).hull = -1000;
+    });
+    await page.waitForSelector('#over.on', { timeout: 10_000 });
+    await expect(page.locator('#overNote')).toHaveText(/ranked · [\d,]+ on the board · #1/);
+
+    expect(seen.length).toBe(1);
+    expect(seen[0]!.auth).toBe(`Bearer ${TOKEN}`);
+    const body = JSON.parse(seen[0]!.body) as { core: string; ticket: string; trace: string };
+    expect(body.ticket).toBe('a'.repeat(32));
+    const trace = unpackTrace(Buffer.from(body.trace, 'base64'));
+    expect(trace).not.toBeNull();
+    expect(validTrace({ ...trace!, seed })).toBe(true);
+    expect(trace!.steps).toBeGreaterThan(0);
+    expect(game.errors()).toEqual([]);
+  });
+
+  /** Un 401 sur `/me` — session close, compte supprimé — oublie le jeton. */
+  test('forgets the token when the server says 401', async ({ page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
+    await page.route('**/me', (route) =>
+      route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"sign-in"}' }),
+    );
+    await page.goto('/#session=' + TOKEN);
+    await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('gsurge.session.v1')))
+      .toBeNull();
   });
 
   test('a ranked run without an account starts unranked and says so', async ({ game, page }) => {

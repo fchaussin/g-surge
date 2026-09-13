@@ -16,6 +16,10 @@ test.describe('le fantôme', () => {
     game,
     page,
   }) => {
+    // Trois parties dans un test, sous le plafond de frame du rendu logiciel :
+    // mesuré 33 à 35 s sur mobile, 27 à 29 sur desktop, contre un budget de
+    // 30. Ce n'était pas un flake, c'était un budget.
+    test.slow();
     await game.boot();
     expect(await page.evaluate((k) => localStorage.getItem(k), GHOST_KEY)).toBeNull();
 

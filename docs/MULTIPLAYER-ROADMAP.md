@@ -432,7 +432,7 @@ would compound them.
    `x-gs-account` with `ticket.account` in `run()`, 403 otherwise.
    `arbiter.ts:148-183`.
 
-**Live — the single arbiter can be taken down by one host.**
+**Live — the single arbiter can be taken down by one host. Done, 1.24.2.**
 
 7. The replay-only `/run` needs no account; `/track/:ticket/:from` is not
    rate-limited and regenerates from segment 0 (48 ms at `from=100000`,
@@ -440,14 +440,14 @@ would compound them.
    for replay-only, `track` in `PER_MINUTE` with `from` bounded by the
    ticket's age, /64 keys and a hard cap on the table.
 
-**Validation edges, one commit.**
+**Validation edges, one commit. Done, 1.24.3.**
 
 8. `validTrace` uses `in` on `DIFF` (`"toString"` is a difficulty) and
    throws on a trace without arrays; `CATEGORY_ORDER[category]` reaches
    prototype members (`?by=constructor` → 500). `Object.hasOwn`,
    `Array.isArray` in `asTrace`.
 
-**Deploy plumbing.**
+**Deploy plumbing. Done in 1.24.3 — the CI job skips itself, green, until the two secrets exist.**
 
 9. `vars` are not inherited by `env.staging` — repeat the block there.
 10. Nothing deploys the Worker on a push; a `src/sim/` change leaves it on
@@ -456,7 +456,7 @@ would compound them.
     `verify` and `e2e`; needs `CLOUDFLARE_API_TOKEN` and
     `CLOUDFLARE_ACCOUNT_ID` as repository secrets, from the author.
 
-**Tests that lie, or are missing.**
+**Tests that lie, or are missing. Done, 1.24.3.**
 
 11. `sim-parity` recreates a missing fixture and passes: throw instead.
 12. The mobile ghost "flake" is a 30 s budget on a three-run test under the
