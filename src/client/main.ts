@@ -234,11 +234,7 @@ const settings = new Settings({
   scoreMultiplier: (d) => DIFF[d].mul,
   setDifficulty: (d) => {
     difficulty = d;
-    // On garde la valeur d'affichage : elle appartient à la machine, pas au
-    // niveau.
-    const scale = sim.tuning.renderScale;
-    sim.setDifficulty(d);
-    sim.tuning.renderScale = scale;
+    switchDifficulty(d);
     prefs.set('difficulty', d);
   },
   setTuning: (key, value) => {
@@ -337,8 +333,31 @@ function resetPresentation(): void {
   yawVisual = 0;
 }
 
+/**
+ * Une partie en cours — jouée ou en pause — compte quand un départ l'écrase.
+ * RESTART se presse depuis la pause : sans `pause` ici, une partie à 40 000
+ * points relancée depuis la pause ne laissait rien au palmarès ni de fantôme,
+ * alors que le texte du tableau vide promet « crash, restart or quit ».
+ */
+function endsARun(): boolean {
+  return screens.mode === 'run' || screens.mode === 'pause';
+}
+
+/**
+ * Change la difficulté de la simulation en gardant l'échelle de rendu, qui
+ * appartient à la machine et non au niveau : `setDifficulty` pose un objet
+ * de réglage neuf. Trois appelants, une seule règle — le visionnage l'avait
+ * oubliée, et après un WATCH le flou plein écran revenait sur une machine
+ * que le gouverneur avait déjà rétrogradée.
+ */
+function switchDifficulty(d: Difficulty): void {
+  const scale = sim.tuning.renderScale;
+  sim.setDifficulty(d);
+  sim.tuning.renderScale = scale;
+}
+
 function startRun(): void {
-  if (screens.mode === 'run') submit();
+  if (endsARun()) submit();
   ranked.abandon();
   // Avec le fantôme, la partie se joue sur la piste de la meilleure : c'est la
   // seule façon de courir contre elle. Une graine épinglée par l'URL l'emporte,
@@ -356,7 +375,7 @@ function startRun(): void {
  * par l'étiquette. Rend la raison si la partie n'est pas classée.
  */
 async function startRanked(): Promise<Unranked | null> {
-  if (screens.mode === 'run') submit();
+  if (endsARun()) submit();
   ranked.abandon();
   const issued = await ranked.request(difficulty);
   if (typeof issued === 'string') {
@@ -389,6 +408,8 @@ async function startRanked(): Promise<Unranked | null> {
  * tirer le score affiché, et l'écran rejoue la même.
  */
 let watching: TraceCursor | null = null;
+/** Le dernier visionnage fini : le minuteur qui rend la main ne rend que pour lui. */
+let last: TraceCursor | null = null;
 /** La difficulté du joueur, mise de côté le temps d'un visionnage. */
 let difficultyBeforeWatch: Difficulty | null = null;
 
@@ -406,11 +427,11 @@ async function watchEntry(entry: BoardEntry, d: Difficulty): Promise<void> {
     boardScreen.say('That run is no longer kept — only the week’s best are.');
     return;
   }
-  if (screens.mode === 'run') submit();
+  if (endsARun()) submit();
   ranked.abandon();
   ghost.disarm();
   difficultyBeforeWatch = difficulty;
-  sim.setDifficulty(trace.difficulty);
+  switchDifficulty(trace.difficulty);
   sim.reset(trace.seed);
   watching = new TraceCursor(trace);
   const who = document.getElementById('watchWho');
@@ -427,7 +448,7 @@ async function watchEntry(entry: BoardEntry, d: Difficulty): Promise<void> {
 function stopWatching(): void {
   watching = null;
   if (difficultyBeforeWatch) {
-    sim.setDifficulty(difficultyBeforeWatch);
+    switchDifficulty(difficultyBeforeWatch);
     difficultyBeforeWatch = null;
   }
   hud.setBest(scores.bestLabel);
@@ -650,11 +671,22 @@ const loop = new Loop({
     } else if (mode === 'watch') {
       // Les entrées viennent de la trace. La partie enregistrée s'arrête où
       // elle s'est arrêtée : au bout, on rend la main au tableau.
-      if (watching && !watching.done) {
+      // Une trace du tableau finit sur son crash ; `wrecked` couvre celle
+      // qui continuerait après — rien ne se joue plus une fois l'épave.
+      if (watching && !watching.done && !sim.state.wrecked) {
         bank = sim.step(watching.advance(), dt, false);
-        feedback.consume(sim.events);
-      } else {
-        screens.back();
+        // Pas « en direct » : le crash de l'autre explose à l'écran et ne
+        // finit rien chez le joueur.
+        feedback.consume(sim.events, false);
+      } else if (watching) {
+        // Au bout de la trace — souvent un crash — l'écran garde la scène
+        // le temps de l'onde, comme pour une vraie partie, puis rend la main.
+        const shown = watching;
+        last = shown;
+        watching = null;
+        window.setTimeout(() => {
+          if (screens.mode === 'watch' && watching === null && shown === last) screens.back();
+        }, WRECK_HOLD_MS);
       }
     } else if (mode === 'menu') {
       bank = sim.step(input.value, dt, true);

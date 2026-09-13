@@ -125,7 +125,15 @@ export class Feedback {
   }
 
   /** Les événements d'un pas, drainés une fois. */
-  consume(events: readonly SimEvent[]): void {
+  /**
+   * @param live faux pendant un visionnage : la partie est celle d'un autre,
+   *   donc son crash se voit — l'explosion — mais ne finit rien chez le
+   *   joueur. Il l'a fait : regarder une entrée du tableau jusqu'au bout
+   *   passait par `onWreck`, donc `endRun`, donc `submit` — le score de
+   *   l'inconnu entrait dans le palmarès local et sa trace devenait le
+   *   fantôme du joueur.
+   */
+  consume(events: readonly SimEvent[], live = true): void {
     const { audio, haptics, hud, camera } = this.deps;
     audio.play(events);
     for (const e of events) {
@@ -238,7 +246,7 @@ export class Feedback {
           break;
         case 'wreck':
           this.deps.ship.explode();
-          this.deps.onWreck();
+          if (live) this.deps.onWreck();
           break;
         default:
           break;
