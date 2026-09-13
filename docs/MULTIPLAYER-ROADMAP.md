@@ -498,9 +498,12 @@ real core packing a real stick-shaped run, not an estimate:
   link, the other follows it. Everything built for two extends to four by a
   constant; nothing built for a queue would have been reusable if the duel
   turned out to be the game people actually play.
-- **A race ends at 5 km, or when both ships are wrecked.** About seventy
-  seconds at 250 km/h. The finish line is what keeps the last ship alive
-  from running alone indefinitely, which survival-only would allow.
+- **A race ends at 30 km, or when both ships are wrecked.** First set at
+  5 km, which the author corrected the same day: at the speeds a race is
+  actually run — boost and super boost, not cruise — 5 km is about thirty
+  seconds of play, too short to be a race; 30 km is a few minutes. The
+  finish line is what keeps the last ship alive from running alone
+  indefinitely, which survival-only would allow.
 - **Chunks go up at 10 Hz.** The cadence changes neither the authority nor
   the score — the trace is lossless at any rate — only how fresh the other
   ship looks. 100 ms reads as live where 250 ms visibly trails, and 563
@@ -526,7 +529,7 @@ friend lists — is dropped until a duel proves it is wanted.
    render clock, never the simulation's. A member whose chunks diverge from
    the object's replay is dropped.
 2. **A race.** An invite link that opens a room and a second that joins it;
-   a countdown once both are in; the race ends at 5 km or when both are
+   a countdown once both are in; the race ends at 30 km or when both are
    wrecked; a result screen ranking the two by the object's outcomes; the
    entries go to the weekly board as ranked runs, since they are.
 
