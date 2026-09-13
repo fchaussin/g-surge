@@ -37,7 +37,10 @@
   // GOOGLE_CLIENT_ID est public par nature — il part dans l'URL d'autorisation.
   // Ce qui est secret — SESSION_SECRET, GOOGLE_CLIENT_SECRET — passe par
   // `wrangler secret put`, jamais par ce fichier : voir .env.example.
-  "vars": { "RANKED_OFF": "0", "GOOGLE_CLIENT_ID": "" },
+  "vars": {
+    "RANKED_OFF": "0",
+    "GOOGLE_CLIENT_ID": "742047604269-4qqnm7q5ar3glad8q4fchbf1oo3h8r9l.apps.googleusercontent.com",
+  },
   "env": {
     "staging": {
       "name": "g-surge-api-staging",
@@ -53,7 +56,10 @@
       // Les `vars` du sommet ne sont pas héritées — wrangler le dit : « not
       // inherited and must be explicitly specified in every environment ».
       // Sans ceci, staging n'avait ni coupe-circuit ni client Google.
-      "vars": { "RANKED_OFF": "0", "GOOGLE_CLIENT_ID": "" },
+      "vars": {
+        "RANKED_OFF": "0",
+        "GOOGLE_CLIENT_ID": "742047604269-4qqnm7q5ar3glad8q4fchbf1oo3h8r9l.apps.googleusercontent.com",
+      },
       "durable_objects": {
         "bindings": [{ "name": "ARBITER", "class_name": "Arbiter" }],
       },

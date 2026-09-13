@@ -31,7 +31,7 @@ them (`${url.origin}/auth/google/callback`):
 
 ```
 https://gsurge-api.w23.fr/auth/google/callback
-https://g-surge-api-staging.<subdomain>.workers.dev/auth/google/callback
+https://g-surge-api-staging.fchaussin.workers.dev/auth/google/callback
 ```
 
 No authorised JavaScript origins: the flow is a server-side redirect, the
