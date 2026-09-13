@@ -1015,6 +1015,25 @@ describe('the server in workerd', () => {
     expect(stepsOf(whoFirst)).toBeLessThanOrEqual(stepsOf(result.ranking[1]!.who));
     wsB.close();
 
+    // le compteur, par ULID : le premier a gagné, le second a perdu, les deux ont joué
+    const meA = (await (await get('/me', a)).json()) as {
+      ulid: string;
+      duels?: { wins: number; losses: number; played: number };
+    };
+    const meB = (await (await get('/me', b)).json()) as {
+      ulid: string;
+      duels?: { wins: number; losses: number; played: number };
+    };
+    expect(meA.ulid).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(meB.ulid).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(meA.ulid).not.toBe(meB.ulid);
+    const winner = whoFirst === room.member ? meA : meB;
+    const loser = whoFirst === room.member ? meB : meA;
+    expect(winner.duels).toEqual({ wins: 1, losses: 0, played: 1 });
+    expect(loser.duels).toEqual({ wins: 0, losses: 1, played: 1 });
+    // un compte qui n'a jamais joué n'a pas de compteur, pas des zéros
+    expect(((await (await get('/me', c)).json()) as { duels?: unknown }).duels).toBeUndefined();
+
     // Un second salon, A seul : il prétend cinq mètres de plus que ce que
     // son morceau donne, et la prise se ferme avec le code qui le dit.
     const again = (await (await post('/room', { difficulty: 'easy', race: 400 }, a)).json()) as {

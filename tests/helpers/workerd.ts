@@ -34,6 +34,7 @@ const MIGRATIONS = [
   '0003_speed_peak.sql',
   '0004_traces.sql',
   '0005_accounts.sql',
+  '0006_duels.sql',
 ];
 
 export type Vars = Record<string, { type: 'text'; value: string }>;

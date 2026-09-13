@@ -532,8 +532,12 @@ friend lists — is dropped until a duel proves it is wanted.
    second that joins it; a countdown once both are in; the race ends at
    30 km or when both are wrecked; a result screen ranking the two by the
    object's outcomes. **A duel does not enter the weekly board** — the
-   author decided so on 13 September — so the ranking is the whole outcome,
-   and nothing is written in D1. The ranking compares *simulated steps* to
+   author decided so on 13 September — but it counts: a `duels` row per
+   player, keyed by the account's **ULID** (the author's choice over an
+   integer or a UUID: sortable by creation, silent about how many accounts
+   exist), holding wins, losses and plays, bumped by the room in one
+   transaction before the result is announced. `/me` returns it and the
+   settings line shows it. The ranking compares *simulated steps* to
    the line, never wall-clock: whoever launched their simulation two
    hundred milliseconds later lost nothing, and nothing depends on the
    network. The line passed, the client stops its run itself, flushes the

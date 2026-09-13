@@ -110,8 +110,9 @@ function cookieValue(header: string | null, name: string): string | null {
 }
 
 /** Le compte résolu, pour l'arbitre : il ne voit jamais un jeton, seulement qui c'est. */
-const accountHeaders = (a: { id: number; name: string }): Record<string, string> => ({
+const accountHeaders = (a: { id: number; name: string; ulid: string }): Record<string, string> => ({
   'x-gs-account': String(a.id),
+  'x-gs-ulid': a.ulid,
   // encodé : un en-tête ne porte que de l'ASCII, un nom non
   'x-gs-name': encodeURIComponent(a.name),
 });

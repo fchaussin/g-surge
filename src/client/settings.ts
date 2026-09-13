@@ -299,7 +299,8 @@ export class Settings {
     const line = byId('accountLine');
     if (line) {
       line.textContent = account
-        ? `Signed in as ${account.name}`
+        ? `Signed in as ${account.name}` +
+          (account.duels ? ` · duels: ${account.duels.wins} won, ${account.duels.losses} lost` : '')
         : signedIn
           ? 'Signed in — checking with the server…'
           : 'Not signed in. Ranked runs need an account; the board shows its name.';

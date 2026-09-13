@@ -360,6 +360,38 @@ function displayName(raw: unknown): string {
 export interface Account {
   id: number;
   name: string;
+  /** La clé publique du joueur : un ULID, triable par date de création. */
+  ulid: string;
+  /** Le compteur de duels. Absent tant qu'il n'en a joué aucun. */
+  duels?: { wins: number; losses: number; played: number };
+}
+
+/**
+ * Un ULID : 48 bits de temps en millisecondes puis 80 bits de hasard, en
+ * base 32 de Crockford, vingt-six caractères. Triable par date, sans rien
+ * dire du nombre de comptes — ce que l'entier auto-incrémenté dit.
+ */
+export function ulid(now: number): string {
+  const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  let out = '';
+  let t = now;
+  for (let i = 0; i < 10; i++) {
+    out = ALPHABET[t % 32]! + out;
+    t = Math.floor(t / 32);
+  }
+  const rand = crypto.getRandomValues(new Uint8Array(10));
+  // 80 bits en 16 caractères de 5 bits : lus par paquets de 5 octets = 8 caractères
+  for (let i = 0; i < 10; i += 5) {
+    let v = 0n;
+    for (let j = 0; j < 5; j++) v = (v << 8n) | BigInt(rand[i + j]!);
+    let chunk = '';
+    for (let k = 0; k < 8; k++) {
+      chunk = ALPHABET[Number(v & 31n)]! + chunk;
+      v >>= 5n;
+    }
+    out += chunk;
+  }
+  return out;
 }
 
 async function upsertAccount(
@@ -370,15 +402,20 @@ async function upsertAccount(
   now: number,
 ): Promise<number> {
   await env.DB.prepare(
-    `INSERT INTO accounts (provider, subject, name, created_at) VALUES (?, ?, ?, ?)
+    `INSERT INTO accounts (provider, subject, name, created_at, ulid) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (provider, subject) DO UPDATE SET name = excluded.name`,
   )
-    .bind(provider, subject, name, now)
+    .bind(provider, subject, name, now, ulid(now))
     .run();
-  const row = await env.DB.prepare('SELECT id FROM accounts WHERE provider = ? AND subject = ?')
+  const row = await env.DB.prepare(
+    'SELECT id, ulid FROM accounts WHERE provider = ? AND subject = ?',
+  )
     .bind(provider, subject)
-    .first<{ id: number }>();
+    .first<{ id: number; ulid: string | null }>();
   if (!row) throw new Error('account');
+  // Un compte d'avant l'ULID en reçoit un à sa prochaine connexion.
+  if (!row.ulid)
+    await env.DB.prepare('UPDATE accounts SET ulid = ? WHERE id = ?').bind(ulid(now), row.id).run();
   return row.id;
 }
 
@@ -398,12 +435,32 @@ export async function accountOf(env: Env, req: Request, now: number): Promise<Ac
   const token = auth.slice(7).trim();
   if (!/^[A-Za-z0-9_-]{20,}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT a.id AS id, a.name AS name FROM sessions s JOIN accounts a ON a.id = s.account_id
+    `SELECT a.id AS id, a.name AS name, a.ulid AS ulid,
+            d.wins AS wins, d.losses AS losses, d.played AS played
+     FROM sessions s JOIN accounts a ON a.id = s.account_id
+     LEFT JOIN duels d ON d.ulid = a.ulid
      WHERE s.id = ? AND s.expires_at > ?`,
   )
     .bind(await sha256Hex(token), now)
-    .first<Account>();
-  return row ?? null;
+    .first<{
+      id: number;
+      name: string;
+      ulid: string | null;
+      wins: number | null;
+      losses: number | null;
+      played: number | null;
+    }>();
+  if (!row) return null;
+  // Un compte d'avant l'ULID en reçoit un ici aussi, sans attendre sa reconnexion.
+  let id = row.ulid;
+  if (!id) {
+    id = ulid(now);
+    await env.DB.prepare('UPDATE accounts SET ulid = ? WHERE id = ?').bind(id, row.id).run();
+  }
+  const account: Account = { id: row.id, name: row.name, ulid: id };
+  if (row.played !== null)
+    account.duels = { wins: row.wins ?? 0, losses: row.losses ?? 0, played: row.played };
+  return account;
 }
 
 /** Ferme la session que la requête porte. Sans session, ne fait rien. */
@@ -418,7 +475,12 @@ export async function logout(env: Env, req: Request): Promise<void> {
 /** Supprime le compte et chaque ligne qui le nomme : sessions, parties, et leurs octets. */
 export async function deleteAccount(env: Env, accountId: number): Promise<void> {
   const db = env.DB;
+  const who = await db
+    .prepare('SELECT ulid FROM accounts WHERE id = ?')
+    .bind(accountId)
+    .first<{ ulid: string | null }>();
   await db.batch([
+    db.prepare('DELETE FROM duels WHERE ulid = ?').bind(who?.ulid ?? ''),
     db.prepare('DELETE FROM sessions WHERE account_id = ?').bind(accountId),
     db.prepare('DELETE FROM runs WHERE account_id = ?').bind(accountId),
     db.prepare('DELETE FROM traces WHERE run_id NOT IN (SELECT id FROM runs)'),

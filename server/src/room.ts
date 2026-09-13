@@ -89,7 +89,7 @@ interface Stored {
   seed: string;
   difficulty: Difficulty;
   /** Jeton de membre → compte. L'ordre d'insertion est l'ordre d'arrivée. */
-  members: Record<string, { account: number; name: string }>;
+  members: Record<string, { account: number; name: string; ulid: string }>;
   /** La ligne d'arrivée de ce salon. `RACE_M`, sauf sous `DEBUG` où un test la rapproche. */
   race: number;
 }
@@ -186,8 +186,9 @@ export class Room extends DurableObject<Env> {
     if (!Number.isInteger(account) || account <= 0) return refuse(401, 'sign-in');
     const rawName = req.headers.get('x-gs-name');
     const name = rawName ? decodeURIComponent(rawName) : 'PILOT';
+    const ulid = req.headers.get('x-gs-ulid') ?? '';
     const member = randomHex();
-    stored.members[member] = { account, name };
+    stored.members[member] = { account, name, ulid };
     await this.ctx.storage.put('room', stored);
     return json({
       member,
@@ -280,7 +281,7 @@ export class Room extends DurableObject<Env> {
         steps: live.steps,
         dist: s.dist,
       };
-      this.settle(stored);
+      await this.settle(stored);
     } else if (Math.abs(s.dist - window.claim) > DRIFT_M) {
       return ws.close(CLOSE.DIVERGED, 'diverged');
     }
@@ -306,7 +307,7 @@ export class Room extends DurableObject<Env> {
    * les arrivés d'abord, au moins de pas simulés ; puis les épaves, à la
    * plus longue distance. Envoyé aux deux, une fois.
    */
-  private settle(stored: Stored): void {
+  private async settle(stored: Stored): Promise<void> {
     const members = Object.keys(stored.members);
     const standings = members.map((m) => this.live.get(m)?.standing ?? null);
     if (standings.some((s) => s === null)) return;
@@ -314,6 +315,21 @@ export class Room extends DurableObject<Env> {
       if (a.finished !== b.finished) return a.finished ? -1 : 1;
       return a.finished ? a.steps - b.steps : b.dist - a.dist;
     });
+    // Le compteur, par ULID : le premier gagne, le second perd, les deux ont
+    // joué. Une seule transaction, avant d'annoncer — un classement annoncé
+    // sans être compté serait un mensonge par omission.
+    const db = this.env.DB;
+    const bump = (ulid: string, win: number, loss: number) =>
+      db
+        .prepare(
+          `INSERT INTO duels (ulid, wins, losses, played) VALUES (?, ?, ?, 1)
+           ON CONFLICT (ulid) DO UPDATE SET wins = wins + ?, losses = losses + ?, played = played + 1`,
+        )
+        .bind(ulid, win, loss, win, loss);
+    const [first, second] = ranking;
+    const u1 = first ? stored.members[first.who]?.ulid : '';
+    const u2 = second ? stored.members[second.who]?.ulid : '';
+    if (u1 && u2) await db.batch([bump(u1, 1, 0), bump(u2, 0, 1)]);
     const text = JSON.stringify({ type: 'result', race: stored.race, ranking });
     for (const s of this.ctx.getWebSockets()) s.send(text);
   }

@@ -95,6 +95,10 @@ export class ApiError extends Error {
 export interface Account {
   id: number;
   name: string;
+  /** La clé publique du joueur, un ULID. */
+  ulid: string;
+  /** Le compteur de duels — absent tant qu'aucun n'a été joué. */
+  duels?: { wins: number; losses: number; played: number };
 }
 
 export interface BoardEntry {
