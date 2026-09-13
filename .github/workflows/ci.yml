@@ -58,7 +58,9 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # The Worker follows every push to main that passed both checks. Without
+  # The database migrates and the Worker follows, on every push to main that
+  # passed both checks — in that order, which is why they sit in one job.
+  # Without
   # this job a change under src/sim/ rebuilt the client with a new core
   # digest while the Worker kept the old one, and every ranked run got a 409
   # after a full run — 12 September 2026. No path filter: the deploy is
@@ -81,6 +83,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      # Migrations first, deploy second, and never the reverse: a Worker that
+      # lands before its migration reads a table that does not exist yet.
+      # `d1 migrations apply` is a no-op when nothing is pending, so the step
+      # costs one API call on the pushes that change no schema.
+      - run: npm run server:migrate
         if: env.CLOUDFLARE_API_TOKEN != ''
       - run: npm run server:deploy
         if: env.CLOUDFLARE_API_TOKEN != ''

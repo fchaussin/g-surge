@@ -77,8 +77,16 @@ The two environments may hold different values; nothing compares them.
 - `CLOUDFLARE_ACCOUNT_ID` — only if the token sees several accounts.
 
 They exist for one job, `deploy-server` in `.github/workflows/ci.yml`, which
-deploys the Worker after every push to `main` that passed both checks.
-Without them the job skips itself, green, and the Worker stays on whatever
-was deployed by hand — which is how a `src/sim/` change once left the Worker
-on an old core digest while the client moved on, and every ranked run got a
-409 after a full run.
+applies the pending D1 migrations and then deploys the Worker, after every
+push to `main` that passed both checks. That order is the job's reason to
+exist as one job: a Worker that lands before its migration reads a table that
+does not exist yet. `D1:Edit` on the token is what the migration step needs.
+
+Without the secrets the job skips itself, green, and the Worker stays on
+whatever was deployed by hand — which is how a `src/sim/` change once left
+the Worker on an old core digest while the client moved on, and every ranked
+run got a 409 after a full run.
+
+The staging environment has no job: it is deployed by hand from this
+repository, `npm run server:migrate:staging` then `npm run server:deploy:staging`,
+with the token in `.env`.

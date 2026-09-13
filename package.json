@@ -9,6 +9,8 @@
     "build": "vite build",
     "server:build": "node scripts/build-server.mjs",
     "server:dev": "npm run server:build && wrangler -c server/wrangler.jsonc dev",
+    "server:migrate": "wrangler -c server/wrangler.jsonc d1 migrations apply gsurge --remote",
+    "server:migrate:staging": "wrangler -c server/wrangler.jsonc d1 migrations apply gsurge-staging --env staging --remote",
     "server:deploy": "npm run server:build && wrangler -c server/wrangler.jsonc deploy",
     "server:deploy:staging": "npm run server:build && wrangler -c server/wrangler.jsonc deploy --env staging",
     "typecheck": "tsc -p src/sim && tsc -p src/client && tsc -p server && tsc -p tests",
