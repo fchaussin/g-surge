@@ -477,6 +477,24 @@
      transparent à 55 % de coque restante à plein à 0 %. Piloté par
      damage.ts, même règle que .surge : on n'écrit que quand la valeur
      change. */
+  /* Le visionnage : rien de ce qui se pilote ne s'affiche, et une bannière
+     dit qui l'on regarde et comment en sortir. Le retour système en sort
+     aussi, mais un pouce a besoin de voir la porte. */
+  .watchbar{display:none}
+  .hud.watch .watchbar{position:absolute;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 18px);z-index:2;
+    display:flex;align-items:center;gap:14px;padding:8px 10px 8px 16px;
+    border-radius:12px;border:1px solid var(--line);background:rgba(8,12,20,.82);
+    backdrop-filter:blur(10px);font-size:11px;letter-spacing:.16em;color:var(--dim);
+    pointer-events:auto;white-space:nowrap}
+  .hud.watch .watchbar .btn{width:auto;margin:0;padding:7px 14px;font-size:11px}
+  .hud.watch .pads,.hud.watch .stick,.hud.watch .pausebtn,.hud.watch .kb{display:none}
+
+  /* Le bouton d'une ligne du tableau : il ouvre la partie, il ne la classe pas. */
+  .wbtn{margin-left:10px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--dim);font-size:9px;letter-spacing:.14em;font-weight:700}
+  .wbtn:active{color:var(--text);background:rgba(37,226,255,.12)}
+
   .damage{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;
     --sev:0;background:radial-gradient(ellipse at 50% 52%,
       rgba(255,25,25,0) 28%, rgba(255,25,25,var(--sev)) 100%)}
@@ -640,6 +658,10 @@
     <div class="r"><span id="dist">0.00</span><i>km</i><span class="sep">&#183;</span><span id="recline">best 0</span></div>
     <div class="coins"><b id="coinCount">0</b> COINS</div></div>
   <div class="spd" id="spdBox"><div class="n" id="spd">0</div><div class="u">km/h</div></div>
+  <div class="watchbar">
+    <span id="watchWho">WATCHING</span>
+    <button class="btn ghost" id="btnStopWatch">STOP</button>
+  </div>
   <div class="warn" id="warn">WALL</div>
   <div class="pop" id="pop"></div>
   <button class="pausebtn" id="btnPause"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>

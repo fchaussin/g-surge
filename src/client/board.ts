@@ -55,9 +55,20 @@ export class BoardScreen {
     private readonly body: HTMLElement | null,
     private readonly resetLine: HTMLElement | null,
     initialDifficulty: Difficulty,
+    /** Ce que « WATCH » déclenche. Le tableau ne sait pas rejouer, il désigne. */
+    private readonly onWatch?: (entry: BoardEntry, difficulty: Difficulty) => void,
   ) {
     this.difficulty = initialDifficulty;
+    this.body?.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLElement>('button[data-watch]');
+      if (!button) return;
+      const entry = this.shown.get(Number(button.dataset.watch));
+      if (entry) this.onWatch?.(entry, this.difficulty);
+    });
   }
+
+  /** Les lignes affichées, par identifiant : ce que le bouton d'une ligne rouvre. */
+  private readonly shown = new Map<number, BoardEntry>();
 
   setDifficulty(d: Difficulty): void {
     this.difficulty = d;
@@ -99,14 +110,24 @@ export class BoardScreen {
       return;
     }
     const value = VALUE_BY_CATEGORY[this.category];
+    this.shown.clear();
+    for (const e of board.entries) this.shown.set(e.id, e);
     this.body.innerHTML = `<ol>${board.entries
       .map(
         (e, i) =>
           `<li><span class="rk">${i + 1}</span>` +
           `<span class="nm">${escapeHtml(e.name)}</span>` +
-          `<span class="dv">${value(e)}</span></li>`,
+          `<span class="dv">${value(e)}</span>` +
+          `<button class="wbtn" data-watch="${e.id}" ` +
+          `aria-label="Watch ${escapeHtml(e.name)}">WATCH</button></li>`,
       )
       .join('')}</ol>`;
+  }
+
+  /** Dire quelque chose à la place de la liste, sans relire le serveur. */
+  say(message: string): void {
+    this.token++;
+    this.render(message);
   }
 
   private render(message: string): void {

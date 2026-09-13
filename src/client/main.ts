@@ -14,11 +14,16 @@ import {
   driftFill,
   Sim,
   thrustTier,
+  TraceCursor,
   tuningFor,
+  unpackTrace,
+  validTrace,
   type Difficulty,
+  type Trace,
 } from '../sim/index.js';
 import { Audio } from './audio.js';
-import type { BoardCategory } from './api.js';
+import { api, type BoardCategory, type BoardEntry } from './api.js';
+import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
@@ -140,6 +145,7 @@ const boardScreen = new BoardScreen(
   document.getElementById('wboardBody'),
   document.getElementById('wboardReset'),
   prefs.values.difficulty,
+  (entry, d) => void watchEntry(entry, d),
 );
 
 /**
@@ -162,6 +168,7 @@ const screens = new Screens({
     showUpdateBar();
     // Toujours une lecture fraîche à l'ouverture, jamais celle d'une visite précédente.
     if (mode === 'board') boardScreen.open();
+    if (mode !== 'watch' && watching) stopWatching();
   },
 });
 
@@ -369,6 +376,63 @@ async function startRanked(): Promise<Unranked | null> {
   return null;
 }
 
+/**
+ * Regarder une partie du tableau : sa trace, rejouée à l'écran.
+ *
+ * Le vaisseau est celui de la partie enregistrée, pas un fantôme à côté d'une
+ * autre : la simulation du joueur est remise sur la graine et la difficulté de
+ * la trace, et ses entrées viennent d'un `TraceCursor` au lieu du clavier. Tout
+ * le reste — piste, caméra, HUD, son — marche sans le savoir, ce qui est la
+ * raison de ce choix plutôt que d'animer le maillage fantôme seul.
+ *
+ * C'est la preuve rendue regardable : le serveur a rejoué cette trace pour en
+ * tirer le score affiché, et l'écran rejoue la même.
+ */
+let watching: TraceCursor | null = null;
+/** La difficulté du joueur, mise de côté le temps d'un visionnage. */
+let difficultyBeforeWatch: Difficulty | null = null;
+
+async function watchEntry(entry: BoardEntry, d: Difficulty): Promise<void> {
+  let trace: Trace | null = null;
+  try {
+    const { trace: b64 } = await api.trace(entry.id);
+    trace = unpackTrace(fromBase64(b64));
+  } catch {
+    trace = null;
+  }
+  // Une trace élaguée, un serveur muet, des octets illisibles : le tableau le
+  // dit là où le joueur regarde, et rien ne bouge.
+  if (!trace || !validTrace(trace)) {
+    boardScreen.say('That run is no longer kept — only the week’s best are.');
+    return;
+  }
+  if (screens.mode === 'run') submit();
+  ranked.abandon();
+  ghost.disarm();
+  difficultyBeforeWatch = difficulty;
+  sim.setDifficulty(trace.difficulty);
+  sim.reset(trace.seed);
+  watching = new TraceCursor(trace);
+  const who = document.getElementById('watchWho');
+  if (who) who.textContent = `WATCHING ${entry.name}`;
+  tips.reset();
+  resetPresentation();
+  hud.reset();
+  loop.reset();
+  hud.setBest(`${d} \u00b7 ${Math.round(entry.score).toLocaleString('en-GB')}`);
+  screens.setMode('watch');
+}
+
+/** Fin de la trace, ou sortie par le bouton : la difficulté du joueur revient. */
+function stopWatching(): void {
+  watching = null;
+  if (difficultyBeforeWatch) {
+    sim.setDifficulty(difficultyBeforeWatch);
+    difficultyBeforeWatch = null;
+  }
+  hud.setBest(scores.bestLabel);
+}
+
 /** Ce que toute partie fait après que sa piste est en place. */
 function launch(): void {
   unrankedWhy = null;
@@ -480,7 +544,7 @@ function renderFrame(frameDt: number): void {
   const state = sim.state;
   sim.track.buildPath(state.cursor);
   // Le bouclier d'abord : les rails lisent son intensité de cette frame.
-  shield.update(frameDt, state, screens.isPlaying);
+  shield.update(frameDt, state, screens.isLive);
   trackMesh.update(sim.track, sim.tuning.stripeEvery, shield.value, elapsed);
 
   const thrust = thrustTier(state);
@@ -505,7 +569,7 @@ function renderFrame(frameDt: number): void {
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   ship.updateExplosion(frameDt);
   spray.update(frameDt, state);
-  damage.update(state.hull, screens.isPlaying);
+  damage.update(state.hull, screens.isLive);
 
   // Un écran bas — un téléphone en paysage — rapproche la caméra. Lu à chaque
   // frame : `innerHeight` ne force pas de mise en page, et la rotation d'un
@@ -514,7 +578,7 @@ function renderFrame(frameDt: number): void {
 
   // Lueur, secousse du client et hystérésis de la réserve pleine, sur l'horloge
   // d'affichage.
-  feedback.update(frameDt, state, sim.tuning, screens.isPlaying);
+  feedback.update(frameDt, state, sim.tuning, screens.isLive);
 
   // L'intensité de l'état monte tant que le pilotage tient, et tout ce qui doit
   // croître pendant les cinq secondes la lit : la secousse et le calque.
@@ -525,9 +589,7 @@ function renderFrame(frameDt: number): void {
   // Hors partie, la simulation n'avance plus et `state.shake` reste bloqué à
   // sa dernière valeur — sans quoi une secousse figée en la perdant tremblerait
   // indéfiniment derrière l'écran de pause ou la modale SHIP WRECKED.
-  const shake = screens.isPlaying
-    ? state.shake + feedback.shake + surgeMeter.value * SURGE_SHAKE
-    : 0;
+  const shake = screens.isLive ? state.shake + feedback.shake + surgeMeter.value * SURGE_SHAKE : 0;
   camera.update(state, sim.track, sim.tuning, frameDt, shake);
 
   const position = viewport.camera.position;
@@ -550,7 +612,7 @@ function renderFrame(frameDt: number): void {
   }
 
   audio.update(
-    screens.isPlaying,
+    screens.isLive,
     state.speed,
     sim.tuning.speedMax,
     thrust,
@@ -559,7 +621,7 @@ function renderFrame(frameDt: number): void {
     shield.value,
   );
 
-  if (screens.isPlaying) {
+  if (screens.isLive) {
     hud.update(state, sim.tuning, frameDt);
     tips.update(frameDt);
   }
@@ -583,6 +645,15 @@ const loop = new Loop({
       if (lost) {
         unrankedWhy = lost;
         hud.setBest(`unranked \u00b7 ${UNRANKED[lost]}`);
+      }
+    } else if (mode === 'watch') {
+      // Les entrées viennent de la trace. La partie enregistrée s'arrête où
+      // elle s'est arrêtée : au bout, on rend la main au tableau.
+      if (watching && !watching.done) {
+        bank = sim.step(watching.advance(), dt, false);
+        feedback.consume(sim.events);
+      } else {
+        screens.back();
       }
     } else if (mode === 'menu') {
       bank = sim.step(input.value, dt, true);
@@ -626,6 +697,7 @@ on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
 on('btnBoardMenu', () => screens.setMode('board'));
 on('btnStay', () => screens.setMode('menu'));
+on('btnStopWatch', () => screens.back());
 on('btnLeave', () => back.leave());
 on('btnCloseBoard', () => screens.setMode('menu'));
 document.getElementById('segBoardDiff')?.addEventListener('click', (e) => {

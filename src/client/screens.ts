@@ -15,9 +15,15 @@
  * cache le HUD comme lui, mais ne pose rien par-dessus — c'est là que l'onde de
  * choc est vue. Mesuré avant qu'il existe : la carte et son voile flou
  * montaient dans les 80 ms du crash et la recouvraient entière.
+ *
+ * `watch` rejoue la trace d'une entrée du tableau : le monde avance comme en
+ * partie et le HUD lit les mêmes chiffres, mais les entrées viennent de la
+ * trace et non du joueur. D'où un mode à part et non un drapeau sur `run` :
+ * ce qui se pilote n'a rien à faire à l'écran, et le retour ramène au tableau
+ * d'où l'on vient, pas au menu.
  */
 export type Mode =
-  'menu' | 'run' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board' | 'quit';
+  'menu' | 'run' | 'watch' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board' | 'quit';
 
 /**
  * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la
@@ -90,8 +96,20 @@ export class Screens {
     return this.current;
   }
 
+  /** Le joueur tient les commandes. Ce que l'entrée et le gouverneur lisent. */
   get isPlaying(): boolean {
     return this.current === 'run';
+  }
+
+  /**
+   * Le monde avance et la présentation doit suivre : HUD, son, secousse,
+   * voile, lueurs. Vrai en partie **et** pendant un visionnage, où personne ne
+   * pilote mais où tout le reste se passe exactement pareil. La distinction
+   * vaut d'être nommée : confondre les deux fait un HUD figé sur une partie
+   * qui court, ce qui est arrivé à l'écriture de `watch`.
+   */
+  get isLive(): boolean {
+    return this.current === 'run' || this.current === 'watch';
   }
 
   setMode(mode: Mode): void {
@@ -101,7 +119,12 @@ export class Screens {
     for (const layer of LAYERS) {
       document.getElementById(layer)?.classList.toggle('on', layer === mode);
     }
-    document.getElementById('hud')?.classList.toggle('on', mode === 'run');
+    // Le HUD sert la partie et le visionnage : dans les deux cas il lit une
+    // simulation qui avance. `watch` le marque, pour que ce qui ne se pilote
+    // pas — les pads, le manche, la pause — ne s'y montre pas.
+    const hud = document.getElementById('hud');
+    hud?.classList.toggle('on', mode === 'run' || mode === 'watch');
+    hud?.classList.toggle('watch', mode === 'watch');
     // Le bouton de son se poserait sur ces deux écrans ; et pendant une partie
     // il se décale à droite, pour que la pause ait le coin.
     const mute = document.getElementById('btnMute');
@@ -265,6 +288,10 @@ export class Screens {
         return true;
       case 'settings':
         this.setMode(this.settingsBack);
+        return true;
+      case 'watch':
+        // On revient d'où l'on est parti : le tableau, pas le menu.
+        this.setMode('board');
         return true;
       case 'help':
       case 'board':

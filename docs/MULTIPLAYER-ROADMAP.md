@@ -35,7 +35,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 | M2 | The server skeleton | nothing | `wrangler` as a dependency; a Cloudflare account for `deploy`, none for `dev` | phase 1 plumbing — **done**, 1.16.2 |
 | M5 | The streamed track | nothing, if done right | — | phase 2 — **done**, 1.16.1 and 1.16.3; the menu switch is M3's |
 | M3 | The weekly board | a ranked mode and a board that resets every week | — | phase 1 on the streamed track — **done**, 1.17.0 and 1.18.0 |
-| M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible |
+| M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible — **done**, 1.22.0 and 1.22.1 |
 | M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers |
 | M7 | Rooms | racing others live on the same track | room size; how a race ends | phase 3 |
 | M8 | Hardening | nothing, or that it keeps working | budget ceiling and alerts | — |
@@ -223,7 +223,7 @@ rate limit by IP in the Worker from day one — **not done**, still open.
 board screen, 1.19.0 for reading it by category: each is a feature a player
 can reach, not plumbing.
 
-## M4 — Public ghosts
+## M4 — Public ghosts — done
 
 **Goal.** Every board entry can be watched. The replay is the proof; this
 makes the proof visible and turns it into a feature.
@@ -246,6 +246,34 @@ week of submissions against the 5 GB free ceiling.
 because that comparison is what plausibility flags in M6 will be tuned on.
 
 **Version.** Minor.
+
+**Done**, 1.22.0 for the server and 1.22.1 for the screen. What landed, and
+where it differs from the plan above:
+
+- **N is 20, per category rather than overall.** The author set the number;
+  the shape came from the board itself. Four criteria are ranked, so keeping
+  the top twenty *by score* would drop the run that leads on top speed and
+  make its column lie. What is kept is the union of the top twenty of each:
+  at most eighty rows per difficulty per week, fewer in practice.
+- **Nothing accumulates any more.** Before this, every ranked run wrote a row
+  that stayed for ever. Pruning happens at each submission, so the board is
+  bounded by design rather than by a cleanup nobody runs.
+- **Traces live in their own table** and only for the current week. A row is
+  a few hundred bytes and stays as the record; a trace is seventy kilobytes
+  and only serves to be watched, which the board stops offering when the week
+  turns.
+- **Storage, measured rather than estimated.** A trace is ~70 kB packed —
+  `packTrace`, which this milestone also put on the wire, `1.21.2`. Three
+  difficulties, at most eighty traces each: of the order of ten megabytes at
+  any instant, against 5 GB free.
+- **Watching replays the run itself, not a ghost beside one.** The player's
+  own `Sim` is reset on the trace's seed and difficulty and fed by a
+  `TraceCursor` instead of the keyboard, so track, camera, HUD and sound all
+  work without knowing. Simpler than animating the ghost mesh alone, and it
+  is literally the run.
+- **RACE is not built.** Racing a board entry needs the week's seed to be
+  that entry's, which the streamed track makes rare by design — every ranked
+  run gets its own. It waits for a reason to exist rather than for code.
 
 ## M5 — The streamed track
 

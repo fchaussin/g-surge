@@ -29,7 +29,10 @@ async function readMode(page: Page): Promise<string> {
     for (const id of layers) {
       if (document.getElementById(id)?.classList.contains('on')) return id;
     }
-    if (document.getElementById('hud')?.classList.contains('on')) return 'run';
+    const hud = document.getElementById('hud');
+    // Le HUD est allumé dans les deux modes où une simulation avance ; la
+    // classe `watch` est ce qui les sépare.
+    if (hud?.classList.contains('on')) return hud.classList.contains('watch') ? 'watch' : 'run';
     return 'unknown';
   });
 }
