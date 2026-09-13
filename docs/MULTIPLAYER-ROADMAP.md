@@ -383,7 +383,7 @@ plan above, and why:
   game does not change by a step.
 - **What waits for the author:** a Google OAuth client — its id in
   `wrangler.jsonc`, its secret and `SESSION_SECRET` by `wrangler secret put`,
-  the callback URL registered; `.env.example` says exactly which. The menu
+  the callback URL registered. `docs/SECRETS.md` is the whole procedure. The menu
   offers the button only when `/health` lists the provider as configured.
   Apple is one more row, when there are iOS players to justify its yearly
   fee and six-monthly key.

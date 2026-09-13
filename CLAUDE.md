@@ -17,6 +17,9 @@ oversize table of `TECH-DEBT.md` are generated the same way by
 from the architecture map.
 `.claude/rules/versioning.md` says when the version bumps and by how much:
 every push that changes the bundle, patch at least.
+`docs/SECRETS.md` says which secret lives where and why — deploy credentials
+in GitHub, the Worker's own in Cloudflare — and how the Google OAuth client
+is created and rotated.
 `docs/NETWORK.md` is the online design: ranked boards and multiplayer as a
 layer over the offline game, which stays as it is; what a server can and
 cannot prove, and why the client sends a trace, never a score.
