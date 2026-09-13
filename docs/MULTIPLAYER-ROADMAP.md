@@ -498,6 +498,24 @@ Alongside from M3 on, never a release of its own.
 - A load test against the local server: a thousand submissions a minute
   with real traces; the replay's CPU per run measured in workerd, not
   assumed from Node.
+  **Measured on 13 September 2026**, `npm run measure:server`, the arbiter
+  in workerd under Miniflare with stick-shaped traces — 120 Hz, quantised as
+  `input.ts` quantises, one address per call so the per-address limit does
+  not intervene:
+
+  | Play | Steps | Packed | Replay, median of 5 |
+  |---|---|---|---|
+  | 30 s | 21 600 | 15 kB | 34.6 ms |
+  | 180 s | 129 600 | 94 kB | 40.3 ms |
+  | 600 s | 432 000 | 314 kB | 39.6 ms |
+
+  The cost is almost all fixed — request, decode, the object's turn — and
+  the steps themselves come to ~0.01 µs each once hot, far under Node's
+  cold 0.06. A burst of 200 three-minute runs fired at once was accepted
+  200/200 in 3.9 s: **3 000 replays a minute** through the single object,
+  19.6 ms each in its queue. A thousand a minute holds with a factor of
+  three to spare. Miniflare does not expose the object's CPU time; what is
+  measured is response time, which contains it and bounds it from above.
 - Cost telemetry: requests, object duration and D1 rows a day, against the
   free-plan ceilings in `NETWORK.md`, with an alert at half.
 - Abuse: IP and account rate limits, envelope size caps, a trace size cap

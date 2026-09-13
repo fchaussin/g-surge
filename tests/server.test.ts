@@ -13,9 +13,9 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Miniflare } from 'miniflare';
+import type { Miniflare } from 'miniflare';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildServer } from '../scripts/build-server.mjs';
+import { bootServer, flare } from './helpers/workerd.js';
 import { coreDigest } from '../scripts/core-digest.mjs';
 import { PER_MINUTE } from '../server/src/limits.js';
 import {
@@ -138,59 +138,8 @@ async function rankedRun(
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
-/**
- * Un serveur sous Miniflare, avec les variables qu'un test veut en plus. La
- * forme de Miniflare 5 : la configuration d'un Worker telle que Cloudflare
- * la décrit, le bundle en manifeste, les liaisons sous `env`, l'objet sous
- * `exports` — SQLite, le seul stockage du plan gratuit.
- */
-function flare(extra: Record<string, { type: 'text'; value: string }>): Miniflare {
-  return new Miniflare({
-    workers: [
-      {
-        config: {
-          name: 'api',
-          type: 'worker',
-          compatibilityDate: '2026-09-01',
-          manifest: {
-            mainModule: 'index.js',
-            modules: { 'index.js': { type: 'esm', contents: readFileSync(SCRIPT, 'utf8') } },
-          },
-          env: {
-            ARBITER: { type: 'durable-object', worker: 'api', exportName: 'Arbiter' },
-            DB: { type: 'd1', id: 'gsurge' },
-            DEBUG: { type: 'text', value: '1' },
-            ...extra,
-          },
-          exports: { Arbiter: { type: 'durable-object', storage: 'sqlite' } },
-        },
-      },
-    ],
-  });
-}
-
-const SCRIPT = join(ROOT, 'server', 'dist', 'index.js');
-
 beforeAll(async () => {
-  core = await buildServer(SCRIPT);
-  mf = flare({});
-  const db = await mf.getD1Database('DB');
-  for (const migration of [
-    '0001_runs.sql',
-    '0002_board.sql',
-    '0003_speed_peak.sql',
-    '0004_traces.sql',
-  ]) {
-    const schema = readFileSync(join(ROOT, 'server', 'migrations', migration), 'utf8');
-    // les commentaires d'abord, les instructions ensuite : un point-virgule dans
-    // une phrase française couperait sinon une instruction en deux
-    const statements = schema
-      .split('\n')
-      .filter((l) => !l.trim().startsWith('--'))
-      .join('\n')
-      .split(';');
-    for (const stmt of statements) if (stmt.trim()) await db.prepare(stmt).run();
-  }
+  ({ mf, core } = await bootServer());
 }, 60_000);
 
 afterAll(async () => {
