@@ -138,13 +138,14 @@ async function rankedRun(
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 }
 
-beforeAll(async () => {
-  const script = join(ROOT, 'server', 'dist', 'index.js');
-  core = await buildServer(script);
-  // La forme de Miniflare 5 : la configuration d'un Worker telle que Cloudflare
-  // la décrit, le bundle en manifeste, les liaisons sous `env`, l'objet sous
-  // `exports` — SQLite, le seul stockage du plan gratuit.
-  mf = new Miniflare({
+/**
+ * Un serveur sous Miniflare, avec les variables qu'un test veut en plus. La
+ * forme de Miniflare 5 : la configuration d'un Worker telle que Cloudflare
+ * la décrit, le bundle en manifeste, les liaisons sous `env`, l'objet sous
+ * `exports` — SQLite, le seul stockage du plan gratuit.
+ */
+function flare(extra: Record<string, { type: 'text'; value: string }>): Miniflare {
+  return new Miniflare({
     workers: [
       {
         config: {
@@ -153,18 +154,26 @@ beforeAll(async () => {
           compatibilityDate: '2026-09-01',
           manifest: {
             mainModule: 'index.js',
-            modules: { 'index.js': { type: 'esm', contents: readFileSync(script, 'utf8') } },
+            modules: { 'index.js': { type: 'esm', contents: readFileSync(SCRIPT, 'utf8') } },
           },
           env: {
             ARBITER: { type: 'durable-object', worker: 'api', exportName: 'Arbiter' },
             DB: { type: 'd1', id: 'gsurge' },
             DEBUG: { type: 'text', value: '1' },
+            ...extra,
           },
           exports: { Arbiter: { type: 'durable-object', storage: 'sqlite' } },
         },
       },
     ],
   });
+}
+
+const SCRIPT = join(ROOT, 'server', 'dist', 'index.js');
+
+beforeAll(async () => {
+  core = await buildServer(SCRIPT);
+  mf = flare({});
   const db = await mf.getD1Database('DB');
   for (const migration of [
     '0001_runs.sql',
@@ -192,7 +201,7 @@ describe('the server in workerd', () => {
   it('is stamped with the digest of the core it was built from', async () => {
     const res = await get('/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, core: coreDigest() });
+    expect(await res.json()).toEqual({ ok: true, core: coreDigest(), ranked: true });
     expect(core).toBe(coreDigest());
   });
 
@@ -606,6 +615,35 @@ describe('the server in workerd', () => {
     expect((await post('/run', { core, trace: absurd })).status).toBe(400);
     // la borne elle-même passe : c'est un plafond, pas une marge
     expect(validTrace({ ...trace, steps: MAX_TRACE_STEPS })).toBe(true);
+  });
+
+  /**
+   * Le coupe-circuit : une variable, pas un déploiement. Un second serveur
+   * est monté avec `RANKED_OFF` à 1 — sa base est vierge, donc seules les
+   * routes qui n'y touchent pas sont regardées : `/health` le dit, `/ticket`
+   * et `/run` refusent avec le mot que le client traduit en « ranked mode is
+   * off ». Le jeu, lui, ne lit rien de tout ça : il continue hors ligne.
+   */
+  it('turns ranked off with one variable, and says so where the client reads', async () => {
+    const off = flare({ RANKED_OFF: { type: 'text', value: '1' } });
+    const call = (path: string, body?: unknown) =>
+      off.dispatchFetch(`https://api.test${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: { 'content-type': 'application/json' },
+      });
+    try {
+      expect(((await (await call('/health')).json()) as { ranked: boolean }).ranked).toBe(false);
+      const ticket = await call('/ticket', { difficulty: 'easy' });
+      expect(ticket.status).toBe(503);
+      expect(((await ticket.json()) as { error: string }).error).toBe('ranked-off');
+      const { trace } = play('switched-off', 'easy', 4);
+      expect((await call('/run', { core, trace })).status).toBe(503);
+    } finally {
+      await off.dispose();
+    }
+    // le serveur des autres tests, lui, est ouvert, et `/health` le dit
+    expect(((await (await get('/health')).json()) as { ranked: boolean }).ranked).toBe(true);
   });
 
   it('answers CORS for the game origins and nothing else', async () => {

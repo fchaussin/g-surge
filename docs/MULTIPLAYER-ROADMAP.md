@@ -428,6 +428,13 @@ Alongside from M3 on, never a release of its own.
   replay was not. Account limits wait for M6.
 - The kill switch: a flag in the Worker that turns the ranked mode off and
   lets the menu say so, so a bad day on the server is a normal day offline.
+  **Landed in 1.23.1** as `RANKED_OFF`, a plain variable flipped from the
+  Cloudflare dashboard without a deploy: `/ticket` and `/run` answer 503
+  `ranked-off`, `/health` reports `ranked: false`, and the client reads it as
+  one more reason to be unranked — "ranked mode is off" on the HUD and the
+  score card. The board stays readable: cutting the ranking does not hide
+  the week's record. What is not built is a notice in the menu *before* a
+  run: the client learns the state when it asks for a ticket, not at boot.
 
 ## Decisions to take before their milestone
 

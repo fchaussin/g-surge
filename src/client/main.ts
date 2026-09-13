@@ -361,7 +361,7 @@ async function startRanked(): Promise<Unranked | null> {
   const issued = await ranked.request(difficulty);
   if (typeof issued === 'string') {
     startRun();
-    hud.setBest(`unranked \u00b7 ${issued === 'offline' ? 'offline' : 'no server'}`);
+    hud.setBest(`unranked \u00b7 ${UNRANKED[issued]}`);
     return issued;
   }
   // la graine locale ne sert à rien : la piste vient de la file dès le premier pas
@@ -519,6 +519,7 @@ const UNRANKED: Record<Unranked, string> = {
   dry: 'connection lost',
   refused: 'refused by the server',
   unreachable: 'server unreachable',
+  off: 'ranked mode is off',
 };
 /** Compte les parties, pour qu'une réponse tardive ne touche pas l'écran d'une autre. */
 let runId = 0;

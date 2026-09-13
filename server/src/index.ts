@@ -17,6 +17,15 @@ export interface Env {
   ARBITER: DurableObjectNamespace;
   DB: D1Database;
   DEBUG?: string;
+  /**
+   * Le coupe-circuit : à `'1'`, le mode classé est éteint. `/ticket` et
+   * `/run` refusent en 503 avec `ranked-off`, que le client lit comme une
+   * raison d'être hors ligne parmi les autres ; le jeu, lui, continue
+   * exactement comme sans réseau. C'est une variable et non un secret, à
+   * basculer depuis le tableau de bord Cloudflare sans redéployer : un
+   * mauvais jour sur le serveur doit être un jour normal hors ligne.
+   */
+  RANKED_OFF?: string;
 }
 
 /**
@@ -86,10 +95,13 @@ async function route(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const arbiter = () => env.ARBITER.get(env.ARBITER.idFromName('arbiter'));
 
-  if (url.pathname === '/health') return json({ ok: true, core: __CORE_DIGEST__ });
+  const rankedOff = env.RANKED_OFF === '1';
+  if (url.pathname === '/health')
+    return json({ ok: true, core: __CORE_DIGEST__, ranked: !rankedOff });
 
   if (url.pathname === '/ticket') {
     if (req.method !== 'POST') return refuse(405, 'method');
+    if (rankedOff) return refuse(503, 'ranked-off');
     const body = await req.text();
     if (body.length > 256) return refuse(413, 'size');
     return arbiter().fetch('https://arbiter/ticket', {
@@ -114,6 +126,9 @@ async function route(req: Request, env: Env): Promise<Response> {
 
   if (url.pathname === '/run') {
     if (req.method !== 'POST') return refuse(405, 'method');
+    // Le coupe-circuit coupe aussi la soumission : une partie commencée avant
+    // la bascule finit hors ligne, ce qui est ce que l'interrupteur promet.
+    if (rankedOff) return refuse(503, 'ranked-off');
     // L'en-tête d'abord, pour refuser sans lire ; le corps ensuite, parce
     // qu'un envoi en morceaux n'a pas d'en-tête et qu'un client hostile n'en
     // mettra pas non plus.

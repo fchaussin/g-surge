@@ -13,11 +13,11 @@
  * s'ouvre par `startRanked()` sur la surface de débogage.
  */
 import { outcomeOf, type Difficulty, type Outcome, type Sim } from '../sim/index.js';
-import { api, online, type Issued } from './api.js';
+import { api, ApiError, online, type Issued } from './api.js';
 import { TrackStream } from './stream.js';
 
-/** Pourquoi une partie classée ne l'est finalement pas. */
-export type Unranked = 'offline' | 'no-ticket' | 'dry' | 'refused' | 'unreachable';
+/** Pourquoi une partie classée ne l'est finalement pas. `off` : le serveur a coupé le mode, `RANKED_OFF`. */
+export type Unranked = 'offline' | 'no-ticket' | 'dry' | 'refused' | 'unreachable' | 'off';
 
 export class Ranked {
   private stream: TrackStream | null = null;
@@ -37,8 +37,8 @@ export class Ranked {
     if (!online()) return 'offline';
     try {
       return await api.ticket(difficulty);
-    } catch {
-      return 'no-ticket';
+    } catch (e) {
+      return e instanceof ApiError && e.code === 'ranked-off' ? 'off' : 'no-ticket';
     }
   }
 
@@ -85,7 +85,8 @@ export class Ranked {
       this.rank = rank;
       return outcome;
     } catch (e) {
-      return e instanceof Error && 'status' in e ? 'refused' : 'unreachable';
+      if (e instanceof ApiError) return e.code === 'ranked-off' ? 'off' : 'refused';
+      return 'unreachable';
     }
   }
 

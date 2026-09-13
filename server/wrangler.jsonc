@@ -30,6 +30,11 @@
     },
   ],
   "observability": { "enabled": true },
+  // Le coupe-circuit du mode classé. Autre que "1", le classement est
+  // ouvert. À basculer depuis le tableau de bord — Workers, Settings,
+  // Variables — sans redéployer ; un déploiement suivant le remettra à ce
+  // qui est écrit ici, donc une coupure qui doit durer se pose ici aussi.
+  "vars": { "RANKED_OFF": "0" },
   "env": {
     "staging": {
       "name": "g-surge-api-staging",
