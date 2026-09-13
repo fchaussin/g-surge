@@ -23,6 +23,8 @@
  * d'où l'on vient, pas au menu.
  */
 export type Mode =
+  | 'signin'
+  | 'name'
   | 'menu'
   | 'run'
   | 'watch'
@@ -59,6 +61,8 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   over: ['btnAgain', 'btnOverMenu'],
   board: ['segBoardDiff', 'btnCloseBoard'],
   quit: ['btnStay', 'btnLeave'],
+  signin: ['btnGateSignIn', 'btnGateOffline'],
+  name: ['nameInput', 'btnNameSave', 'btnNameSkip'],
   duel: ['btnCopyInvite', 'btnCancelDuel'],
 };
 
@@ -70,6 +74,8 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   help: 'btnCloseHelp',
   board: 'btnCloseBoard',
   quit: 'btnStay',
+  signin: 'btnGateSignIn',
+  name: 'btnNameSave',
   duel: 'btnCopyInvite',
 };
 
@@ -83,6 +89,8 @@ export const LAYERS: readonly Mode[] = [
   'board',
   'quit',
   'duel',
+  'signin',
+  'name',
 ];
 
 export interface ScreensOptions {
@@ -143,7 +151,12 @@ export class Screens {
     const mute = document.getElementById('btnMute');
     mute?.classList.toggle(
       'hide',
-      mode === 'settings' || mode === 'help' || mode === 'board' || mode === 'duel',
+      mode === 'settings' ||
+        mode === 'help' ||
+        mode === 'board' ||
+        mode === 'duel' ||
+        mode === 'signin' ||
+        mode === 'name',
     );
     mute?.classList.toggle('run', mode === 'run');
 
@@ -314,6 +327,7 @@ export class Screens {
       case 'over':
       case 'quit':
       case 'duel':
+      case 'name':
         this.setMode('menu');
         return true;
       default:

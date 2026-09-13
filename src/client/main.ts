@@ -29,6 +29,7 @@ import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
 import { Duel, DUEL_LINK, type DuelEnd, type Standing } from './duel.js';
+import { drawQr } from './qr.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
@@ -306,6 +307,7 @@ const settings = new Settings({
   signIn: (provider) => session.signIn(provider),
   signOut: () => session.signOut(),
   deleteAccount: () => session.deleteAccount(),
+  rename: (name) => session.rename(name),
   clearScores: () => {
     scores.clear();
     ghosts.clear();
@@ -503,6 +505,16 @@ async function openDuel(): Promise<void> {
   duel.connect();
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (link) link.value = duel.inviteLink();
+  // Le lien en QR aussi : d'un téléphone à l'autre, sans clavier.
+  const qr = document.getElementById('inviteQr') as HTMLCanvasElement | null;
+  if (qr) {
+    try {
+      drawQr(qr, duel.inviteLink());
+      qr.hidden = false;
+    } catch {
+      qr.hidden = true;
+    }
+  }
   sayDuel('Share this link with the other pilot. The race starts when they arrive.');
 }
 
@@ -905,6 +917,33 @@ on('btnCloseSettings', () => screens.setMode('menu'));
 on('btnBoardMenu', () => screens.setMode('board'));
 on('btnStay', () => screens.setMode('menu'));
 on('btnDuel', () => void openDuel());
+on('btnShareInvite', () => {
+  const link = document.getElementById('inviteLink') as HTMLInputElement | null;
+  if (!link || !link.value) return;
+  // L'API de l'appareil quand elle existe — la feuille de partage du
+  // téléphone — et la copie sinon.
+  const nav = navigator as Navigator & {
+    share?: (d: { url: string; title?: string }) => Promise<void>;
+  };
+  if (nav.share) void nav.share({ url: link.value, title: 'G-SURGE duel' }).catch(() => undefined);
+  else document.getElementById('btnCopyInvite')?.dispatchEvent(new Event('click'));
+});
+on('btnJoinInvite', () => {
+  const input = document.getElementById('inviteInput') as HTMLInputElement | null;
+  const room = roomOf(input?.value ?? '');
+  if (!room) {
+    sayDuel('That is not an invite link.');
+    return;
+  }
+  void joinDuel(room);
+});
+
+/** L'identifiant d'un salon dans ce qu'on colle : un lien entier, ou juste son code. */
+function roomOf(text: string): string | null {
+  const t = text.trim();
+  const m = t.match(/(?:#|[?&])duel=([0-9a-f]{16})\b/) ?? t.match(/^([0-9a-f]{16})$/);
+  return m ? m[1]! : null;
+}
 on('btnCancelDuel', () => screens.setMode('menu'));
 on('btnCopyInvite', () => {
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
@@ -968,6 +1007,42 @@ viewport.setRenderScale(prefs.values.renderScale);
 
 screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
+// Entre le splash et le menu : qui vole ? Sans session, la porte propose de
+// se connecter ou de jouer hors ligne — le jeu est le même. Une session
+// présente la saute ; un retour de chez le fournisseur propose le pseudo.
+const gateSeen = (): boolean => {
+  try {
+    return sessionStorage.getItem('gsurge.gate') !== null;
+  } catch {
+    return true;
+  }
+};
+if (session.fresh) {
+  session.fresh = false;
+  screens.setMode('name');
+} else if (!session.signedIn && !gateSeen()) {
+  screens.setMode('signin');
+}
+on('btnGateSignIn', () => session.signIn('google'));
+on('btnGateOffline', () => {
+  // Choisi pour l'onglet : la porte ne se représente pas à chaque écran.
+  try {
+    sessionStorage.setItem('gsurge.gate', 'offline');
+  } catch {
+    // sans stockage de session, la porte reviendra ; mieux que l'inverse
+  }
+  screens.setMode('menu');
+});
+on('btnNameSave', () => {
+  const input = document.getElementById('nameInput') as HTMLInputElement | null;
+  const note = document.getElementById('nameNote');
+  if (!input) return;
+  void session.rename(input.value.trim()).then((ok) => {
+    if (ok) screens.setMode('menu');
+    else if (note) note.textContent = 'Two to sixteen letters, digits, space, - or _.';
+  });
+});
+on('btnNameSkip', () => screens.setMode('menu'));
 // Un lien d'invitation : le fragment porte le salon, et il en sort ici.
 {
   const hash = window.location.hash;
@@ -988,7 +1063,13 @@ back.start();
 settings.syncAll();
 // Le compte : les réglages se repeignent quand la session change, et `/me`
 // est demandé une fois au démarrage — sans jeton, il ne demande rien.
-session.onChange = () => settings.paintAccount();
+session.onChange = () => {
+  settings.paintAccount();
+  // Le pseudo proposé au retour de chez le fournisseur : le nom du compte, à changer ou garder.
+  const input = document.getElementById('nameInput') as HTMLInputElement | null;
+  if (input && screens.mode === 'name' && session.account && !input.value)
+    input.value = session.account.name;
+};
 void session.refresh();
 
 // Un onglet fermé ou masqué n'exécute jamais un minuteur en attente, et les

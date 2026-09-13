@@ -105,6 +105,7 @@ test.describe('a duel', () => {
 
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    await page.locator('#btnNameSkip').click();
     await page.locator('#btnDuel').click();
     // le départ vient du salon, après son décompte
     await expect.poll(() => game.mode(), { timeout: 15_000 }).toBe('run');
@@ -138,6 +139,64 @@ test.describe('a duel', () => {
     await expect(page.locator('#duelLine')).toContainText('YOU WON', { timeout: 10_000 });
     await expect(page.locator('#duelLine')).toContainText('Bob B — wrecked at 0.1 km');
     expect(finishedAt).toBeGreaterThan(0);
+    expect(game.errors()).toEqual([]);
+  });
+
+  /** Le lien collé — entier ou son seul code — rejoint le salon ; et le QR est dessiné. */
+  test('joins from a pasted link, and draws the invite as a QR code', async ({ game, page }) => {
+    await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
+    await page.route('**/me', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 3, name: 'Ada L' }),
+      }),
+    );
+    await page.route('**/room', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          room: ROOM,
+          member: 'm'.repeat(32),
+          difficulty: 'easy',
+          seats: 1,
+          chunk: chunk(SEED, 'easy', 0),
+        }),
+      }),
+    );
+    let joined = '';
+    await page.route('**/room/*/join', (route) => {
+      joined = route.request().url();
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          member: 'j'.repeat(32),
+          difficulty: 'easy',
+          seats: 2,
+          chunk: chunk(SEED, 'easy', 0),
+        }),
+      });
+    });
+    await page.routeWebSocket('**/room/**/ws**', () => undefined);
+
+    await page.goto('/#session=' + TOKEN);
+    await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    await page.locator('#btnNameSkip').click();
+    await page.locator('#btnDuel').click();
+    await expect(page.locator('#inviteLink')).toHaveValue(new RegExp(`#duel=${ROOM}$`));
+    // le QR : dessiné, un module noir au cœur du repère haut-gauche, après la zone calme
+    const dark = await page.locator('#inviteQr').evaluate((c) => {
+      const canvas = c as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d')!;
+      const px = canvas.width / (21 + 8); // au moins la version 1, plus la zone calme
+      const p = ctx.getImageData(Math.round(px * 7.5), Math.round(px * 7.5), 1, 1).data;
+      return p[0]! < 128;
+    });
+    expect(dark).toBe(true);
+
+    // coller le code seul suffit
+    await page.locator('#inviteInput').fill('fedcba9876543210');
+    await page.locator('#btnJoinInvite').click();
+    await expect.poll(() => joined).toContain('/room/fedcba9876543210/join');
     expect(game.errors()).toEqual([]);
   });
 });

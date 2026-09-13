@@ -17,6 +17,7 @@ import {
   finish,
   logout,
   providerFor,
+  setName,
   startUrl,
 } from './auth.js';
 import { json, refuse } from './http.js';
@@ -174,6 +175,14 @@ async function route(req: Request, env: Env): Promise<Response> {
   if (url.pathname === '/logout') {
     if (req.method !== 'POST') return refuse(405, 'method');
     await logout(env, req);
+    return json({ ok: true });
+  }
+  if (url.pathname === '/me/name') {
+    if (req.method !== 'POST') return refuse(405, 'method');
+    const account = await accountOf(env, req, now);
+    if (!account) return refuse(401, 'sign-in');
+    const { name } = (await req.json()) as { name?: unknown };
+    if (!(await setName(env, account.id, name))) return refuse(400, 'name');
     return json({ ok: true });
   }
   if (url.pathname === '/me/delete') {

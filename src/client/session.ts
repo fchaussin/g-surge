@@ -36,6 +36,12 @@ export class Session {
   account: Account | null = null;
   /** Appelé à chaque changement — connexion lue, compte confirmé, sortie. */
   onChange: (() => void) | null = null;
+  /**
+   * Vrai quand le jeton vient d'être lu dans l'adresse, donc que le joueur
+   * arrive de chez le fournisseur : c'est là qu'on lui propose son pseudo.
+   * Consommé par celui qui le lit.
+   */
+  fresh = false;
 
   constructor() {
     this.readFragment();
@@ -79,6 +85,18 @@ export class Session {
     this.onChange?.();
   }
 
+  /** Le pseudo choisi. Faux si le serveur le refuse — la règle du tableau. */
+  async rename(name: string): Promise<boolean> {
+    try {
+      await api.setName(name);
+    } catch {
+      return false;
+    }
+    if (this.account) this.account = { ...this.account, name };
+    this.onChange?.();
+    return true;
+  }
+
   async signOut(): Promise<void> {
     try {
       await api.logout();
@@ -118,7 +136,10 @@ export class Session {
       started = false;
     }
     // Un fragment sans départ d'ici est un lien reçu : effacé, jamais rangé.
-    if (started) storage()?.setItem(KEY, token);
+    if (started) {
+      storage()?.setItem(KEY, token);
+      this.fresh = true;
+    }
     // Effacé sans recharger : l'adresse redevient celle du jeu.
     history.replaceState(history.state, '', window.location.pathname + window.location.search);
   }

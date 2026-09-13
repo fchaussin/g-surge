@@ -387,6 +387,13 @@ plan above, and why:
   offers the button only when `/health` lists the provider as configured.
   Apple is one more row, when there are iOS players to justify its yearly
   fee and six-monthly key.
+- **The player's side, 13 September, later that day.** Sign-in sits between
+  the splash and the menu: without a session the gate offers *Sign in with
+  Google* or *Play offline* — the game is the same — and does not come back
+  in that tab; with one it is skipped. Back from the provider, a call-sign
+  screen, pre-filled with the account's name, kept by the board's rule
+  (`names.ts`, one rule for the board and the profile). Settings gained a
+  **Profile** tab: account, nickname, the duel record, sign out, delete.
 - **Still open in M6:** the global all-time board, reports and moderation,
   plausibility flags, per-account rate limits.
 
@@ -542,7 +549,11 @@ friend lists — is dropped until a duel proves it is wanted.
    hundred milliseconds later lost nothing, and nothing depends on the
    network. The line passed, the client stops its run itself, flushes the
    rest of its trace and waits; a wreck does the same after the shockwave.
-   The invite screen's copy is a proposal, still the author's to change.
+   The invite sheet, per the author: the link, *Share* through the device's
+   own sheet (`navigator.share`, copy as the fallback), the link as a **QR
+   code** drawn without a library (`qr.ts` — the one test that counts is a
+   phone's camera, not yet done), and a paste field that joins from a whole
+   link or its bare code. Its copy is a proposal, still the author's.
 
 **Proof.** A room test with N scripted members in workerd where every
 member's relayed states equal a Node replay of its chunks. Playwright with

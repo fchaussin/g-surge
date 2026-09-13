@@ -26,6 +26,7 @@ import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
 import { chunk, CHUNK } from './track.js';
 import { Limits } from './limits.js';
+import { sanitiseName } from './names.js';
 import { asTrace } from './wire.js';
 
 /** Ce que le Worker transmet pour une partie classée : le ticket et la trace sans sa graine. */
@@ -40,12 +41,6 @@ export interface RankedRun {
 }
 
 /** Deux à seize caractères, sans quoi le nom générique du client tient lieu. */
-const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u;
-
-function sanitiseName(name: string | undefined): string {
-  const trimmed = (name ?? '').trim();
-  return NAME_RE.test(trimmed) ? trimmed : 'PILOT';
-}
 
 /** Le meilleur score de l'entrée, un de plus que ce qui la bat déjà. */
 async function rankOf(db: D1Database, epochKey: string, difficulty: string, score: number) {

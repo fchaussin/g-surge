@@ -1059,6 +1059,15 @@ describe('the server in workerd', () => {
     expect(await closedLiar).toBe(4001);
   }, 60_000);
 
+  it('lets a player choose a name, by the board’s rule', async () => {
+    const as = await signIn('Provisional');
+    expect((await post('/me/name', { name: 'Néo 02' }, as)).status).toBe(200);
+    expect(((await (await get('/me', as)).json()) as { name: string }).name).toBe('Néo 02');
+    expect((await post('/me/name', { name: 'x' }, as)).status).toBe(400);
+    expect((await post('/me/name', { name: '<script>' }, as)).status).toBe(400);
+    expect((await post('/me/name', { name: 'Nope' })).status).toBe(401);
+  });
+
   it('answers CORS for the game origins and nothing else', async () => {
     for (const origin of [
       'https://g-surge.w23.fr',

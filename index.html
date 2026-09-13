@@ -495,6 +495,12 @@
     background:transparent;color:var(--dim);font-size:9px;letter-spacing:.14em;font-weight:700}
   .wbtn:active{color:var(--text);background:rgba(37,226,255,.12)}
   /* Le lien d'invitation : lisible, sélectionnable, jamais éditable. */
+  #inviteQr{display:block;margin:12px auto 4px;width:min(232px,60vw);height:auto;border-radius:10px;
+    image-rendering:pixelated}
+  #inviteQr[hidden]{display:none}
+  #nameInput,#profileName,#inviteInput{display:block;width:100%;margin:0 0 10px;padding:10px 12px;
+    border-radius:10px;border:1px solid var(--line);background:rgba(8,12,20,.6);color:var(--text);
+    font-family:inherit;font-size:14px}
   #inviteLink{display:block;width:100%;margin:0 0 10px;padding:10px 12px;border-radius:10px;
     border:1px solid var(--line);background:rgba(8,12,20,.6);color:var(--neon);
     font-family:ui-monospace,Menlo,monospace;font-size:12px;user-select:all;-webkit-user-select:all}
@@ -819,6 +825,7 @@
     <header><h2>SETTINGS</h2>
       <div class="tabs navgroup" tabindex="0">
         <button class="tab on" id="tabGen">GENERAL</button>
+        <button class="tab" id="tabProfile">PROFILE</button>
         <button class="tab" id="tabAdv">ADVANCED</button>
       </div>
       <button class="close" id="btnCloseSettings">✕</button></header>
@@ -876,10 +883,6 @@
           <span>Play ranked<small>This week's board, on a track the server keeps to itself</small></span>
           <button class="toggle" id="tglRanked" aria-pressed="false"></button>
         </div>
-        <p class="acct" id="accountLine">Not signed in.</p>
-        <button class="btn" id="btnSignIn">SIGN IN WITH GOOGLE</button>
-        <button class="btn ghost" id="btnSignOut" hidden>SIGN OUT</button>
-        <button class="btn danger" id="btnDeleteAccount" hidden>DELETE ACCOUNT</button>
       </div>
       <div class="grp">
         <h3>Data</h3>
@@ -888,6 +891,26 @@
       </div>
       </div>
 
+      <div class="page" id="pageProfile">
+        <div class="grp">
+          <h3>Account</h3>
+          <p class="acct" id="accountLine">Not signed in.</p>
+          <button class="btn" id="btnSignIn">SIGN IN WITH GOOGLE</button>
+          <div id="profileEdit" hidden>
+            <div class="switch">
+              <span>Nickname<small>What the board and your rivals see. Two to sixteen characters.</small></span>
+              <input type="text" id="profileName" maxlength="16" aria-label="Nickname">
+            </div>
+            <button class="btn ghost" id="btnProfileSave">SAVE NICKNAME</button>
+            <p class="acct" id="profileNote"></p>
+          </div>
+          <button class="btn ghost" id="btnSignOut" hidden>SIGN OUT</button>
+          <button class="btn danger" id="btnDeleteAccount" hidden>DELETE ACCOUNT</button>
+        </div>
+        <div class="grp">
+          <p>Two fields are kept: the sign-in provider's opaque id and this nickname. Deleting the account removes every ranked run and the duel record with it.</p>
+        </div>
+      </div>
       <div class="page" id="pageAdv">
         <div class="grp">
           <h3>Fine tuning</h3>
@@ -910,6 +933,28 @@
   </div>
 </div>
 
+<div class="layer" id="signin">
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="pausehead">WHO'S FLYING?</div>
+    <div class="pausedist">Sign in to race ranked and to duel. Or play offline — the game is the same.</div>
+    <button class="btn" id="btnGateSignIn">SIGN IN WITH GOOGLE</button>
+    <button class="btn ghost" id="btnGateOffline">PLAY OFFLINE</button>
+  </div>
+</div>
+
+<div class="layer" id="name">
+  <div class="scrim"></div>
+  <div class="modal">
+    <div class="pausehead">YOUR CALL SIGN</div>
+    <div class="pausedist">What the board and your rivals will see. Two to sixteen characters.</div>
+    <input type="text" id="nameInput" maxlength="16" aria-label="Nickname">
+    <p class="acct" id="nameNote"></p>
+    <button class="btn" id="btnNameSave">SAVE</button>
+    <button class="btn ghost" id="btnNameSkip">KEEP MY GOOGLE NAME</button>
+  </div>
+</div>
+
 <div class="layer" id="duel">
   <div class="sheet">
     <header><h2>DUEL</h2>
@@ -918,7 +963,14 @@
       <div class="grp">
         <p class="acct" id="duelLine">Opening a room…</p>
         <input type="text" id="inviteLink" readonly aria-label="Invite link">
-        <button class="btn" id="btnCopyInvite">COPY LINK</button>
+        <button class="btn" id="btnShareInvite">SHARE LINK</button>
+        <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
+        <canvas id="inviteQr" width="232" height="232" aria-label="Invite QR code"></canvas>
+      </div>
+      <div class="grp">
+        <h3>Got a link?</h3>
+        <input type="text" id="inviteInput" placeholder="Paste an invite link or its code" aria-label="Invite link to join">
+        <button class="btn ghost" id="btnJoinInvite">JOIN</button>
       </div>
       <div class="grp">
         <p>Same track for both, on the server. The other pilot's ship rides beside yours as a ghost; there are no collisions. The race starts as soon as they arrive.</p>

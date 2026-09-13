@@ -29,6 +29,7 @@
  * chaque ligne qui le nomme — comptes, sessions, parties et leurs octets.
  */
 import type { Env } from './index.js';
+import { validName } from './names.js';
 import { allowedOrigin } from './origins.js';
 
 export interface Provider {
@@ -461,6 +462,15 @@ export async function accountOf(env: Env, req: Request, now: number): Promise<Ac
   if (row.played !== null)
     account.duels = { wins: row.wins ?? 0, losses: row.losses ?? 0, played: row.played };
   return account;
+}
+
+/** Le pseudo choisi, assaini par la règle du tableau. Faux s'il ne vaut rien. */
+export async function setName(env: Env, accountId: number, name: unknown): Promise<boolean> {
+  if (!validName(name)) return false;
+  await env.DB.prepare('UPDATE accounts SET name = ? WHERE id = ?')
+    .bind(name.trim(), accountId)
+    .run();
+  return true;
 }
 
 /** Ferme la session que la requête porte. Sans session, ne fait rien. */

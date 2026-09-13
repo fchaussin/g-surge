@@ -17,8 +17,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 100 |
-| `src/client/` | 43 | ~9 100 |
-| `server/src/` | 11 | ~1 900 |
+| `src/client/` | 44 | ~9 600 |
+| `server/src/` | 12 | ~2 000 |
 | `index.html` | 1 | ~1 000 |
 <!-- /generated:layout -->
 
@@ -207,6 +207,7 @@ which is what makes the step runnable outside a page.
 | `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
 | `duel.ts` | The client half of a room: opens or joins by link, streams the room's track like a ticket's, sends the trace in windows every 72 steps — 10 Hz of simulated time — with the distance the simulation shows, and keeps the other ship's last relay for the ghost to follow |
+| `qr.ts` | A QR code on a canvas, no library: byte mode, level M, versions 1 to 6 — the invite link of a duel, phone to phone without a keyboard; the only test that counts is a phone's camera |
 | `session.ts` | The player's session: the token read from the URL fragment on return from sign-in and erased from it in the same gesture, kept with the preferences, sent as a bearer by `api.ts`; `/me` says who it is, a 401 forgets it |
 | `base64.ts` | The bytes of a trace either way, for local ghosts and for the wire — the core cannot hold it, `src/sim/` has neither `btoa` nor `atob` |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |
@@ -274,6 +275,7 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 | `auth.ts` | Accounts: the OpenID Connect code flow in the Worker — a signed `state`, the code exchanged, the `id_token` verified on the provider's published keys — sessions as D1 rows so sign-out and deletion invalidate what still circulates, a bearer token rather than a cookie because the API and the game are not one origin; providers are a table, Google first, a `test` one under `DEBUG=1` only |
 | `origins.ts` | The origins the API answers and may redirect back to — one list for both, because they are the same question |
 | `limits.ts` | What one address may ask for per minute on the two routes that arm or spend a replay, counted in the object's memory — an address is not a player, which is why the caps are wide for a human and narrow for a loop |
+| `names.ts` | The one rule for a player's name — two to sixteen letters, digits, space, `-`, `_` — read by the board and by the profile alike |
 | `wire.ts` | `asTrace`: the body's trace, packed and base64 as the client now sends it, or the JSON shape a bundle from before a deploy still sends |
 | `http.ts` | `json` and `refuse` |
 | `env.d.ts` | `__CORE_DIGEST__`, defined by the build |

@@ -50,12 +50,14 @@ export interface SettingsOptions {
   setTips: (on: boolean) => void;
   setGhost: (on: boolean) => void;
   setRanked: (on: boolean) => void;
-  /** Le compte : qui l'on est, et les trois gestes. `signIn` navigue, il ne rend pas. */
+  /** Le compte : qui l'on est, et les gestes. `signIn` navigue, il ne rend pas. */
   account: () => Account | null;
   signedIn: () => boolean;
   signIn: (provider: string) => void;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
+  /** Le pseudo choisi ; faux si le serveur le refuse. */
+  rename: (name: string) => Promise<boolean>;
   setLefty: (on: boolean) => void;
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
@@ -76,6 +78,7 @@ const byId = (id: string) => document.getElementById(id);
  */
 export const TABS = [
   { tab: 'tabGen', page: 'pageGen' },
+  { tab: 'tabProfile', page: 'pageProfile' },
   { tab: 'tabAdv', page: 'pageAdv' },
 ] as const;
 
@@ -284,6 +287,17 @@ export class Settings {
     byId('btnSignOut')?.addEventListener('click', () => {
       void this.options.signOut().then(() => this.paintAccount());
     });
+    const nick = byId('profileName') as HTMLInputElement | null;
+    byId('btnProfileSave')?.addEventListener('click', () => {
+      if (!nick) return;
+      const wanted = nick.value.trim();
+      void this.options.rename(wanted).then((ok) => {
+        const note = byId('profileNote');
+        if (note)
+          note.textContent = ok ? 'Saved.' : 'Two to sixteen letters, digits, space, - or _.';
+        this.paintAccount();
+      });
+    });
     byId('btnDeleteAccount')?.addEventListener('click', () => {
       // Une confirmation native : c'est la seule chose qui ne se clique pas par erreur.
       if (!window.confirm('Delete your account and every ranked run it holds?')) return;
@@ -308,6 +322,9 @@ export class Settings {
     byId('btnSignIn')?.toggleAttribute('hidden', signedIn);
     byId('btnSignOut')?.toggleAttribute('hidden', !signedIn);
     byId('btnDeleteAccount')?.toggleAttribute('hidden', !account);
+    const nick = byId('profileName') as HTMLInputElement | null;
+    if (nick && account && document.activeElement !== nick) nick.value = account.name;
+    byId('profileEdit')?.toggleAttribute('hidden', !account);
     this.options.rebuildNav();
   }
 }

@@ -25,7 +25,18 @@ export interface GameHarness {
  */
 async function readMode(page: Page): Promise<string> {
   return page.evaluate(() => {
-    const layers = ['menu', 'pause', 'over', 'help', 'settings', 'board', 'quit', 'duel'];
+    const layers = [
+      'signin',
+      'name',
+      'menu',
+      'pause',
+      'over',
+      'help',
+      'settings',
+      'board',
+      'quit',
+      'duel',
+    ];
     for (const id of layers) {
       if (document.getElementById(id)?.classList.contains('on')) return id;
     }
@@ -39,6 +50,17 @@ async function readMode(page: Page): Promise<string> {
 
 export const test = base.extend<{ game: GameHarness; page: Page }>({
   page: async ({ page }, use) => {
+    // La porte « qui vole ? » ne se représente pas dans un onglet qui l'a
+    // vue : le harnais l'a vue, sauf le test qui la teste et qui retire la
+    // marque dans son propre script d'initialisation, exécuté après celui-ci.
+    await page.addInitScript(() => {
+      try {
+        if (!sessionStorage.getItem('gsurge.gate'))
+          sessionStorage.setItem('gsurge.gate', 'offline');
+      } catch {
+        /* sans stockage de session, la porte se montrera */
+      }
+    });
     // three.js est servi depuis cdnjs en production. Le rejouer depuis une copie
     // locale rend la suite exécutable hors ligne et fige la version : un test qui
     // échoue le jour où le CDN bouge ne dit rien sur le jeu.

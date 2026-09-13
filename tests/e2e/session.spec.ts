@@ -28,17 +28,31 @@ test.describe('the session', () => {
       route.fulfill({ contentType: 'application/json', body: '{"ok":true}' }),
     );
 
+    let renamed = '';
+    await page.route('**/me/name', (route) => {
+      renamed = (JSON.parse(route.request().postData() ?? '{}') as { name: string }).name;
+      return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+    });
+
     // parti d'ici : la marque que `signIn` pose avant de naviguer
     await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    // de retour de chez le fournisseur : le pseudo est proposé, pré-rempli du nom du compte
+    await expect.poll(() => game.mode()).toBe('name');
+    await expect(page.locator('#nameInput')).toHaveValue('Ada L');
+    await page.locator('#nameInput').fill('Ada Lovelace');
+    await page.locator('#btnNameSave').click();
+    await expect.poll(() => game.mode()).toBe('menu');
+    expect(renamed).toBe('Ada Lovelace');
     // l'adresse ne porte plus le jeton, le stockage si
     expect(new URL(page.url()).hash).toBe('');
     expect(await page.evaluate(() => localStorage.getItem('gsurge.session.v1'))).toBe(TOKEN);
     await expect.poll(() => seenBearer).toBe(`Bearer ${TOKEN}`);
 
     await page.locator('#btnSettingsMenu').click();
-    await expect(page.locator('#accountLine')).toHaveText('Signed in as Ada L');
+    await page.locator('#tabProfile').click();
+    await expect(page.locator('#accountLine')).toHaveText('Signed in as Ada Lovelace');
     await expect(page.locator('#btnSignIn')).toBeHidden();
     await expect(page.locator('#btnDeleteAccount')).toBeVisible();
 
@@ -47,6 +61,19 @@ test.describe('the session', () => {
     await expect(page.locator('#btnSignIn')).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('gsurge.session.v1'))).toBeNull();
     expect(await game.mode()).toBe('settings');
+  });
+
+  /** Entre le splash et le menu : sans session, la porte ; « play offline » mène au menu, une fois pour l'onglet. */
+  test('shows the sign-in gate before the menu, and lets you play offline', async ({
+    game,
+    page,
+  }) => {
+    await page.addInitScript(() => sessionStorage.removeItem('gsurge.gate'));
+    await page.goto('/');
+    await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    expect(await game.mode()).toBe('signin');
+    await page.locator('#btnGateOffline').click();
+    expect(await game.mode()).toBe('menu');
   });
 
   /** Un lien reçu avec un fragment ne connecte pas : il faut être parti d'ici. */
@@ -110,6 +137,7 @@ test.describe('the session', () => {
 
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
+    await page.locator('#btnNameSkip').click();
     await page.locator('#btnSettingsMenu').click();
     await page.locator('#tglRanked').click();
     await page.keyboard.press('Escape');

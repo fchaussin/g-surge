@@ -146,6 +146,8 @@ export const api = {
   /** Qui l'on est, d'après la session portée. 401 sans session valable. */
   me: (): Promise<Account> => call('/me'),
   logout: (): Promise<{ ok: true }> => post('/logout', {}),
+  /** Le pseudo, par la règle du tableau : deux à seize caractères. 400 sinon. */
+  setName: (name: string): Promise<{ ok: true }> => post('/me/name', { name }),
   deleteAccount: (): Promise<{ ok: true }> => post('/me/delete', {}),
   /** Un salon de duel : l'ouvrir, le rejoindre par son identifiant, tirer sa piste. */
   openRoom: (difficulty: Difficulty): Promise<Seat> => post('/room', { difficulty }),
