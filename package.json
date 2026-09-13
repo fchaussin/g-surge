@@ -27,6 +27,7 @@
     "docs:layout": "UPDATE_DOCS=1 vitest run tests/layout-doc.test.ts",
     "measure:ladder": "MEASURE=1 vitest run tests/measure-ladder.test.ts",
     "measure:server": "MEASURE=1 vitest run tests/measure-server.test.ts",
+    "measure:rooms": "MEASURE=1 vitest run tests/measure-rooms.test.ts",
     "readme:shot": "docker compose --profile tools run --rm -e README_SHOT=1 e2e npx playwright test tests/e2e/readme-shot.spec.ts --project=desktop",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

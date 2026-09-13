@@ -482,24 +482,46 @@ is this list.
 **Goal.** Phase 3: several players on one track at once, each running their
 own `Sim`, each seeing the others as ghosts fed live.
 
-**Deliverables, in three steps.**
+**Arbitrated on 13 September 2026, measured first.** The author settled the
+three open questions; the numbers under them are `npm run measure:rooms`, the
+real core packing a real stick-shaped run, not an estimate:
+
+| Cadence | A chunk | Requests an hour | Player-races a day, free plan |
+|---|---|---|---|
+| 4 Hz | 113 B | 1 438 | ~1 390 |
+| **10 Hz** | **54 B** | **3 552** | **~563** |
+| 20 Hz | 34 B | 6 990 | ~286 |
+
+- **A room holds two, and you get in by an invite link.** Smaller than the
+  four this milestone assumed, and it removes the whole of step 3 below: no
+  queue, no lobby list, no matchmaking. One player opens a room, shares a
+  link, the other follows it. Everything built for two extends to four by a
+  constant; nothing built for a queue would have been reusable if the duel
+  turned out to be the game people actually play.
+- **A race ends at 5 km, or when both ships are wrecked.** About seventy
+  seconds at 250 km/h. The finish line is what keeps the last ship alive
+  from running alone indefinitely, which survival-only would allow.
+- **Chunks go up at 10 Hz.** The cadence changes neither the authority nor
+  the score — the trace is lossless at any rate — only how fresh the other
+  ship looks. 100 ms reads as live where 250 ms visibly trails, and 563
+  player-races a day on the free plan is far past what this game needs. If
+  cost ever bites, 4 Hz is one constant away and multiplies capacity by 2.5.
+
+**Deliverables, in two steps.** The third of the original three — queues,
+friend lists — is dropped until a duel proves it is wanted.
 
 1. **Two ships, one track, live.** A room object owns the track generator
-   (M5), issues the same nodes to every member, receives each member's
-   trace in chunks — one per frame or per 100 ms, whichever is fewer — and
-   replays them authoritatively. It relays to the room what the core
-   produces and nothing else: `dist`, `lat`, `hop`, `yaw`, thrust tier,
-   wrecked. The client draws the others with the M1 ghost, positions eased
-   between relayed states over the frame delta — the render clock, never
-   the simulation's. A member whose chunks diverge from the object's replay
-   is dropped.
-2. **A race.** A lobby with a countdown; a race ends when every ship is
-   wrecked or after a fixed distance; a result screen ranking the room by
-   the object's outcomes; the entries go to the weekly or global board as
-   ranked runs, since they are.
-3. **Getting in.** Invite links to a room; a "play with anyone" queue that
-   fills rooms of the chosen size by difficulty; friends as a list of names
-   or accounts, depending on M6.
+   (M5), issues the same nodes to both members, receives each member's
+   trace in chunks at 10 Hz and replays them authoritatively. It relays to
+   the room what the core produces and nothing else: `dist`, `lat`, `hop`,
+   `yaw`, thrust tier, wrecked. The client draws the other with the M1
+   ghost, positions eased between relayed states over the frame delta — the
+   render clock, never the simulation's. A member whose chunks diverge from
+   the object's replay is dropped.
+2. **A race.** An invite link that opens a room and a second that joins it;
+   a countdown once both are in; the race ends at 5 km or when both are
+   wrecked; a result screen ranking the two by the object's outcomes; the
+   entries go to the weekly board as ranked runs, since they are.
 
 **Proof.** A room test with N scripted members in workerd where every
 member's relayed states equal a Node replay of its chunks. Playwright with
@@ -507,8 +529,9 @@ two pages in one room, both drawing the other. The message budget measured
 against `NETWORK.md`'s cost table — a player-hour at the chosen cadence —
 before the cadence is fixed.
 
-**Needs from the author.** Room size; how a race ends; whether rooms are
-ranked; the lobby's copy.
+**Needs from the author.** Settled above, except two that only matter once
+a race exists: whether a duel counts on the weekly board, and the copy of
+the invite screen.
 
 **Risks.** The relayed ship is late by the network's round trip; that is
 fine for a ghost — there are no collisions between ships, by design and

@@ -236,10 +236,15 @@ Checked against Cloudflare's pricing pages on 11 September 2026, for a
 player who plays five three-minute runs a day, looks at a board twice, and
 in a room sends input chunks at 4 Hz.
 
+The room row was re-measured on 13 September 2026 by `npm run measure:rooms`,
+and the first estimate was optimistic by a factor of two: it counted the
+chunks a player sends and forgot the relay it receives. Both are messages,
+both are billed.
+
 | | free plan | binding limit | ceiling |
 |---|---|---|---|
 | Ranked boards | 100 k Worker requests, 100 k object requests, 100 k D1 writes, 5 M D1 reads a day; 5 GB storage | Worker requests: ~2 a run plus one per 3 km chunk of streamed track — ~12 a run, ~60 a player a day | **~1 500 active players a day** with the streamed track; ~8 000 on a sent seed |
-| Live rooms | 13 000 GB-s of object duration a day (a room-hour is 450 GB-s at the 128 MB billed); WebSocket messages billed 20 to 1 request | messages, ~720 requests a player-hour at 4 Hz | **~350–400 players a day**, four to a room, twenty minutes each |
+| Live rooms | 13 000 GB-s of object duration a day (a room-hour is 450 GB-s at the 128 MB billed); WebSocket messages billed 20 to 1 request | messages: **measured** 3 552 requests a player-hour at the chosen 10 Hz, 1 438 at 4 Hz | **~563 player-races a day** at 10 Hz, three minutes each |
 
 The paid plan is $5 a month and includes 400 000 GB-s — about 900
 room-hours — and 1 M object requests; past that, a room-hour costs $0.006
