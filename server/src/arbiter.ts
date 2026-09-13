@@ -24,7 +24,7 @@ import { epoch, nextReset } from './epoch.js';
 import type { Env } from './index.js';
 import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
-import { chunk } from './track.js';
+import { chunk, CHUNK } from './track.js';
 import { Limits } from './limits.js';
 import { asTrace } from './wire.js';
 
@@ -94,6 +94,19 @@ const CATEGORY_ORDER: Record<string, string> = {
  */
 const KEEP = 20;
 
+/** Le plafond de vitesse du jeu, m/s — le super boost — et la longueur d'un segment, m. */
+const CEILING_MPS = 409;
+const SEG_M = 12;
+/**
+ * Le segment le plus loin qu'une partie de `ageMs` ait pu demander. Le client
+ * garde deux tranches d'avance et demande la suivante dès qu'il passe
+ * dessous ; mesuré, ses demandes dans la seconde du ticket sont 256, 512,
+ * 768 puis 1024 — quatre tranches, parce que l'avance se compte en nœuds
+ * restants et non en tranches reçues. D'où quatre à l'âge zéro.
+ */
+export const reachable = (ageMs: number): number =>
+  4 * CHUNK + Math.ceil((Math.max(0, ageMs) / 1000) * (CEILING_MPS / SEG_M));
+
 export class Arbiter extends DurableObject<Env> {
   private readonly tickets = new Tickets(this.ctx.storage);
   /** Ce qu'une adresse peut demander par minute sur les deux routes qui rejouent. */
@@ -105,13 +118,20 @@ export class Arbiter extends DurableObject<Env> {
     // Les deux routes qui arment ou dépensent un rejeu sont comptées ; les
     // lectures ne le sont pas, elles ne coûtent qu'une requête D1.
     const limited =
-      parts[0] === 'ticket' ? 'ticket' : parts[0] === 'run' || parts[0] === 'replay' ? 'run' : null;
+      parts[0] === 'ticket'
+        ? 'ticket'
+        : parts[0] === 'run' || parts[0] === 'replay'
+          ? 'run'
+          : parts[0] === 'track'
+            ? 'track'
+            : null;
     if (limited) {
       const wait = this.limits.take(limited, req.headers.get('x-gs-ip') ?? '', this.now(req));
       if (wait) return refuse(429, 'rate', { retryAfter: wait });
     }
     if (parts[0] === 'ticket' && req.method === 'POST') return this.ticket(req);
-    if (parts[0] === 'track' && parts.length === 3) return this.track(parts[1]!, parts[2]!);
+    if (parts[0] === 'track' && parts.length === 3)
+      return this.track(parts[1]!, parts[2]!, this.now(req));
     if (parts[0] === 'run' && req.method === 'POST') return this.run(req);
     if (parts[0] === 'replay' && req.method === 'POST') return this.replayOnly(req);
     if (parts[0] === 'board' && parts.length === 2 && req.method === 'GET')
@@ -135,10 +155,16 @@ export class Arbiter extends DurableObject<Env> {
     return json({ ticket: id, difficulty: d, chunk: chunk(ticket.seed, d, 0) });
   }
 
-  private async track(id: string, fromText: string): Promise<Response> {
+  private async track(id: string, fromText: string, now: number): Promise<Response> {
     const ticket = await this.tickets.get(id);
     if (!ticket) return refuse(404, 'ticket');
-    const c = chunk(ticket.seed, ticket.difficulty, Number(fromText));
+    const from = Number(fromText);
+    // Pas plus loin que la partie n'a pu aller : l'âge du ticket au plafond
+    // de vitesse, plus deux tranches d'avance. Chaque tranche se régénère
+    // depuis le premier segment, et `from` était sinon le prix que l'appelant
+    // choisissait de faire payer.
+    if (from > reachable(now - ticket.issued)) return refuse(400, 'from');
+    const c = chunk(ticket.seed, ticket.difficulty, from);
     if (!c) return refuse(400, 'from');
     // immuable pour un ticket donné : le client et tout cache intermédiaire peuvent le garder
     return json(c, 200, { 'cache-control': 'private, max-age=3600' });

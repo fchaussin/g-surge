@@ -254,7 +254,11 @@ describe('the server in workerd', () => {
     // ne peut pas redemander en cours de partie, le vrai le fait sous un seuil
     const fetchAhead = async (): Promise<void> => {
       while (queue.ahead < 2048) {
-        const r = await get(`/track/${issued.ticket}/${queue.wanted}`);
+        // sous une horloge feinte : un vrai client n'en demande jamais plus que
+        // la partie n'a pu en parcourir, et le serveur le tient
+        const r = await get(`/track/${issued.ticket}/${queue.wanted}`, {
+          'x-debug-now': String(Date.now() + 60_000),
+        });
         expect(r.status).toBe(200);
         expect(r.headers.get('cache-control')).toContain('max-age');
         expect(queue.feed(unpackNodes((await r.json()) as WireChunk)!)).toBe(256);
@@ -574,6 +578,43 @@ describe('the server in workerd', () => {
    * mais le rejeu simple ne l'était pas : il tournait des minutes dans un
    * objet unique pour un message tenant dans un SMS.
    */
+  /** `/track` coûte ~50 ms au plus loin et n'était pas compté ; il l'est, et `from` a un plafond. */
+  it('caps the track chunks an address may ask for, and how far ahead', async () => {
+    const as = await signIn('Chunky');
+    const ip = { 'cf-connecting-ip': '198.51.100.9', ...as };
+    const issued = (await (await post('/ticket', { difficulty: 'easy' }, ip)).json()) as {
+      ticket: string;
+    };
+    // le ticket vient d'être émis : deux tranches d'avance passent, dix kilomètres non
+    expect((await get(`/track/${issued.ticket}/256`, ip)).status).toBe(200);
+    expect((await get(`/track/${issued.ticket}/100000`, ip)).status).toBe(400);
+    // une minute plus tard, la partie a pu aller loin — au plafond de vitesse
+    const later = { ...ip, 'x-debug-now': String(Date.now() + 60_000) };
+    expect((await get(`/track/${issued.ticket}/2048`, later)).status).toBe(200);
+
+    let refused = 0;
+    for (let i = 0; i < PER_MINUTE.track! + 2; i++) {
+      if ((await get(`/track/${issued.ticket}/0`, ip)).status === 429) refused++;
+    }
+    expect(refused).toBeGreaterThan(0);
+  });
+
+  /** Hors débogage, le rejeu simple demande un compte : il coûte autant qu'une partie classée. */
+  it('requires an account for a plain replay outside DEBUG', async () => {
+    const off = flare({ DEBUG: { type: 'text', value: '0' } });
+    try {
+      const { trace } = play('anonymous-replay', 'easy', 4);
+      const res = await off.dispatchFetch('https://api.test/run', {
+        method: 'POST',
+        body: JSON.stringify({ core, trace }),
+        headers: { 'content-type': 'application/json' },
+      });
+      expect(res.status).toBe(401);
+    } finally {
+      await off.dispose();
+    }
+  });
+
   it('refuses a trace that claims more steps than an hour of play', async () => {
     const { trace } = play('too-long', 'easy', 4);
     const absurd = { ...trace, steps: MAX_TRACE_STEPS + 1 };

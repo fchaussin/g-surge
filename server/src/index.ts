@@ -203,14 +203,18 @@ async function route(req: Request, env: Env): Promise<Response> {
   // GET /track/:ticket/:from — la tranche est immuable, le Worker ne fait que passer.
   if (url.pathname.startsWith('/track/')) {
     if (req.method !== 'GET') return refuse(405, 'method');
-    return arbiter().fetch('https://arbiter' + url.pathname);
+    // L'adresse aussi : la tranche est comptée par adresse, et sans elle
+    // tous les joueurs partageaient la même fenêtre — vu par le test.
+    return arbiter().fetch('https://arbiter' + url.pathname, { headers: ipHeaders(req, env) });
   }
 
   // GET /board/:difficulty?by=category — public, rien à vérifier avant de
   // transmettre. La chaîne de requête porte la catégorie, ne pas la perdre.
   if (url.pathname.startsWith('/board/') || url.pathname.startsWith('/trace/')) {
     if (req.method !== 'GET') return refuse(405, 'method');
-    return arbiter().fetch('https://arbiter' + url.pathname + url.search);
+    return arbiter().fetch('https://arbiter' + url.pathname + url.search, {
+      headers: ipHeaders(req, env),
+    });
   }
 
   if (url.pathname === '/run') {
@@ -244,6 +248,10 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (body.ticket !== undefined && typeof body.ticket !== 'string') return refuse(400, 'ticket');
     const ranked = body.ticket !== undefined;
     if (ranked && !account) return refuse(401, 'sign-in');
+    // Le rejeu simple aussi : il coûte autant qu'une partie classée à
+    // l'arbitre unique, et personne d'anonyme n'a de raison de le demander.
+    // Sous `DEBUG=1` il reste ouvert — c'est la voie des tests.
+    if (!ranked && !account && env.DEBUG !== '1') return refuse(401, 'sign-in');
     const headers = {
       'content-type': 'application/json',
       ...ipHeaders(req, env),

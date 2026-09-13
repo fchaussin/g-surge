@@ -28,10 +28,34 @@ const WINDOW = 60_000;
 export const PER_MINUTE: Record<string, number> = {
   ticket: 12,
   run: 12,
+  // Une tranche est demandée tous les 3 km, ~9 par minute au plafond de
+  // vitesse ; soixante laissent large. Elle coûte pourtant : la piste se
+  // régénère depuis le premier segment à chaque appel, ~50 ms au plus loin.
+  track: 60,
 };
 
 /** Au-delà, la table est purgée de ses fenêtres mortes. Borne la mémoire. */
 const SWEEP_AT = 4096;
+/**
+ * Plafond dur après purge : au-delà, les fenêtres les plus anciennes
+ * partent. Sans lui, un flot d'adresses neuves grossissait la table sans
+ * borne le temps d'une minute — et une adresse IPv6 est gratuite.
+ */
+const MAX_KEYS = 16_384;
+
+/**
+ * Ce qui compte comme « une adresse ». En IPv6 un hôte dispose d'un /64
+ * entier, soit des clés à l'infini pour un limiteur qui lirait l'adresse
+ * exacte : on regroupe sur les quatre premiers groupes. En IPv4 l'adresse
+ * telle quelle.
+ */
+export function subject(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  // forme canonique : les groupes vides d'un `::` comptent pour ce qu'ils remplacent
+  const [head] = ip.split('::');
+  const groups = (head ?? '').split(':').filter((g) => g !== '');
+  return groups.slice(0, 4).join(':') + (groups.length < 4 ? '::' : '');
+}
 
 interface Window {
   /** Fin de la fenêtre en cours. */
@@ -57,7 +81,8 @@ export class Limits {
     const cap = PER_MINUTE[key];
     if (cap === undefined) return 0;
     if (this.seen.size > SWEEP_AT) this.sweep(now);
-    const id = `${key}:${ip}`;
+    if (this.seen.size > MAX_KEYS) this.evict(this.seen.size - MAX_KEYS);
+    const id = `${key}:${subject(ip)}`;
     const window = this.seen.get(id);
     if (!window || window.until <= now) {
       this.seen.set(id, { until: now + WINDOW, used: 1 });
@@ -72,5 +97,13 @@ export class Limits {
 
   private sweep(now: number): void {
     for (const [id, window] of this.seen) if (window.until <= now) this.seen.delete(id);
+  }
+
+  /** Les plus anciennes d'abord : une `Map` itère dans l'ordre d'insertion. */
+  private evict(count: number): void {
+    for (const id of this.seen.keys()) {
+      if (count-- <= 0) return;
+      this.seen.delete(id);
+    }
   }
 }
