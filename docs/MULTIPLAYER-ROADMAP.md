@@ -418,7 +418,14 @@ Alongside from M3 on, never a release of its own.
   free-plan ceilings in `NETWORK.md`, with an alert at half.
 - Abuse: IP and account rate limits, envelope size caps, a trace size cap
   derived from `MAX_SPANS`, refusal of a digest the deployment does not
-  carry.
+  carry. **The IP limits and the step cap landed in 1.23.0**: twelve tickets
+  and twelve runs a minute per address, counted in the arbiter's memory since
+  it is the one object that sees everything, and `MAX_TRACE_STEPS` at an hour
+  of play. That last one closed a hole rather than tightened a bound — a
+  forty-byte trace could declare two billion steps and `replay` loops exactly
+  that many times, so a message the size of an SMS pinned the single arbiter
+  for minutes. The ranked path was covered by the ticket's window; the plain
+  replay was not. Account limits wait for M6.
 - The kill switch: a flag in the Worker that turns the ranked mode off and
   lets the menu say so, so a bad day on the server is a normal day offline.
 

@@ -18,7 +18,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
 | `src/client/` | 41 | ~8 400 |
-| `server/src/` | 7 | ~700 |
+| `server/src/` | 8 | ~800 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -268,6 +268,7 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 | `tickets.ts` | Tickets in the object's storage: the seed the client never sees, the issue time the submission window is measured against — one run per ticket, in real time, on the object's clock |
 | `track.ts` | `chunk(seed, difficulty, from)`: 256 segments from the seeded generator, packed — the same range always answers the same bytes |
 | `epoch.ts` | `epoch(now)`, the ISO week key the board resets on — Monday 00:00 UTC — and `nextReset(now)` for the board's countdown |
+| `limits.ts` | What one address may ask for per minute on the two routes that arm or spend a replay, counted in the object's memory — an address is not a player, which is why the caps are wide for a human and narrow for a loop |
 | `wire.ts` | `asTrace`: the body's trace, packed and base64 as the client now sends it, or the JSON shape a bundle from before a deploy still sends |
 | `http.ts` | `json` and `refuse` |
 | `env.d.ts` | `__CORE_DIGEST__`, defined by the build |

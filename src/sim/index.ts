@@ -40,6 +40,7 @@ export {
 } from './tuning.js';
 export {
   MAX_SPANS,
+  MAX_TRACE_STEPS,
   Recorder,
   TraceCursor,
   outcomeOf,

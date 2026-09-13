@@ -17,6 +17,7 @@ import { Miniflare } from 'miniflare';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildServer } from '../scripts/build-server.mjs';
 import { coreDigest } from '../scripts/core-digest.mjs';
+import { PER_MINUTE } from '../server/src/limits.js';
 import {
   DT,
   outcomeOf,
@@ -26,8 +27,10 @@ import {
   replay,
   Rng,
   Sim,
+  MAX_TRACE_STEPS,
   unpackNodes,
   unpackTrace,
+  validTrace,
   type Difficulty,
   type Input,
   type Trace,
@@ -83,12 +86,24 @@ function play(
 let mf: Miniflare;
 let core: string;
 
-const get = (path: string) => mf.dispatchFetch(`https://api.test${path}`);
+/**
+ * Une adresse par appel, sauf quand un test en impose une.
+ *
+ * Le serveur limite `/ticket` et `/run` par adresse, et ces tests en font bien
+ * plus qu'un joueur en une minute. Leur donner chacun la sienne est ce qu'ils
+ * sont — des clients différents — et laisse le plafond se tester pour
+ * lui-même, avec une adresse tenue.
+ */
+let caller = 0;
+const from = (): Record<string, string> => ({ 'cf-connecting-ip': `10.0.0.${++caller}` });
+
+const get = (path: string, headers?: Record<string, string>) =>
+  mf.dispatchFetch(`https://api.test${path}`, { headers: { ...from(), ...headers } });
 const post = (path: string, body: unknown, headers?: Record<string, string>) =>
   mf.dispatchFetch(`https://api.test${path}`, {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json', ...headers },
+    headers: { 'content-type': 'application/json', ...from(), ...headers },
   });
 
 /**
@@ -542,6 +557,55 @@ describe('the server in workerd', () => {
     expect((await post('/ticket', { difficulty: 'insane' })).status).toBe(400);
     expect((await get('/track/nope/0')).status).toBe(404);
     expect((await get(`/track/${issued.ticket}/-1`)).status).toBe(400);
+  });
+
+  /**
+   * Le rejeu est ce qui coûte, et il se compte par adresse.
+   *
+   * Mesuré à 0,06 µs par pas une fois le JIT chaud : une partie normale se
+   * rejoue en quelques dizaines de millisecondes, la plus longue qu'une trace
+   * puisse déclarer en deux dixièmes de seconde. Douze par minute et par
+   * adresse est large pour un joueur — qui en lance une au plus — et serré
+   * pour une boucle.
+   */
+  it('caps what one address may ask for per minute, and says how long to wait', async () => {
+    const ip = { 'cf-connecting-ip': '203.0.113.7' };
+    let refused: Awaited<ReturnType<typeof post>> | null = null;
+    for (let i = 0; i < PER_MINUTE.ticket! + 1; i++) {
+      const res = await post('/ticket', { difficulty: 'easy' }, ip);
+      if (res.status === 429) {
+        refused = res;
+        break;
+      }
+      expect(res.status).toBe(200);
+    }
+    expect(refused).not.toBeNull();
+    const body = (await refused!.json()) as { error: string; retryAfter: number };
+    expect(body.error).toBe('rate');
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(body.retryAfter).toBeLessThanOrEqual(60);
+
+    // une autre adresse n'est pas punie pour celle-là
+    expect((await post('/ticket', { difficulty: 'easy' })).status).toBe(200);
+
+    // la fenêtre glisse : une minute plus tard, la même adresse repasse
+    const later = { ...ip, 'x-debug-now': String(Date.now() + 61_000) };
+    expect((await post('/ticket', { difficulty: 'easy' }, later)).status).toBe(200);
+  });
+
+  /**
+   * Une trace de quelques dizaines d'octets pouvait demander deux milliards de
+   * pas, et `replay` boucle exactement ce nombre de fois. La partie classée
+   * était couverte — la fenêtre du ticket compare les pas au temps écoulé —
+   * mais le rejeu simple ne l'était pas : il tournait des minutes dans un
+   * objet unique pour un message tenant dans un SMS.
+   */
+  it('refuses a trace that claims more steps than an hour of play', async () => {
+    const { trace } = play('too-long', 'easy', 4);
+    const absurd = { ...trace, steps: MAX_TRACE_STEPS + 1 };
+    expect((await post('/run', { core, trace: absurd })).status).toBe(400);
+    // la borne elle-même passe : c'est un plafond, pas une marge
+    expect(validTrace({ ...trace, steps: MAX_TRACE_STEPS })).toBe(true);
   });
 
   it('answers CORS for the game origins and nothing else', async () => {

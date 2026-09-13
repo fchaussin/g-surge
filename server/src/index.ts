@@ -71,6 +71,17 @@ export default {
   },
 };
 
+/**
+ * Ce que l'arbitre doit savoir de l'appelant : son adresse, que `fetch` vers
+ * un Durable Object ne transporte pas, et l'heure feinte sous `DEBUG=1`.
+ */
+function ipHeaders(req: Request, env: Env): Record<string, string> {
+  const headers: Record<string, string> = { 'x-gs-ip': req.headers.get('cf-connecting-ip') ?? '' };
+  const debugNow = env.DEBUG === '1' ? req.headers.get('x-debug-now') : null;
+  if (debugNow) headers['x-debug-now'] = debugNow;
+  return headers;
+}
+
 async function route(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const arbiter = () => env.ARBITER.get(env.ARBITER.idFromName('arbiter'));
@@ -81,7 +92,11 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return refuse(405, 'method');
     const body = await req.text();
     if (body.length > 256) return refuse(413, 'size');
-    return arbiter().fetch('https://arbiter/ticket', { method: 'POST', body });
+    return arbiter().fetch('https://arbiter/ticket', {
+      method: 'POST',
+      body,
+      headers: ipHeaders(req, env),
+    });
   }
 
   // GET /track/:ticket/:from — la tranche est immuable, le Worker ne fait que passer.
@@ -122,9 +137,7 @@ async function route(req: Request, env: Env): Promise<Response> {
     }
     if (body.ticket !== undefined && typeof body.ticket !== 'string') return refuse(400, 'ticket');
     const ranked = body.ticket !== undefined;
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
-    const debugNow = env.DEBUG === '1' ? req.headers.get('x-debug-now') : null;
-    if (debugNow) headers['x-debug-now'] = debugNow;
+    const headers = { 'content-type': 'application/json', ...ipHeaders(req, env) };
     return arbiter().fetch(ranked ? 'https://arbiter/run' : 'https://arbiter/replay', {
       method: 'POST',
       body: JSON.stringify(

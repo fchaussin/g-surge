@@ -25,6 +25,7 @@ import type { Env } from './index.js';
 import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
 import { chunk } from './track.js';
+import { Limits } from './limits.js';
 import { asTrace } from './wire.js';
 
 /** Ce que le Worker transmet pour une partie classée : le ticket et la trace sans sa graine. */
@@ -95,10 +96,20 @@ const KEEP = 20;
 
 export class Arbiter extends DurableObject<Env> {
   private readonly tickets = new Tickets(this.ctx.storage);
+  /** Ce qu'une adresse peut demander par minute sur les deux routes qui rejouent. */
+  private readonly limits = new Limits();
 
   override async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const parts = url.pathname.split('/').filter(Boolean);
+    // Les deux routes qui arment ou dépensent un rejeu sont comptées ; les
+    // lectures ne le sont pas, elles ne coûtent qu'une requête D1.
+    const limited =
+      parts[0] === 'ticket' ? 'ticket' : parts[0] === 'run' || parts[0] === 'replay' ? 'run' : null;
+    if (limited) {
+      const wait = this.limits.take(limited, req.headers.get('x-gs-ip') ?? '', this.now(req));
+      if (wait) return refuse(429, 'rate', { retryAfter: wait });
+    }
     if (parts[0] === 'ticket' && req.method === 'POST') return this.ticket(req);
     if (parts[0] === 'track' && parts.length === 3) return this.track(parts[1]!, parts[2]!);
     if (parts[0] === 'run' && req.method === 'POST') return this.run(req);

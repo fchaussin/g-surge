@@ -18,7 +18,7 @@
  * et la trace s'accumule à côté, sans rien coûter de plus qu'une comparaison
  * par pas.
  */
-import { DT } from './clock.js';
+import { DT, HZ } from './clock.js';
 import type { SimEvent } from './events.js';
 import { createState, type SimState } from './state.js';
 import { step, type Input } from './step.js';
@@ -36,6 +36,25 @@ export const BOOST = 2;
  * remué à chaque frame de 240 Hz — hors de toute partie classée.
  */
 export const MAX_SPANS = 1 << 20;
+
+/**
+ * Plafond du nombre de pas qu'une trace peut déclarer. À ne pas confondre avec
+ * le `MAX_STEPS` de `clock.ts`, qui borne les pas d'**une frame**.
+ *
+ * Une heure de jeu, soit soixante fois la plus longue partie qu'on ait
+ * mesurée — le pilote scripté tient dix minutes. Ce n'est pas une limite de
+ * jeu, c'est une limite de rejeu : `replay` boucle exactement `steps` fois, et
+ * sans plafond une trace de quelques dizaines d'octets pouvait en déclarer
+ * deux milliards. Mesuré à 0,06 µs par pas une fois le JIT chaud, ça faisait
+ * plus de deux minutes de processeur pour un message qui tient dans un SMS,
+ * et le Durable Object qui arbitre est unique. Avec ce plafond, le pire est de
+ * l'ordre de deux dixièmes de seconde.
+ *
+ * La partie classée était déjà couverte — la fenêtre du ticket compare
+ * `steps` au temps écoulé avant de rejouer — mais le rejeu simple, celui des
+ * tests et des fantômes, ne l'était pas.
+ */
+export const MAX_TRACE_STEPS = 60 * 60 * HZ;
 
 /** Ce qui circule sur le réseau, sérialisable en JSON tel quel. */
 export interface Trace {
@@ -147,8 +166,10 @@ export class Recorder {
  */
 export function validTrace(t: Trace): boolean {
   if (t.truncated || !(t.steps >= 0) || !Number.isInteger(t.steps)) return false;
+  if (t.steps > MAX_TRACE_STEPS) return false;
   if (!(t.difficulty in DIFF)) return false;
   const n = t.from.length;
+  if (n > MAX_SPANS) return false;
   if (t.steer.length !== n || t.flags.length !== n) return false;
   if (n === 0) return t.steps === 0;
   if (t.from[0] !== 0) return false;
