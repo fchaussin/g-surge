@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.js';
 import { coreDigest } from '../../scripts/core-digest.mjs';
 import { DEFAULTS, HZ, outcomeOf, replay, type SimState, type Trace } from '../../src/sim/index.js';
 

@@ -8,7 +8,7 @@
  *
  * Tout ceci tourne contre `public/`, que le serveur de test construit d'abord.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.js';
 
 function watchErrors(page: import('@playwright/test').Page): string[] {
   const errors: string[] = [];
@@ -65,7 +65,7 @@ test.describe('new client, skeleton', () => {
     await ready(page);
 
     const gl = await page.evaluate(() => {
-      const canvas = document.querySelector('canvas');
+      const canvas = document.querySelector<HTMLCanvasElement>('#view');
       if (!canvas) return null;
       const ctx = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
       if (!ctx) return null;
@@ -86,7 +86,7 @@ test.describe('new client, skeleton', () => {
     await ready(page);
 
     const m = await page.evaluate(() => {
-      const c = document.querySelector('canvas')!;
+      const c = document.querySelector<HTMLCanvasElement>('#view')!;
       const r = c.getBoundingClientRect();
       return {
         cssW: r.width,
@@ -112,7 +112,7 @@ test.describe('new client, skeleton', () => {
     await ready(page);
 
     const size = await page.evaluate(() => {
-      const c = document.querySelector('canvas')!;
+      const c = document.querySelector<HTMLCanvasElement>('#view')!;
       c.style.removeProperty('width');
       c.style.removeProperty('height');
       const r = c.getBoundingClientRect();

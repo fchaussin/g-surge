@@ -874,7 +874,9 @@ const loop = new Loop({
           if (screens.mode === 'watch' && watching === null && shown === last) screens.back();
         }, WRECK_HOLD_MS);
       }
-    } else if (mode === 'menu') {
+    } else if (mode === 'menu' || mode === 'signin' || mode === 'name') {
+      // La porte et le pseudo sont des calques sur le menu : le monde vit
+      // derrière, comme derrière le menu lui-même.
       bank = sim.step(input.value, dt, true);
     }
   },

@@ -29,6 +29,9 @@ export class Viewport {
     });
     this.camera = new THREE.PerspectiveCamera(fov, 1, 0.4, 3000);
 
+    // Le canvas du jeu porte un id : la règle CSS plein écran et les tests
+    // le visent par là, pas par `canvas` — le QR du duel en est un aussi.
+    this.renderer.domElement.id = 'view';
     document.body.appendChild(this.renderer.domElement);
     this.applySize();
     window.addEventListener('resize', this.onResize);

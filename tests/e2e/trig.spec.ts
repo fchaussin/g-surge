@@ -20,7 +20,7 @@
  * représentation qui se relit à l'identique — donc une comparaison de motifs de
  * bits de ce côté est valide.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.js';
 import { atan, cos, sin } from '../../src/sim/index.js';
 
 const BITS = new DataView(new ArrayBuffer(8));

@@ -12,7 +12,7 @@
  * `README_SHOT_SEEDS` prend une liste de graines séparées par des virgules et
  * écrit une image par graine dans `test-results/`, pour choisir.
  */
-import { test } from '@playwright/test';
+import { test } from './fixtures.js';
 
 test.skip(!process.env.README_SHOT, 'illustration, not a test');
 

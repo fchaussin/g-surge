@@ -27,7 +27,7 @@ test.describe('rendu des écrans', () => {
     await game.boot();
 
     await page.evaluate(() => {
-      const canvas = document.querySelector('canvas');
+      const canvas = document.querySelector<HTMLCanvasElement>('#view');
       if (canvas) canvas.style.visibility = 'hidden';
 
       // Deux zones bougent indépendamment de la mise en page : le compteur de
