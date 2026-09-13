@@ -12,7 +12,14 @@
  * feront un par semaine ou par course ; le rejeu, lui, ne bouge pas.
  */
 import { DurableObject } from 'cloudflare:workers';
-import { DT, replay, validTrace, type Outcome, type Trace } from '../../src/sim/index.js';
+import {
+  DT,
+  packTrace,
+  replay,
+  validTrace,
+  type Outcome,
+  type Trace,
+} from '../../src/sim/index.js';
 import { epoch, nextReset } from './epoch.js';
 import type { Env } from './index.js';
 import { json, refuse } from './http.js';
@@ -70,6 +77,22 @@ const CATEGORY_ORDER: Record<string, string> = {
   avg: 'dist / max(time, 0.001) DESC',
 };
 
+/**
+ * Combien de parties une difficulté garde par semaine.
+ *
+ * Le tableau n'accumule pas : il garde les meilleures et jette le reste, à
+ * chaque soumission. Vingt, quand le tableau en montre dix, laisse de quoi
+ * départager sans que la base grossisse d'une partie jouée.
+ *
+ * **Vingt par catégorie, et non vingt en tout.** Le tableau classe sur quatre
+ * critères, et une partie première à la vitesse de pointe peut être
+ * quatre-centième au score — c'est tout l'intérêt des filtres. Ce qui est
+ * gardé est donc l'union des vingt premières de chacune : au plus quatre-vingts
+ * lignes, en pratique bien moins, les mêmes parties revenant souvent en tête
+ * de plusieurs colonnes.
+ */
+const KEEP = 20;
+
 export class Arbiter extends DurableObject<Env> {
   private readonly tickets = new Tickets(this.ctx.storage);
 
@@ -82,6 +105,8 @@ export class Arbiter extends DurableObject<Env> {
     if (parts[0] === 'replay' && req.method === 'POST') return this.replayOnly(req);
     if (parts[0] === 'board' && parts.length === 2 && req.method === 'GET')
       return this.board(parts[1]!, url.searchParams.get('by') ?? 'score');
+    if (parts[0] === 'trace' && parts.length === 2 && req.method === 'GET')
+      return this.traceOf(parts[1]!);
     return refuse(404, 'not-found');
   }
 
@@ -122,7 +147,11 @@ export class Arbiter extends DurableObject<Env> {
     const name = sanitiseName(body.name);
     const mismatch =
       body.claim !== undefined && JSON.stringify(body.claim) !== JSON.stringify(outcome);
-    await this.record(trace, outcome, epochKey, name, body.claim, mismatch);
+    const id = await this.record(trace, outcome, epochKey, name, body.claim, mismatch);
+    await this.keepTrace(id, trace);
+    // Jeter tout de suite : la base ne doit jamais porter plus que ce que le
+    // tableau de la semaine peut montrer.
+    await this.prune(epochKey, ticket.difficulty);
     const rank = await rankOf(this.env.DB, epochKey, ticket.difficulty, outcome.score);
     return json({ outcome, rank });
   }
@@ -135,7 +164,7 @@ export class Arbiter extends DurableObject<Env> {
     const now = Date.now();
     const epochKey = epoch(now);
     const rows = await this.env.DB.prepare(
-      `SELECT name, score, dist, time, coins, speed_peak AS speedPeak FROM runs
+      `SELECT id, name, score, dist, time, coins, speed_peak AS speedPeak FROM runs
        WHERE epoch = ? AND difficulty = ? ORDER BY ${orderBy} LIMIT 10`,
     )
       .bind(epochKey, difficulty)
@@ -167,8 +196,8 @@ export class Arbiter extends DurableObject<Env> {
     name: string,
     claim: Outcome | undefined,
     mismatch: boolean,
-  ): Promise<void> {
-    await this.env.DB.prepare(
+  ): Promise<number> {
+    const written = await this.env.DB.prepare(
       `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult, wrecked,
                           submitted_at, name, epoch, claim, mismatch, speed_peak)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -192,5 +221,67 @@ export class Arbiter extends DurableObject<Env> {
         o.speedPeak,
       )
       .run();
+    return Number(written.meta.last_row_id);
+  }
+
+  /**
+   * Les octets de la partie, gardés tant qu'elle est au tableau.
+   *
+   * La trace est ce qui prouve le score — le serveur l'a rejouée pour
+   * l'obtenir — donc la garder est ce qui rend la preuve regardable, `M4` de
+   * `MULTIPLAYER-ROADMAP.md`.
+   */
+  private async keepTrace(runId: number, trace: Trace): Promise<void> {
+    await this.env.DB.prepare('INSERT OR REPLACE INTO traces (run_id, bytes) VALUES (?, ?)')
+      .bind(runId, packTrace(trace))
+      .run();
+  }
+
+  /**
+   * Ne garder que les meilleures : l'union des `KEEP` premières de chaque
+   * catégorie, pour cette semaine et cette difficulté. Tout le reste de la
+   * semaine sort, et avec lui les octets — ceux des semaines passées aussi,
+   * dont les lignes restent pour le palmarès mais que plus personne ne
+   * regarde, le tableau ne montrant que la semaine en cours.
+   */
+  private async prune(epochKey: string, difficulty: string): Promise<void> {
+    const db = this.env.DB;
+    const keep = new Set<number>();
+    for (const orderBy of Object.values(CATEGORY_ORDER)) {
+      const top = await db
+        .prepare(
+          `SELECT id FROM runs WHERE epoch = ? AND difficulty = ?
+           ORDER BY ${orderBy} LIMIT ${KEEP}`,
+        )
+        .bind(epochKey, difficulty)
+        .all<{ id: number }>();
+      for (const row of top.results) keep.add(row.id);
+    }
+    if (!keep.size) return;
+    const ids = [...keep].join(',');
+    await db
+      .prepare(`DELETE FROM runs WHERE epoch = ? AND difficulty = ? AND id NOT IN (${ids})`)
+      .bind(epochKey, difficulty)
+      .run();
+    // Les octets suivent les lignes de la semaine en cours, et rien d'autre
+    // n'en garde : une seule instruction nettoie les deux cas.
+    await db
+      .prepare('DELETE FROM traces WHERE run_id NOT IN (SELECT id FROM runs WHERE epoch = ?)')
+      .bind(epochKey)
+      .run();
+  }
+
+  /** Les octets d'une partie gardée, pour la regarder. */
+  private async traceOf(idText: string): Promise<Response> {
+    const id = Number(idText);
+    if (!Number.isInteger(id) || id <= 0) return refuse(400, 'id');
+    const row = await this.env.DB.prepare('SELECT bytes FROM traces WHERE run_id = ?')
+      .bind(id)
+      .first<{ bytes: ArrayBuffer | Uint8Array }>();
+    if (!row) return refuse(404, 'trace');
+    const bytes = row.bytes instanceof Uint8Array ? row.bytes : new Uint8Array(row.bytes);
+    let binary = '';
+    for (const b of bytes) binary += String.fromCharCode(b);
+    return json({ trace: btoa(binary) }, 200, { 'cache-control': 'public, max-age=86400' });
   }
 }

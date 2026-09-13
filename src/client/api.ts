@@ -72,6 +72,8 @@ export class ApiError extends Error {
 
 /** Une entrée du tableau hebdomadaire, telle que le serveur la rend. */
 export interface BoardEntry {
+  /** La ligne en base : c'est par elle que sa trace se demande, `api.trace`. */
+  id: number;
   name: string;
   score: number;
   dist: number;
@@ -113,4 +115,6 @@ export const api = {
     post('/run', { core: CORE_DIGEST, ticket, trace: toBase64(packTrace(trace)), name, claim }),
   board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>
     call(`/board/${difficulty}?by=${category}`),
+  /** Les octets d'une partie gardée. Gardée : le serveur ne tient que les meilleures. */
+  trace: (id: number): Promise<{ trace: string }> => call(`/trace/${id}`),
 };

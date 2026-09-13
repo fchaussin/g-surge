@@ -92,7 +92,7 @@ async function route(req: Request, env: Env): Promise<Response> {
 
   // GET /board/:difficulty?by=category — public, rien à vérifier avant de
   // transmettre. La chaîne de requête porte la catégorie, ne pas la perdre.
-  if (url.pathname.startsWith('/board/')) {
+  if (url.pathname.startsWith('/board/') || url.pathname.startsWith('/trace/')) {
     if (req.method !== 'GET') return refuse(405, 'method');
     return arbiter().fetch('https://arbiter' + url.pathname + url.search);
   }

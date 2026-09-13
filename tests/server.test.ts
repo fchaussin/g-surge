@@ -27,6 +27,7 @@ import {
   Rng,
   Sim,
   unpackNodes,
+  unpackTrace,
   type Difficulty,
   type Input,
   type Trace,
@@ -150,7 +151,12 @@ beforeAll(async () => {
     ],
   });
   const db = await mf.getD1Database('DB');
-  for (const migration of ['0001_runs.sql', '0002_board.sql', '0003_speed_peak.sql']) {
+  for (const migration of [
+    '0001_runs.sql',
+    '0002_board.sql',
+    '0003_speed_peak.sql',
+    '0004_traces.sql',
+  ]) {
     const schema = readFileSync(join(ROOT, 'server', 'migrations', migration), 'utf8');
     // les commentaires d'abord, les instructions ensuite : un point-virgule dans
     // une phrase française couperait sinon une instruction en deux
@@ -381,6 +387,107 @@ describe('the server in workerd', () => {
     };
     expect(easyBoard.entries.map((e) => e.dist)).not.toContain(outcomeA.dist);
     expect(easyBoard.entries.map((e) => e.dist)).not.toContain(outcomeB.dist);
+  });
+
+  /**
+   * Le tableau n'accumule pas : il garde les meilleures et jette le reste.
+   *
+   * Quarante parties sont posées directement en base — le rejeu n'a rien à
+   * prouver ici, c'est le tri qui est en cause — puis une vraie partie classée
+   * déclenche l'élagage. Ce qui est vérifié est ce qui coûterait cher à se
+   * tromper : la meilleure de chaque colonne survit, y compris celle qui est
+   * première à la vitesse de pointe et dernière au score, et une partie
+   * médiocre partout s'en va avec ses octets.
+   */
+  it('keeps only the best: the union of the top of each category, traces with them', async () => {
+    const db = await mf.getD1Database('DB');
+    const board = (await (await get('/board/easy')).json()) as { epoch: string };
+    const week = board.epoch;
+
+    const insert = async (
+      tag: string,
+      score: number,
+      dist: number,
+      time: number,
+      speed: number,
+    ): Promise<number> => {
+      const r = await db
+        .prepare(
+          `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult,
+                             wrecked, submitted_at, name, epoch, claim, mismatch, speed_peak)
+           VALUES (?, 'easy', ?, 100, ?, ?, ?, 0, 1, 0, ?, ?, ?, '', 0, ?)`,
+        )
+        .bind(core, tag, score, dist, time, Date.now(), tag, week, speed)
+        .run();
+      const id = Number(r.meta.last_row_id);
+      await db
+        .prepare('INSERT INTO traces (run_id, bytes) VALUES (?, ?)')
+        .bind(id, new Uint8Array([1, 2, 3]))
+        .run();
+      return id;
+    };
+
+    // Trente parties quelconques, décroissantes sur tout.
+    const filler: number[] = [];
+    for (let i = 0; i < 30; i++) filler.push(await insert(`f${i}`, 900 - i, 900 - i, 60, 90 - i));
+    // Une première à la vitesse de pointe et nulle partout ailleurs.
+    const fastest = await insert('fastest', 1, 1, 60, 999);
+    // Une première à la vitesse moyenne, par un temps minuscule.
+    const quickest = await insert('quickest', 2, 500, 0.5, 1);
+    // Une médiocre partout : au-delà du vingtième de chaque colonne.
+    const nobody = await insert('nobody', 3, 3, 60, 3);
+
+    expect((await rankedRun('prune', 'easy', 8)).status).toBe(200);
+
+    const left = (
+      await db
+        .prepare("SELECT id, name FROM runs WHERE epoch = ? AND difficulty = 'easy'")
+        .bind(week)
+        .all<{ id: number; name: string }>()
+    ).results;
+    const ids = new Set(left.map((r) => r.id));
+
+    // au plus vingt par colonne, quatre colonnes
+    expect(left.length).toBeLessThanOrEqual(80);
+    expect(ids.has(filler[0]!)).toBe(true); // la meilleure au score
+    expect(ids.has(fastest)).toBe(true); // première à la pointe, dernière au score
+    expect(ids.has(quickest)).toBe(true); // première à la moyenne
+    expect(ids.has(nobody)).toBe(false); // vingt-et-unième partout
+
+    // Les octets suivent les lignes, dans les deux sens. Toutes difficultés
+    // confondues : les autres tests partagent cette base et leurs parties de
+    // la semaine gardent légitimement les leurs.
+    const traces = (
+      await db.prepare('SELECT run_id FROM traces').all<{ run_id: number }>()
+    ).results.map((r) => r.run_id);
+    const thisWeek = new Set(
+      (
+        await db.prepare('SELECT id FROM runs WHERE epoch = ?').bind(week).all<{ id: number }>()
+      ).results.map((r) => r.id),
+    );
+    expect(traces).not.toContain(nobody);
+    expect((await get(`/trace/${nobody}`)).status).toBe(404);
+    for (const id of traces) expect(thisWeek.has(id)).toBe(true);
+  });
+
+  /** La trace gardée est celle qui a été jouée : elle se relit et se rejoue. */
+  it('serves a kept trace, and it replays to the run it came from', async () => {
+    const run = await rankedRun('served', 'medium', 8);
+    expect(run.status).toBe(200);
+    const board = (await (await get('/board/medium')).json()) as {
+      entries: { id: number; score: number }[];
+    };
+    const top = board.entries[0]!;
+    const res = await get(`/trace/${top.id}`);
+    expect(res.status).toBe(200);
+    const { trace: b64 } = (await res.json()) as { trace: string };
+    const bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
+    const back = unpackTrace(bytes)!;
+    expect(back).not.toBeNull();
+    expect(replay(back).score).toBeCloseTo(top.score, 6);
+
+    expect((await get('/trace/99999')).status).toBe(404);
+    expect((await get('/trace/nope')).status).toBe(400);
   });
 
   it('flags a claim that disagrees with the replay, without refusing the run', async () => {
