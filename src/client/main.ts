@@ -11,6 +11,7 @@ import { AmbientLight, Color, DirectionalLight, FogExp2, MathUtils, Scene } from
 import {
   BACK,
   DIFF,
+  DT,
   driftFill,
   Sim,
   thrustTier,
@@ -27,7 +28,7 @@ import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
-import { Duel, DUEL_LINK, type DuelEnd } from './duel.js';
+import { Duel, DUEL_LINK, type DuelEnd, type Standing } from './duel.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
@@ -37,7 +38,7 @@ import { Ghost } from './ghost.js';
 import { GhostStore } from './ghosts.js';
 import { BackButton } from './history.js';
 import { Haptics } from './haptics.js';
-import { Hud } from './hud.js';
+import { formatClock, Hud } from './hud.js';
 import { InputSource } from './input.js';
 import { installed, InstallPrompt, type InstallOffer } from './install.js';
 import { Loop } from './loop.js';
@@ -176,6 +177,7 @@ const screens = new Screens({
     if (mode !== 'watch' && watching) stopWatching();
     // Revenir au menu quitte le salon : la prise se ferme, le fantôme s'efface.
     if (mode === 'menu' && duel.active) leaveDuel();
+    if (mode === 'menu') racing = false;
   },
 });
 
@@ -512,8 +514,54 @@ async function joinDuel(room: string): Promise<void> {
     sayDuel(DUEL_WHY[why]);
     return;
   }
+  // Le départ viendra du salon, avec son décompte, quand les deux prises sont là.
   duel.connect();
-  startDuel();
+  sayDuel('In the room. Waiting for the start…');
+}
+
+/** Vrai entre le départ et la ligne ou l'épave : la course est en cours pour moi. */
+let racing = false;
+
+/**
+ * Le décompte, puis le départ. Un compte à rebours sur l'horloge murale :
+ * ce n'est pas la simulation, et le classement se fait en pas simulés, donc
+ * un décalage d'une frame entre les deux n'avantage personne.
+ */
+function countdownThenStart(seconds: number): void {
+  let left = seconds;
+  const tick = (): void => {
+    if (screens.mode !== 'duel' || !duel.active) return;
+    if (left <= 0) {
+      racing = true;
+      startDuel();
+      return;
+    }
+    sayDuel(`${left}`);
+    left--;
+    window.setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+/** À la ligne : le reste de la trace part, la partie s'arrête, on attend l'autre. */
+function finishDuel(): void {
+  racing = false;
+  duel.flush(sim);
+  screens.setMode('duel');
+  sayDuel(`Finished — ${formatClock(sim.state.time)}. Waiting for the other pilot…`);
+}
+
+/** Le classement, tel que le salon l'a jugé. */
+function showResult(ranking: Standing[]): void {
+  racing = false;
+  const me = duel.member;
+  const won = ranking[0]?.who === me;
+  const line = (s: Standing): string =>
+    `${s.name} — ${s.finished ? `finished in ${formatClock(s.steps * DT)}` : `wrecked at ${(s.dist / 1000).toFixed(1)} km`}`;
+  if (screens.mode !== 'duel') screens.setMode('duel');
+  sayDuel(`${won ? 'YOU WON' : 'YOU LOST'} · ${ranking.map(line).join(' · ')}`);
+  duel.leave();
+  ghost.unfollow();
 }
 
 function startDuel(): void {
@@ -543,14 +591,18 @@ function sayDuel(text: string): void {
 duel.onChange = (why) => {
   if (why) {
     // la prise s'est fermée : la partie continue seule, et le HUD le dit
+    racing = false;
     if (screens.isLive) hud.setBest(`duel \u00b7 ${DUEL_WHY[why]}`);
     else sayDuel(DUEL_WHY[why]);
     ghost.unfollow();
     return;
   }
-  // l'autre est là : l'ouvreur démarre
-  if (screens.mode === 'duel' && duel.seats >= 2) startDuel();
+  if (screens.mode === 'duel' && duel.seats >= 2) sayDuel('The other pilot is here.');
 };
+duel.onStart = (countdown) => {
+  if (screens.mode === 'duel') countdownThenStart(countdown);
+};
+duel.onResult = (ranking) => showResult(ranking);
 
 /** Ce que toute partie fait après que sa piste est en place. */
 function launch(): void {
@@ -574,6 +626,22 @@ const WRECK_HOLD_MS = 620;
 
 function endRun(): void {
   haptics.buzz([90, 60, 200]);
+  // En duel, l'épave est une sortie de course : le reste de la trace part,
+  // et l'écran attend le classement du salon plutôt que de montrer la carte.
+  if (duel.active && racing) {
+    racing = false;
+    duel.flush(sim);
+    damage.reset();
+    submit();
+    screens.setMode('wreck');
+    const shown = runId;
+    window.setTimeout(() => {
+      if (runId !== shown || !duel.active) return;
+      screens.setMode('duel');
+      sayDuel('Wrecked. Waiting for the other pilot…');
+    }, WRECK_HOLD_MS);
+    return;
+  }
   // La coque n'a plus de jauge à faire clignoter une fois explosée : sans
   // ceci le voile rouge continuait de pulser sur l'écran de score.
   damage.reset();
@@ -675,6 +743,9 @@ function renderFrame(frameDt: number): void {
   if (duel.active) {
     duel.pump(sim);
     if (duel.other) ghost.follow(duel.other, frameDt);
+    // La ligne : la course de ce vaisseau est finie, l'objet jugera sur ce
+    // qu'il a rejoué — le reste de la trace part tout de suite.
+    if (racing && screens.isPlaying && duel.race > 0 && sim.state.dist >= duel.race) finishDuel();
   }
   ghost.update(sim, frameDt);
   ranked.pump();

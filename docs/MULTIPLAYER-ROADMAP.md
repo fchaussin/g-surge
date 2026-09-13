@@ -528,10 +528,17 @@ friend lists — is dropped until a duel proves it is wanted.
    ghost, positions eased between relayed states over the frame delta — the
    render clock, never the simulation's. A member whose chunks diverge from
    the object's replay is dropped.
-2. **A race.** An invite link that opens a room and a second that joins it;
-   a countdown once both are in; the race ends at 30 km or when both are
-   wrecked; a result screen ranking the two by the object's outcomes; the
-   entries go to the weekly board as ranked runs, since they are.
+2. **A race.** *Done, 1.26.0.* An invite link that opens a room and a
+   second that joins it; a countdown once both are in; the race ends at
+   30 km or when both are wrecked; a result screen ranking the two by the
+   object's outcomes. **A duel does not enter the weekly board** — the
+   author decided so on 13 September — so the ranking is the whole outcome,
+   and nothing is written in D1. The ranking compares *simulated steps* to
+   the line, never wall-clock: whoever launched their simulation two
+   hundred milliseconds later lost nothing, and nothing depends on the
+   network. The line passed, the client stops its run itself, flushes the
+   rest of its trace and waits; a wreck does the same after the shockwave.
+   The invite screen's copy is a proposal, still the author's to change.
 
 **Proof.** A room test with N scripted members in workerd where every
 member's relayed states equal a Node replay of its chunks. Playwright with
@@ -539,9 +546,8 @@ two pages in one room, both drawing the other. The message budget measured
 against `NETWORK.md`'s cost table — a player-hour at the chosen cadence —
 before the cadence is fixed.
 
-**Needs from the author.** Settled above, except two that only matter once
-a race exists: whether a duel counts on the weekly board, and the copy of
-the invite screen.
+**Needs from the author.** All settled: room of two, invite link, 30 km,
+10 Hz, no board entry. Only the invite screen's copy is still a proposal.
 
 **Risks.** The relayed ship is late by the network's round trip; that is
 fine for a ghost — there are no collisions between ships, by design and

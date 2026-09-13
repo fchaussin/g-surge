@@ -842,7 +842,8 @@ describe('the server in workerd', () => {
     const b = await signIn('Bob B');
     const c = await signIn('Carl C');
 
-    const opened = await post('/room', { difficulty: 'easy' }, a);
+    // une ligne d'arrivée à 400 m, sous DEBUG : la course se juge en secondes de test
+    const opened = await post('/room', { difficulty: 'easy', race: 400 }, a);
     expect(opened.status).toBe(200);
     const room = (await opened.json()) as {
       room: string;
@@ -864,8 +865,8 @@ describe('the server in workerd', () => {
     expect(seatB.chunk).toEqual(room.chunk);
 
     // les deux prises
-    const socketOf = async (member: string) => {
-      const res = await mf.dispatchFetch(`https://api.test/room/${room.room}/ws?member=${member}`, {
+    const socketOf = async (member: string, id = room.room) => {
+      const res = await mf.dispatchFetch(`https://api.test/room/${id}/ws?member=${member}`, {
         headers: { upgrade: 'websocket' },
       });
       expect(res.status).toBe(101);
@@ -877,13 +878,25 @@ describe('the server in workerd', () => {
     const wsA = await socketOf(room.member);
     const wsB = await socketOf(seatB.member);
     const relays: Record<string, unknown>[] = [];
+    const startsB: Record<string, unknown>[] = [];
+    const resultsB: Record<string, unknown>[] = [];
     wsB.addEventListener('message', (ev) => {
       const m = JSON.parse(String(ev.data)) as Record<string, unknown>;
       if (m.type === 'state') relays.push(m);
+      if (m.type === 'start') startsB.push(m);
+      if (m.type === 'result') resultsB.push(m);
     });
-    const closedA = new Promise<number>((resolve) =>
-      wsA.addEventListener('close', (ev) => resolve((ev as CloseEvent).code)),
-    );
+    const resultsA: Record<string, unknown>[] = [];
+    wsA.addEventListener('message', (ev) => {
+      const m = JSON.parse(String(ev.data)) as Record<string, unknown>;
+      if (m.type === 'result') resultsA.push(m);
+    });
+    // la seconde prise ouverte, le départ va aux deux, avec son décompte
+    await new Promise<void>((resolve) => {
+      const tick = () => (startsB.length ? resolve() : setTimeout(tick, 20));
+      tick();
+    });
+    expect(startsB[0]).toMatchObject({ countdown: 3, race: 400 });
 
     // A joue sur la piste du salon, tirée par tranches comme un client
     const queue = new QueuedNodes();
@@ -937,25 +950,94 @@ describe('the server in workerd', () => {
     expect(last.yaw).toBe(sim.state.yaw);
     expect(last.wrecked).toBe(sim.state.wrecked);
 
-    // A prétend cinq mètres de plus : éjecté, avec le code qui le dit
-    for (let i = 0; i < perChunk; i++) sim.step(input, DT);
-    const t = sim.trace();
-    const keep: number[] = [];
-    for (let i = 0; i < t.from.length; i++) if (t.from[i]! >= sentUpTo) keep.push(i);
-    const w: Trace = {
-      seed: '',
-      difficulty: 'easy',
-      steps: t.steps - sentUpTo,
-      from: keep.map((i) => t.from[i]! - sentUpTo),
-      steer: keep.map((i) => t.steer[i]!),
-      flags: keep.map((i) => t.flags[i]!),
-      truncated: false,
+    // B court aussi, plus vite — plein boost, tout droit — et passe la ligne le
+    // premier ; A la passe ensuite. Le classement compare des pas simulés.
+    const simB = new Sim({ seed: 'not-the-seed-either', difficulty: 'easy' });
+    simB.reset('not-the-seed-either');
+    const queueB = new QueuedNodes();
+    queueB.feed(unpackNodes(seatB.chunk)!);
+    while (queueB.ahead < 1024) {
+      const r = await get(`/room/${room.room}/track/${queueB.wanted}`, b);
+      queueB.feed(unpackNodes((await r.json()) as WireChunk)!);
+    }
+    simB.track.attach(queueB);
+    let sentB = 0;
+    const sendB = () => {
+      const t = simB.trace();
+      const keep: number[] = [];
+      for (let i = 0; i < t.from.length; i++) if (t.from[i]! >= sentB) keep.push(i);
+      const w: Trace = {
+        seed: '',
+        difficulty: 'easy',
+        steps: t.steps - sentB,
+        from: keep.map((i) => t.from[i]! - sentB),
+        steer: keep.map((i) => t.steer[i]!),
+        flags: keep.map((i) => t.flags[i]!),
+        truncated: false,
+      };
+      sentB = t.steps;
+      wsB.send(
+        JSON.stringify({ t: Buffer.from(packTrace(w)).toString('base64'), d: simB.state.dist }),
+      );
     };
-    wsA.send(
-      JSON.stringify({ t: Buffer.from(packTrace(w)).toString('base64'), d: sim.state.dist + 5 }),
-    );
-    expect(await closedA).toBe(4001);
+    let stepsB = 0;
+    while (simB.state.dist < 400 && !simB.state.wrecked) {
+      simB.step({ steer: 0, brake: false, boost: true }, DT);
+      stepsB++;
+      if (stepsB % perChunk === 0) sendB();
+    }
+    sendB();
+    // A finit sa course à son tour
+    let stepsA = perChunk * 30;
+    while (sim.state.dist < 400 && !sim.state.wrecked) {
+      if (stepsA % 12 === 0)
+        input.steer = quantiseSteer(Math.max(-1, Math.min(1, rng.centered(0.4))));
+      sim.step(input, DT);
+      stepsA++;
+      if (stepsA % perChunk === 0) send();
+    }
+    send();
+    await new Promise<void>((resolve) => {
+      const tick = () => (resultsA.length && resultsB.length ? resolve() : setTimeout(tick, 20));
+      tick();
+    });
+    const result = resultsA[0] as {
+      race: number;
+      ranking: { who: string; finished: boolean; steps: number }[];
+    };
+    expect(result.race).toBe(400);
+    expect(resultsB[0]).toEqual(result);
+    expect(result.ranking.map((r) => r.finished)).toEqual([true, true]);
+    // le premier est celui qui a passé la ligne en moins de pas simulés — pas celui qui a envoyé en premier
+    expect(result.ranking[0]!.steps).toBeLessThanOrEqual(result.ranking[1]!.steps);
+    const whoFirst = result.ranking[0]!.who;
+    const stepsOf = (who: string) => (who === room.member ? stepsA : stepsB);
+    expect(stepsOf(whoFirst)).toBeLessThanOrEqual(stepsOf(result.ranking[1]!.who));
     wsB.close();
+
+    // Un second salon, A seul : il prétend cinq mètres de plus que ce que
+    // son morceau donne, et la prise se ferme avec le code qui le dit.
+    const again = (await (await post('/room', { difficulty: 'easy', race: 400 }, a)).json()) as {
+      room: string;
+      member: string;
+      chunk: WireChunk;
+    };
+    const wsLiar = await socketOf(again.member, again.room);
+    const closedLiar = new Promise<number>((resolve) =>
+      wsLiar.addEventListener('close', (ev) => resolve((ev as CloseEvent).code)),
+    );
+    const q2 = new QueuedNodes();
+    q2.feed(unpackNodes(again.chunk)!);
+    const liar = new Sim({ seed: 'liar', difficulty: 'easy' });
+    liar.reset('liar');
+    liar.track.attach(q2);
+    for (let i = 0; i < perChunk; i++) liar.step({ steer: 0, brake: false, boost: true }, DT);
+    const lt = liar.trace();
+    const lw: Trace = { ...lt, seed: '' };
+    wsLiar.send(
+      JSON.stringify({ t: Buffer.from(packTrace(lw)).toString('base64'), d: liar.state.dist + 5 }),
+    );
+    expect(await closedLiar).toBe(4001);
   }, 60_000);
 
   it('answers CORS for the game origins and nothing else', async () => {

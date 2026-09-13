@@ -22,6 +22,17 @@
  * qu'il prétend jouer — trafiquée, ou dérivée — et la prise est fermée avec
  * un code qui le dit.
  *
+ * **La course.** Quand la seconde prise s'ouvre, l'objet envoie `start` aux
+ * deux avec un décompte ; chacun lance sa simulation à zéro. La ligne
+ * d'arrivée est à `RACE_M` mètres — trente kilomètres, par décision — et un
+ * membre est arrivé quand le rejeu de ses morceaux la passe, ou sorti quand
+ * il est épave. Le classement compare des **pas simulés** jusqu'à la ligne,
+ * pas l'horloge murale : celui qui a lancé sa simulation deux cents
+ * millisecondes plus tard n'a rien perdu, et rien ne dépend du réseau. La
+ * course finit quand les deux sont arrivés ou sortis ; `result` va aux deux.
+ * Un duel ne compte pas au tableau hebdomadaire — décision de l'auteur —
+ * donc rien n'est écrit en base : l'écran de résultat est toute l'issue.
+ *
  * **Ce qui ne survit pas à l'hibernation.** Graine, difficulté et membres
  * sont dans le stockage de l'objet ; les `Sim` du rejeu sont en mémoire. À
  * 10 Hz, l'objet ne s'endort pas pendant une course ; s'il se réveille sans
@@ -52,6 +63,10 @@ export const SEATS = 2;
 export const DRIFT_M = 0.5;
 /** Pas qu'un seul morceau peut déclarer : un dixième de seconde plus une marge large. */
 const MAX_CHUNK_STEPS = 720;
+/** La ligne d'arrivée, en mètres. Trente kilomètres : à la vitesse d'une course, cinq en font trente secondes. */
+export const RACE_M = 30_000;
+/** Le décompte avant le départ, en secondes. */
+export const COUNTDOWN_S = 3;
 
 /** Codes de fermeture, dans la plage que le protocole laisse aux applications. */
 export const CLOSE = {
@@ -75,6 +90,20 @@ interface Stored {
   difficulty: Difficulty;
   /** Jeton de membre → compte. L'ordre d'insertion est l'ordre d'arrivée. */
   members: Record<string, { account: number; name: string }>;
+  /** La ligne d'arrivée de ce salon. `RACE_M`, sauf sous `DEBUG` où un test la rapproche. */
+  race: number;
+}
+
+/** Où en est un membre dans la course. */
+interface Standing {
+  who: string;
+  name: string;
+  /** Vrai s'il a passé la ligne ; sinon il est épave. */
+  finished: boolean;
+  /** Pas simulés à la ligne, ou à l'épave. */
+  steps: number;
+  /** Distance à la ligne, ou à l'épave. */
+  dist: number;
 }
 
 /** Ce qu'un membre envoie à chaque morceau. */
@@ -103,6 +132,8 @@ interface Live {
   sim: Sim;
   steps: number;
   input: Input;
+  /** Posé une fois : à la ligne, ou à l'épave. Plus rien n'avance après. */
+  standing: Standing | null;
 }
 
 export class Room extends DurableObject<Env> {
@@ -124,10 +155,20 @@ export class Room extends DurableObject<Env> {
   /** Le premier membre ouvre : graine tirée, difficulté fixée, première tranche servie. */
   private async open(req: Request): Promise<Response> {
     if (await this.load()) return refuse(409, 'exists');
-    const { difficulty } = (await req.json()) as { difficulty?: string };
+    const { difficulty, race } = (await req.json()) as { difficulty?: string; race?: number };
     if (typeof difficulty !== 'string' || !DIFFICULTIES.has(difficulty))
       return refuse(400, 'difficulty');
-    const stored: Stored = { seed: randomHex(), difficulty: difficulty as Difficulty, members: {} };
+    // La ligne ne se choisit pas : seul un test, sous `DEBUG`, la rapproche.
+    const line =
+      this.env.DEBUG === '1' && typeof race === 'number' && race > 0 && race <= RACE_M
+        ? race
+        : RACE_M;
+    const stored: Stored = {
+      seed: randomHex(),
+      difficulty: difficulty as Difficulty,
+      members: {},
+      race: line,
+    };
     this.stored = stored;
     return this.seat(req, stored);
   }
@@ -185,8 +226,15 @@ export class Room extends DurableObject<Env> {
     this.start(member, stored);
     // Les autres apprennent qu'une place de plus est occupée : c'est ce qui
     // dit à celui qui attend que le duel peut commencer.
-    const seats = JSON.stringify({ type: 'seats', seats: this.ctx.getWebSockets().length });
-    for (const other of this.ctx.getWebSockets()) if (other !== server) other.send(seats);
+    const sockets = this.ctx.getWebSockets();
+    const seats = JSON.stringify({ type: 'seats', seats: sockets.length });
+    for (const other of sockets) if (other !== server) other.send(seats);
+    // Les deux sont là : le départ, avec son décompte, pour les deux. Le
+    // nouveau venu reçoit le sien sur sa prise, avant tout autre message.
+    if (sockets.length >= SEATS) {
+      const start = JSON.stringify({ type: 'start', countdown: COUNTDOWN_S, race: stored.race });
+      for (const s of sockets) s.send(start);
+    }
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -195,7 +243,12 @@ export class Room extends DurableObject<Env> {
     if (this.live.has(member)) return;
     const sim = new Sim({ seed: stored.seed, difficulty: stored.difficulty });
     sim.reset(stored.seed);
-    this.live.set(member, { sim, steps: 0, input: { steer: 0, brake: false, boost: false } });
+    this.live.set(member, {
+      sim,
+      steps: 0,
+      input: { steer: 0, brake: false, boost: false },
+      standing: null,
+    });
   }
 
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -211,12 +264,26 @@ export class Room extends DurableObject<Env> {
     if (live.steps + window.trace.steps > MAX_TRACE_STEPS)
       return ws.close(CLOSE.MALFORMED, 'steps');
 
-    advance(live, window.trace);
-    if (Math.abs(live.sim.state.dist - window.claim) > DRIFT_M) {
+    // Après la ligne ou l'épave, un morceau de plus ne change rien : ignoré.
+    if (live.standing) return;
+    advance(live, window.trace, stored.race);
+    const s = live.sim.state;
+    if (s.dist >= stored.race || s.wrecked) {
+      // Le rejeu s'est arrêté au pas de la ligne ; le client, lui, a fini sa
+      // fenêtre quelques pas plus loin. Sa distance déclarée n'est donc pas
+      // comparable ici, et n'a plus à l'être : la course de ce membre est
+      // jugée sur ce que l'objet a rejoué.
+      live.standing = {
+        who: member,
+        name: stored.members[member]!.name,
+        finished: s.dist >= stored.race,
+        steps: live.steps,
+        dist: s.dist,
+      };
+      this.settle(stored);
+    } else if (Math.abs(s.dist - window.claim) > DRIFT_M) {
       return ws.close(CLOSE.DIVERGED, 'diverged');
     }
-
-    const s = live.sim.state;
     const relay: Relay = {
       type: 'state',
       who: member,
@@ -232,6 +299,23 @@ export class Room extends DurableObject<Env> {
     for (const other of this.ctx.getWebSockets()) {
       if (other !== ws) other.send(text);
     }
+  }
+
+  /**
+   * La course finit quand chaque membre est arrivé ou sorti. Le classement :
+   * les arrivés d'abord, au moins de pas simulés ; puis les épaves, à la
+   * plus longue distance. Envoyé aux deux, une fois.
+   */
+  private settle(stored: Stored): void {
+    const members = Object.keys(stored.members);
+    const standings = members.map((m) => this.live.get(m)?.standing ?? null);
+    if (standings.some((s) => s === null)) return;
+    const ranking = (standings as Standing[]).sort((a, b) => {
+      if (a.finished !== b.finished) return a.finished ? -1 : 1;
+      return a.finished ? a.steps - b.steps : b.dist - a.dist;
+    });
+    const text = JSON.stringify({ type: 'result', race: stored.race, ranking });
+    for (const s of this.ctx.getWebSockets()) s.send(text);
   }
 
   override async webSocketClose(ws: WebSocket): Promise<void> {
@@ -288,7 +372,7 @@ function parseChunk(
  * c'est ce que le format par plages veut dire, et ce que `TraceCursor` fait
  * d'une traite sur une trace entière.
  */
-function advance(live: Live, window: Trace): void {
+function advance(live: Live, window: Trace, race: number): void {
   let span = 0;
   for (let i = 0; i < window.steps; i++) {
     while (span < window.from.length && window.from[span]! <= i) {
@@ -298,7 +382,11 @@ function advance(live: Live, window: Trace): void {
       live.input.boost = (flags & BOOST) !== 0;
       span++;
     }
-    if (!live.sim.state.wrecked) live.sim.step(live.input, DT);
+    const s = live.sim.state;
+    // La ligne passée, les pas de la fenêtre qui restent ne comptent plus :
+    // le temps à la ligne est celui du pas qui l'a franchie.
+    if (s.wrecked || s.dist >= race) break;
+    live.sim.step(live.input, DT);
+    live.steps++;
   }
-  live.steps += window.steps;
 }

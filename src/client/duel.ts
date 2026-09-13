@@ -38,9 +38,20 @@ export interface Relay {
   wrecked: boolean;
 }
 
+/** Où en est un membre à la fin : arrivé au bout de tant de pas, ou épave à telle distance. */
+export interface Standing {
+  who: string;
+  name: string;
+  finished: boolean;
+  steps: number;
+  dist: number;
+}
+
 type Message =
   | ({ type: 'state' } & Relay)
   | { type: 'seats'; seats: number }
+  | { type: 'start'; countdown: number; race: number }
+  | { type: 'result'; race: number; ranking: Standing[] }
   | { type: string; [k: string]: unknown };
 
 /** Pourquoi un duel n'a pas commencé, ou s'est arrêté. */
@@ -62,6 +73,16 @@ export class Duel {
   seats = 0;
   /** Appelé quand l'autre arrive, part, ou que la prise se ferme. */
   onChange: ((why: DuelEnd | null) => void) | null = null;
+  /** Le départ : le décompte en secondes, et la ligne d'arrivée en mètres. */
+  onStart: ((countdown: number, race: number) => void) | null = null;
+  /** La fin : le classement, tel que l'objet l'a jugé. */
+  onResult: ((ranking: Standing[]) => void) | null = null;
+  /** La ligne d'arrivée de cette course, connue au départ. */
+  race = 0;
+  /** Mon jeton de membre, pour me reconnaître dans le classement. */
+  get member(): string | null {
+    return this.seat?.member ?? null;
+  }
 
   get active(): boolean {
     return this.socket !== null;
@@ -133,6 +154,12 @@ export class Duel {
       else if (m.type === 'seats') {
         this.seats = (m as { seats: number }).seats;
         this.onChange?.(null);
+      } else if (m.type === 'start') {
+        const { countdown, race } = m as { countdown: number; race: number };
+        this.race = race;
+        this.onStart?.(countdown, race);
+      } else if (m.type === 'result') {
+        this.onResult?.((m as { ranking: Standing[] }).ranking);
       }
     };
     ws.onclose = (ev) => {
@@ -157,15 +184,35 @@ export class Duel {
     ws.send(JSON.stringify({ t: toBase64(packTrace(window)), d: sim.state.dist }));
   }
 
+  /** Le reste de la trace, tout de suite : à la ligne, il ne faut pas attendre le prochain morceau. */
+  flush(sim: Sim): void {
+    const ws = this.socket;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const steps = sim.steps;
+    if (steps <= this.sentUpTo) return;
+    const window = sim.window(this.sentUpTo);
+    this.sentUpTo = steps;
+    ws.send(JSON.stringify({ t: toBase64(packTrace(window)), d: sim.state.dist }));
+  }
+
   /** Quitte le salon : la prise fermée, la piste lâchée. */
   leave(): void {
-    this.socket?.close(1000, 'leave');
+    const ws = this.socket;
+    if (ws) {
+      // Une fermeture voulue n'est pas une perte : les gestionnaires sont
+      // détachés d'abord, sans quoi `onclose` disait « that room is gone »
+      // par-dessus le classement qui venait de s'afficher.
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.close(1000, 'leave');
+    }
     this.socket = null;
     this.stream = null;
     this.seat = null;
     this.room = null;
     this.other = null;
     this.seats = 0;
+    this.race = 0;
   }
 }
 

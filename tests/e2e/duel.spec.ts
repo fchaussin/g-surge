@@ -46,9 +46,12 @@ test.describe('a duel', () => {
         body: JSON.stringify(chunk(SEED, 'easy', from)),
       });
     });
+    let finishedAt = 0;
     await page.routeWebSocket(`**/room/${ROOM}/ws**`, (ws) => {
-      // l'autre arrive tout de suite : deux places prises
+      // l'autre arrive tout de suite : deux places prises, et le départ — un
+      // décompte d'une seconde, une ligne à 400 m pour que le test finisse
       ws.send(JSON.stringify({ type: 'seats', seats: 2 }));
+      ws.send(JSON.stringify({ type: 'start', countdown: 1, race: 400 }));
       ws.onMessage((message) => {
         const m = JSON.parse(String(message)) as { t: string; d: number };
         const trace = unpackTrace(Uint8Array.from(Buffer.from(m.t, 'base64')))!;
@@ -62,6 +65,27 @@ test.describe('a duel', () => {
           expect(Math.abs(trace.steer[i]!)).toBeLessThanOrEqual(1);
         }
         sent.push({ steps: trace.steps, d: m.d });
+        // la ligne passée par le joueur : le salon juge, l'autre est épave
+        if (m.d >= 400 && !finishedAt) {
+          finishedAt = sent.reduce((a, s) => a + s.steps, 0);
+          ws.send(
+            JSON.stringify({
+              type: 'result',
+              race: 400,
+              ranking: [
+                {
+                  who: 'm'.repeat(32),
+                  name: 'Ada L',
+                  finished: true,
+                  steps: finishedAt,
+                  dist: m.d,
+                },
+                { who: 'other', name: 'Bob B', finished: false, steps: 900, dist: 120 },
+              ],
+            }),
+          );
+          return;
+        }
         // l'autre est trente mètres devant, au même pas
         ws.send(
           JSON.stringify({
@@ -82,7 +106,7 @@ test.describe('a duel', () => {
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
     await page.locator('#btnDuel').click();
-    // l'autre est là : le duel démarre sans attendre
+    // le départ vient du salon, après son décompte
     await expect.poll(() => game.mode(), { timeout: 15_000 }).toBe('run');
     // « duel » jusqu'au premier relais, puis l'écart au rival
     await expect(page.locator('#recline')).toHaveText(/^(duel|rival [+−]\d+ m)$/);
@@ -104,6 +128,16 @@ test.describe('a duel', () => {
     expect(gap).toBeGreaterThan(15);
     expect(gap).toBeLessThan(60);
     await expect(page.locator('#recline')).toHaveText(/^rival \+\d+ m$/);
+
+    // la ligne à 400 m : la partie s'arrête d'elle-même, le reste de la trace
+    // part, et le classement du salon s'affiche — gagné, l'autre est épave
+    await page.waitForFunction(() => window.__gsNext.state().dist >= 400, undefined, {
+      timeout: 60_000,
+    });
+    await expect.poll(() => game.mode(), { timeout: 10_000 }).toBe('duel');
+    await expect(page.locator('#duelLine')).toContainText('YOU WON', { timeout: 10_000 });
+    await expect(page.locator('#duelLine')).toContainText('Bob B — wrecked at 0.1 km');
+    expect(finishedAt).toBeGreaterThan(0);
     expect(game.errors()).toEqual([]);
   });
 });
