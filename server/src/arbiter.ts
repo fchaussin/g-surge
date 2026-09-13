@@ -127,7 +127,11 @@ export class Arbiter extends DurableObject<Env> {
     if (typeof difficulty !== 'string' || !DIFFICULTIES.has(difficulty))
       return refuse(400, 'difficulty');
     const d = difficulty as 'easy' | 'medium' | 'hard';
-    const { id, ticket } = await this.tickets.issue(d, Date.now());
+    // Le compte vient du Worker, qui a résolu la session ; l'arbitre ne voit
+    // jamais un jeton. Sans compte, pas de ticket : le classé se joue connecté.
+    const account = Number(req.headers.get('x-gs-account') ?? 0);
+    if (!Number.isInteger(account) || account <= 0) return refuse(401, 'sign-in');
+    const { id, ticket } = await this.tickets.issue(d, Date.now(), account);
     return json({ ticket: id, difficulty: d, chunk: chunk(ticket.seed, d, 0) });
   }
 
@@ -155,10 +159,21 @@ export class Arbiter extends DurableObject<Env> {
     await this.tickets.consume(body.ticket);
     const outcome = replay(trace);
     const epochKey = epoch(now);
-    const name = sanitiseName(body.name);
+    // Le nom est celui du compte, transmis par le Worker ; ce que le corps
+    // porte n'est plus lu — un nom tapé n'a plus d'entrée au tableau.
+    const rawName = req.headers.get('x-gs-name');
+    const name = sanitiseName(rawName ? decodeURIComponent(rawName) : undefined);
     const mismatch =
       body.claim !== undefined && JSON.stringify(body.claim) !== JSON.stringify(outcome);
-    const id = await this.record(trace, outcome, epochKey, name, body.claim, mismatch);
+    const id = await this.record(
+      trace,
+      outcome,
+      epochKey,
+      name,
+      body.claim,
+      mismatch,
+      ticket.account,
+    );
     await this.keepTrace(id, trace);
     // Jeter tout de suite : la base ne doit jamais porter plus que ce que le
     // tableau de la semaine peut montrer.
@@ -207,11 +222,12 @@ export class Arbiter extends DurableObject<Env> {
     name: string,
     claim: Outcome | undefined,
     mismatch: boolean,
+    account: number,
   ): Promise<number> {
     const written = await this.env.DB.prepare(
       `INSERT INTO runs (core, difficulty, seed, steps, score, dist, time, coins, mult, wrecked,
-                          submitted_at, name, epoch, claim, mismatch, speed_peak)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          submitted_at, name, epoch, claim, mismatch, speed_peak, account_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         __CORE_DIGEST__,
@@ -230,6 +246,7 @@ export class Arbiter extends DurableObject<Env> {
         claim ? JSON.stringify(claim) : '',
         mismatch ? 1 : 0,
         o.speedPeak,
+        account,
       )
       .run();
     return Number(written.meta.last_row_id);

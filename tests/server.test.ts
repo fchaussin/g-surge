@@ -118,7 +118,10 @@ async function rankedRun(
   seconds: number,
   body: Record<string, unknown> = {},
 ): Promise<{ status: number; json: Record<string, unknown> }> {
-  const issued = (await (await post('/ticket', { difficulty })).json()) as {
+  // Le classé se joue connecté : une session de débogage au nom demandé,
+  // ce qui est aussi la façon de tester ce que le tableau fait d'un nom.
+  const as = await signIn(typeof body.name === 'string' ? body.name : 'Pilot');
+  const issued = (await (await post('/ticket', { difficulty }, as)).json()) as {
     ticket: string;
     chunk: WireChunk;
   };
@@ -133,9 +136,15 @@ async function rankedRun(
     if (!attached) s.track.attach(queue);
     attached = true;
   });
-  const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) };
+  const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500), ...as };
   const res = await post('/run', { core, ticket: issued.ticket, trace, ...body }, later);
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
+}
+
+/** Une session sous `DEBUG=1`, sans fournisseur : l'en-tête à joindre aux appels. */
+async function signIn(name: string): Promise<Record<string, string>> {
+  const { token } = (await (await post('/debug/login', { name })).json()) as { token: string };
+  return { authorization: `Bearer ${token}` };
 }
 
 beforeAll(async () => {
@@ -150,7 +159,12 @@ describe('the server in workerd', () => {
   it('is stamped with the digest of the core it was built from', async () => {
     const res = await get('/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, core: coreDigest(), ranked: true });
+    expect(await res.json()).toEqual({
+      ok: true,
+      core: coreDigest(),
+      ranked: true,
+      providers: ['test'],
+    });
     expect(core).toBe(coreDigest());
   });
 
@@ -225,7 +239,8 @@ describe('the server in workerd', () => {
    * graine, et son issue est celle du serveur.
    */
   it('runs a ranked run with the seed withheld: ticket, streamed track, replay', async () => {
-    const res = await post('/ticket', { difficulty: 'medium' });
+    const seeded = await signIn('Seeded');
+    const res = await post('/ticket', { difficulty: 'medium' }, seeded);
     expect(res.status).toBe(200);
     const issued = (await res.json()) as { ticket: string; difficulty: string; chunk: WireChunk };
     expect(issued.ticket).toMatch(/^[0-9a-f]{32}$/);
@@ -263,7 +278,7 @@ describe('the server in workerd', () => {
     // sans la graine : la trace part avec la sienne, factice, et le ticket
     const sent: Trace = { ...trace, seed: 'not-the-seed' };
     // soumise « plus tard » : la partie a duré ce qu'elle a duré, le test ne l'attend pas
-    const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500) };
+    const later = { 'x-debug-now': String(Date.now() + trace.steps * DT * 1000 + 500), ...seeded };
     const run = await post('/run', { core, ticket: issued.ticket, trace: sent }, later);
     expect(run.status).toBe(200);
     const { outcome, rank } = (await run.json()) as { outcome: unknown; rank: number };
@@ -482,7 +497,8 @@ describe('the server in workerd', () => {
   });
 
   it('holds the ticket window: too early is refused, a wrong difficulty too', async () => {
-    const issued = (await (await post('/ticket', { difficulty: 'easy' })).json()) as {
+    const windowed = await signIn('Windowed');
+    const issued = (await (await post('/ticket', { difficulty: 'easy' }, windowed)).json()) as {
       ticket: string;
       chunk: WireChunk;
     };
@@ -495,24 +511,24 @@ describe('the server in workerd', () => {
       attached = true;
     });
     const early: Trace = { ...trace, steps: 720 * 180, from: [0], steer: [0], flags: [0] };
-    const r = await post('/run', { core, ticket: issued.ticket, trace: early });
+    const r = await post('/run', { core, ticket: issued.ticket, trace: early }, windowed);
     expect(r.status).toBe(409);
     expect(await r.json()).toEqual({ error: 'early' });
     // et trop tard : plus d'une heure après la fin annoncée
     const late = { 'x-debug-now': String(Date.now() + 3 * 3600 * 1000) };
-    const l = await post('/run', { core, ticket: issued.ticket, trace }, late);
+    const l = await post('/run', { core, ticket: issued.ticket, trace }, { ...late, ...windowed });
     expect(l.status).toBe(409);
     expect(await l.json()).toEqual({ error: 'expired' });
     // la difficulté du ticket fait foi
-    const wrong = await post('/run', {
-      core,
-      ticket: issued.ticket,
-      trace: { ...trace, difficulty: 'hard' },
-    });
+    const wrong = await post(
+      '/run',
+      { core, ticket: issued.ticket, trace: { ...trace, difficulty: 'hard' } },
+      windowed,
+    );
     expect(wrong.status).toBe(400);
     // le ticket n'est pas consommé par un refus
     expect((await get(`/track/${issued.ticket}/0`)).status).toBe(200);
-    expect((await post('/ticket', { difficulty: 'insane' })).status).toBe(400);
+    expect((await post('/ticket', { difficulty: 'insane' }, windowed)).status).toBe(400);
     expect((await get('/track/nope/0')).status).toBe(404);
     expect((await get(`/track/${issued.ticket}/-1`)).status).toBe(400);
   });
@@ -527,7 +543,7 @@ describe('the server in workerd', () => {
    * pour une boucle.
    */
   it('caps what one address may ask for per minute, and says how long to wait', async () => {
-    const ip = { 'cf-connecting-ip': '203.0.113.7' };
+    const ip = { 'cf-connecting-ip': '203.0.113.7', ...(await signIn('Hammer')) };
     let refused: Awaited<ReturnType<typeof post>> | null = null;
     for (let i = 0; i < PER_MINUTE.ticket! + 1; i++) {
       const res = await post('/ticket', { difficulty: 'easy' }, ip);
@@ -544,7 +560,7 @@ describe('the server in workerd', () => {
     expect(body.retryAfter).toBeLessThanOrEqual(60);
 
     // une autre adresse n'est pas punie pour celle-là
-    expect((await post('/ticket', { difficulty: 'easy' })).status).toBe(200);
+    expect((await post('/ticket', { difficulty: 'easy' }, await signIn('Other'))).status).toBe(200);
 
     // la fenêtre glisse : une minute plus tard, la même adresse repasse
     const later = { ...ip, 'x-debug-now': String(Date.now() + 61_000) };
@@ -593,6 +609,110 @@ describe('the server in workerd', () => {
     }
     // le serveur des autres tests, lui, est ouvert, et `/health` le dit
     expect(((await (await get('/health')).json()) as { ranked: boolean }).ranked).toBe(true);
+  });
+
+  /**
+   * Le flux de connexion, de bout en bout, contre le faux fournisseur du
+   * montage : le départ redirige chez lui avec un `state` signé, il ramène un
+   * code, le serveur l'échange, vérifie l'`id_token` sur la clé publiée, ouvre
+   * une session et renvoie au jeu avec le jeton dans le fragment. Ce que le
+   * vrai Google fera est la même suite d'appels sur d'autres adresses.
+   */
+  it('signs in through OpenID Connect and comes back with a session', async () => {
+    const start = await mf.dispatchFetch(
+      'https://api.test/auth/test/start?return=https://g-surge.w23.fr',
+      { redirect: 'manual', headers: from() },
+    );
+    expect(start.status).toBe(302);
+    const atIdp = new URL(start.headers.get('location')!);
+    expect(atIdp.origin + atIdp.pathname).toBe('https://idp.test/authorize');
+    expect(atIdp.searchParams.get('redirect_uri')).toBe('https://api.test/auth/test/callback');
+    expect(atIdp.searchParams.get('nonce')).toBeTruthy();
+
+    // le fournisseur : qui se connecte est le `login_hint`
+    atIdp.searchParams.set('login_hint', 'Ada L');
+    const idp = await mf.getWorker('idp');
+    const back = await idp.fetch(atIdp.toString(), { redirect: 'manual' });
+    expect(back.status).toBe(302);
+    const callback = back.headers.get('location')!;
+    expect(callback.startsWith('https://api.test/auth/test/callback?')).toBe(true);
+
+    const done = await mf.dispatchFetch(callback, { redirect: 'manual', headers: from() });
+    expect(done.status).toBe(302);
+    const landed = new URL(done.headers.get('location')!);
+    expect(landed.origin).toBe('https://g-surge.w23.fr');
+    const token = new URLSearchParams(landed.hash.slice(1)).get('session')!;
+    expect(token).toBeTruthy();
+
+    const me = await get('/me', { authorization: `Bearer ${token}` });
+    expect(me.status).toBe(200);
+    expect(((await me.json()) as { name: string }).name).toBe('Ada L');
+
+    // un retour vers une origine qui n'est pas la nôtre est refusé avant tout
+    expect(
+      (
+        await mf.dispatchFetch('https://api.test/auth/test/start?return=https://evil.example', {
+          redirect: 'manual',
+        })
+      ).status,
+    ).toBe(400);
+    // un `state` forgé ne passe pas
+    expect(
+      (
+        await mf.dispatchFetch('https://api.test/auth/test/callback?code=x&state=forged.sig', {
+          redirect: 'manual',
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it('plays ranked signed in only, under the account name, and forgets everything on delete', async () => {
+    // sans compte : pas de ticket, et une soumission classée est refusée
+    expect((await post('/ticket', { difficulty: 'easy' })).status).toBe(401);
+
+    const run = await rankedRun('account-run', 'easy', 6, { name: 'Grace H' });
+    expect(run.status).toBe(200);
+    // la ligne porte le nom du compte, et le compte — pas ce que le corps disait
+    const db0 = await mf.getD1Database('DB');
+    const row = await db0
+      .prepare(
+        'SELECT r.name AS name FROM runs r JOIN accounts a ON a.id = r.account_id WHERE a.name = ?',
+      )
+      .bind('Grace H')
+      .first<{ name: string }>();
+    expect(row?.name).toBe('Grace H');
+
+    // se déconnecter ferme la session que le jeton portait
+    const as = await signIn('Grace H');
+    expect((await post('/logout', {}, as)).status).toBe(200);
+    expect((await get('/me', as)).status).toBe(401);
+
+    // supprimer le compte retire chaque ligne qui le nomme
+    const again = await signIn('Grace H');
+    expect((await post('/me/delete', {}, again)).status).toBe(200);
+    expect((await get('/me', again)).status).toBe(401);
+    const db = await mf.getD1Database('DB');
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS n FROM runs WHERE name = 'Grace H'")
+          .first<{ n: number }>()
+      )?.n,
+    ).toBe(0);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS n FROM accounts WHERE name = 'Grace H'")
+          .first<{ n: number }>()
+      )?.n,
+    ).toBe(0);
+    expect(
+      (
+        await db
+          .prepare('SELECT COUNT(*) AS n FROM traces WHERE run_id NOT IN (SELECT id FROM runs)')
+          .first<{ n: number }>()
+      )?.n,
+    ).toBe(0);
   });
 
   it('answers CORS for the game origins and nothing else', async () => {

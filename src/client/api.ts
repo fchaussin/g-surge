@@ -41,11 +41,19 @@ export const TIMEOUT_MS = 4000;
 
 export const online = (): boolean => API_URL !== '';
 
+/** Le jeton de session, posé par `session.ts` ; chaque appel le porte tant qu'il est là. */
+let authToken: string | null = null;
+export const setAuthToken = (token: string | null): void => {
+  authToken = token;
+};
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(API_URL + path, { ...init, signal: ctl.signal });
+    const headers = new Headers(init?.headers);
+    if (authToken) headers.set('authorization', `Bearer ${authToken}`);
+    const res = await fetch(API_URL + path, { ...init, headers, signal: ctl.signal });
     const body = (await res.json()) as T | Refusal;
     if (!res.ok) throw new ApiError(res.status, (body as Refusal).error ?? 'http');
     return body as T;
@@ -71,6 +79,12 @@ export class ApiError extends Error {
 }
 
 /** Une entrée du tableau hebdomadaire, telle que le serveur la rend. */
+/** Le compte connecté : deux champs, comme le serveur n'en garde que deux. */
+export interface Account {
+  id: number;
+  name: string;
+}
+
 export interface BoardEntry {
   /** La ligne en base : c'est par elle que sa trace se demande, `api.trace`. */
   id: number;
@@ -106,13 +120,19 @@ export const api = {
   run: (
     ticket: string,
     trace: Trace,
-    name: string,
     claim: Outcome,
   ): Promise<{ outcome: Outcome; rank: number }> =>
     // La trace part sous sa forme compacte : mesuré, trois minutes au manche
     // font 360 Ko en JSON contre 70 ici, et une partie de dix minutes passait
     // au-dessus du méga-octet que le Worker refuse. Le serveur lit les deux.
-    post('/run', { core: CORE_DIGEST, ticket, trace: toBase64(packTrace(trace)), name, claim }),
+    // Le nom n'est plus envoyé : le tableau porte celui du compte que la session désigne.
+    post('/run', { core: CORE_DIGEST, ticket, trace: toBase64(packTrace(trace)), claim }),
+  /** Qui l'on est, d'après la session portée. 401 sans session valable. */
+  me: (): Promise<Account> => call('/me'),
+  logout: (): Promise<{ ok: true }> => post('/logout', {}),
+  deleteAccount: (): Promise<{ ok: true }> => post('/me/delete', {}),
+  /** Ce que le serveur sait faire : les fournisseurs de connexion configurés. */
+  health: (): Promise<{ ok: boolean; ranked: boolean; providers: string[] }> => call('/health'),
   board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>
     call(`/board/${difficulty}?by=${category}`),
   /** Les octets d'une partie gardée. Gardée : le serveur ne tient que les meilleures. */

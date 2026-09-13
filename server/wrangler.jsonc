@@ -34,7 +34,10 @@
   // ouvert. À basculer depuis le tableau de bord — Workers, Settings,
   // Variables — sans redéployer ; un déploiement suivant le remettra à ce
   // qui est écrit ici, donc une coupure qui doit durer se pose ici aussi.
-  "vars": { "RANKED_OFF": "0" },
+  // GOOGLE_CLIENT_ID est public par nature — il part dans l'URL d'autorisation.
+  // Ce qui est secret — SESSION_SECRET, GOOGLE_CLIENT_SECRET — passe par
+  // `wrangler secret put`, jamais par ce fichier : voir .env.example.
+  "vars": { "RANKED_OFF": "0", "GOOGLE_CLIENT_ID": "" },
   "env": {
     "staging": {
       "name": "g-surge-api-staging",

@@ -28,7 +28,6 @@ describe('the preferences sanitiser', () => {
       ghost: true,
       renderScale: 0.7,
       ranked: true,
-      name: 'Néo 01',
     };
     expect(sanitise(written)).toEqual(written);
   });
@@ -54,17 +53,6 @@ describe('the preferences sanitiser', () => {
     expect(sanitise({ renderScale: Number.NaN }).renderScale).toBe(1);
     expect(sanitise({ renderScale: '0.8' }).renderScale).toBe(1);
     expect(sanitise({ renderScale: 0.4 }).renderScale).toBe(0.4);
-  });
-
-  it('accepts an empty name (not chosen yet) but drops one outside two to sixteen letters, digits, space, - or _', () => {
-    expect(sanitise({ name: '' }).name).toBe('');
-    expect(sanitise({ name: '  ' }).name).toBe('');
-    expect(sanitise({ name: 'Al' }).name).toBe('Al');
-    expect(sanitise({ name: '  Al  ' }).name).toBe('Al');
-    expect(sanitise({ name: 'a'.repeat(17) }).name).toBe('');
-    expect(sanitise({ name: 'x' }).name).toBe('');
-    expect(sanitise({ name: '<script>' }).name).toBe('');
-    expect(sanitise({ name: 42 }).name).toBe('');
   });
 
   it('lets a key retired by an earlier version fall away', () => {

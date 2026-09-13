@@ -9,7 +9,17 @@
  * références figées exécutée dans workerd.
  */
 import { probe, Sim, type ProbeOptions } from '../../src/sim/index.js';
+import {
+  accountOf,
+  debugLogin,
+  deleteAccount,
+  finish,
+  logout,
+  providerFor,
+  startUrl,
+} from './auth.js';
 import { json, refuse } from './http.js';
+import { allowedOrigin } from './origins.js';
 
 export { Arbiter } from './arbiter.js';
 
@@ -26,6 +36,15 @@ export interface Env {
    * mauvais jour sur le serveur doit être un jour normal hors ligne.
    */
   RANKED_OFF?: string;
+  /** Signe les `state` du flux de connexion. Un secret `wrangler`, jamais une variable. */
+  SESSION_SECRET: string;
+  /** Le client OAuth Google : l'id est une variable, le secret un secret `wrangler`. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** Le faux fournisseur des tests, lu sous `DEBUG=1` seulement. */
+  OIDC_TEST_ISSUER?: string;
+  OIDC_TEST_CLIENT_ID?: string;
+  OIDC_TEST_CLIENT_SECRET?: string;
 }
 
 /**
@@ -47,21 +66,13 @@ interface Submission {
   claim?: unknown;
 }
 
-/** Les origines qui ont le droit d'appeler : le jeu en production, en préversion et en développement. */
-const ORIGINS = [
-  /^https:\/\/([a-z0-9-]+\.)?g-surge\.w23\.fr$/,
-  /^https:\/\/w23\.fr$/,
-  /^https:\/\/([a-z0-9-]+\.)?g-surge\.pages\.dev$/,
-  /^http:\/\/localhost(:\d+)?$/,
-];
-
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') ?? '';
-  if (!ORIGINS.some((re) => re.test(origin))) return {};
+  if (!allowedOrigin(origin)) return {};
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET, POST',
-    'access-control-allow-headers': 'content-type',
+    'access-control-allow-headers': 'content-type, authorization',
     vary: 'origin',
   };
 }
@@ -84,6 +95,13 @@ export default {
  * Ce que l'arbitre doit savoir de l'appelant : son adresse, que `fetch` vers
  * un Durable Object ne transporte pas, et l'heure feinte sous `DEBUG=1`.
  */
+/** Le compte résolu, pour l'arbitre : il ne voit jamais un jeton, seulement qui c'est. */
+const accountHeaders = (a: { id: number; name: string }): Record<string, string> => ({
+  'x-gs-account': String(a.id),
+  // encodé : un en-tête ne porte que de l'ASCII, un nom non
+  'x-gs-name': encodeURIComponent(a.name),
+});
+
 function ipHeaders(req: Request, env: Env): Record<string, string> {
   const headers: Record<string, string> = { 'x-gs-ip': req.headers.get('cf-connecting-ip') ?? '' };
   const debugNow = env.DEBUG === '1' ? req.headers.get('x-debug-now') : null;
@@ -96,18 +114,69 @@ async function route(req: Request, env: Env): Promise<Response> {
   const arbiter = () => env.ARBITER.get(env.ARBITER.idFromName('arbiter'));
 
   const rankedOff = env.RANKED_OFF === '1';
-  if (url.pathname === '/health')
-    return json({ ok: true, core: __CORE_DIGEST__, ranked: !rankedOff });
+  if (url.pathname === '/health') {
+    // Les fournisseurs configurés, pour que le menu n'offre que ce qui marche.
+    const providers = ['google', 'test'].filter((p) => providerFor(p, env) !== null);
+    return json({ ok: true, core: __CORE_DIGEST__, ranked: !rankedOff, providers });
+  }
+
+  // Les comptes. `now` est l'heure réelle, ou celle que le débogage prétend.
+  const now =
+    env.DEBUG === '1' && req.headers.get('x-debug-now')
+      ? Number(req.headers.get('x-debug-now'))
+      : Date.now();
+  const auth = url.pathname.match(/^\/auth\/([a-z]+)\/(start|callback)$/);
+  if (auth) {
+    if (req.method !== 'GET') return refuse(405, 'method');
+    const provider = providerFor(auth[1]!, env);
+    if (!provider) return refuse(404, 'provider');
+    const callbackUrl = `${url.origin}/auth/${provider.name}/callback`;
+    if (auth[2] === 'start') {
+      const returnTo = url.searchParams.get('return') ?? '';
+      const to = await startUrl(env, provider, returnTo, callbackUrl, now);
+      if (!to) return refuse(400, 'return');
+      return Response.redirect(to, 302);
+    }
+    const done = await finish(env, provider, url, callbackUrl, now);
+    if ('error' in done) return refuse(400, done.error);
+    // Le fragment ne quitte jamais le navigateur : c'est là que le jeton va.
+    return Response.redirect(`${done.returnTo}/#session=${done.token}`, 302);
+  }
+  if (url.pathname === '/me') {
+    if (req.method !== 'GET') return refuse(405, 'method');
+    const account = await accountOf(env, req, now);
+    return account ? json(account) : refuse(401, 'sign-in');
+  }
+  if (url.pathname === '/logout') {
+    if (req.method !== 'POST') return refuse(405, 'method');
+    await logout(env, req);
+    return json({ ok: true });
+  }
+  if (url.pathname === '/me/delete') {
+    if (req.method !== 'POST') return refuse(405, 'method');
+    const account = await accountOf(env, req, now);
+    if (!account) return refuse(401, 'sign-in');
+    await deleteAccount(env, account.id);
+    return json({ ok: true });
+  }
+  if (url.pathname === '/debug/login' && env.DEBUG === '1') {
+    if (req.method !== 'POST') return refuse(405, 'method');
+    const { name } = (await req.json()) as { name?: string };
+    return json({ token: await debugLogin(env, typeof name === 'string' ? name : 'PILOT', now) });
+  }
 
   if (url.pathname === '/ticket') {
     if (req.method !== 'POST') return refuse(405, 'method');
     if (rankedOff) return refuse(503, 'ranked-off');
+    // Le classé se joue connecté : sans compte, pas de ticket.
+    const account = await accountOf(env, req, now);
+    if (!account) return refuse(401, 'sign-in');
     const body = await req.text();
     if (body.length > 256) return refuse(413, 'size');
     return arbiter().fetch('https://arbiter/ticket', {
       method: 'POST',
       body,
-      headers: ipHeaders(req, env),
+      headers: { ...ipHeaders(req, env), ...accountHeaders(account) },
     });
   }
 
@@ -129,6 +198,8 @@ async function route(req: Request, env: Env): Promise<Response> {
     // Le coupe-circuit coupe aussi la soumission : une partie commencée avant
     // la bascule finit hors ligne, ce qui est ce que l'interrupteur promet.
     if (rankedOff) return refuse(503, 'ranked-off');
+    // Classée, la partie doit venir d'un compte ; rejouée seulement, non.
+    const account = req.headers.get('authorization') ? await accountOf(env, req, now) : null;
     // L'en-tête d'abord, pour refuser sans lire ; le corps ensuite, parce
     // qu'un envoi en morceaux n'a pas d'en-tête et qu'un client hostile n'en
     // mettra pas non plus.
@@ -152,7 +223,12 @@ async function route(req: Request, env: Env): Promise<Response> {
     }
     if (body.ticket !== undefined && typeof body.ticket !== 'string') return refuse(400, 'ticket');
     const ranked = body.ticket !== undefined;
-    const headers = { 'content-type': 'application/json', ...ipHeaders(req, env) };
+    if (ranked && !account) return refuse(401, 'sign-in');
+    const headers = {
+      'content-type': 'application/json',
+      ...ipHeaders(req, env),
+      ...(account ? accountHeaders(account) : {}),
+    };
     return arbiter().fetch(ranked ? 'https://arbiter/run' : 'https://arbiter/replay', {
       method: 'POST',
       body: JSON.stringify(

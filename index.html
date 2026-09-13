@@ -116,7 +116,7 @@
   .update .btn{width:auto;padding:8px 12px;font-size:11px;letter-spacing:.06em;
     border-color:var(--amber);background:rgba(255,194,74,.16)}
   /* `display:flex` battrait le `hidden` du navigateur : l'attribut doit gagner. */
-  .update[hidden],.install[hidden]{display:none}
+  .update[hidden],.install[hidden],.btn[hidden]{display:none}
   .board{margin-top:22px;border-top:1px solid rgba(37,226,255,.14);padding-top:14px}
   .board h3{margin:0 0 9px;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em}
   .board ol{list-style:none;margin:0;padding:0}
@@ -871,10 +871,10 @@
           <span>Play ranked<small>This week's board, on a track the server keeps to itself</small></span>
           <button class="toggle" id="tglRanked" aria-pressed="false"></button>
         </div>
-        <div class="switch">
-          <span>Display name<small>Sent with a ranked run. Left blank, the board shows a generic one.</small></span>
-          <input type="text" id="nameInput" placeholder="PILOT" maxlength="16" aria-label="Display name">
-        </div>
+        <p class="acct" id="accountLine">Not signed in.</p>
+        <button class="btn" id="btnSignIn">SIGN IN WITH GOOGLE</button>
+        <button class="btn ghost" id="btnSignOut" hidden>SIGN OUT</button>
+        <button class="btn danger" id="btnDeleteAccount" hidden>DELETE ACCOUNT</button>
       </div>
       <div class="grp">
         <h3>Data</h3>

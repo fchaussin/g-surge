@@ -12,6 +12,7 @@
  * un réglage qui change sans s'annoncer est pire qu'un réglage inatteignable.
  */
 import { DEFAULTS, type Difficulty, type Tuning } from '../sim/index.js';
+import type { Account } from './api.js';
 import type { Preferences } from './preferences.js';
 import { SLIDERS } from './sliders.js';
 
@@ -49,7 +50,12 @@ export interface SettingsOptions {
   setTips: (on: boolean) => void;
   setGhost: (on: boolean) => void;
   setRanked: (on: boolean) => void;
-  setName: (name: string) => void;
+  /** Le compte : qui l'on est, et les trois gestes. `signIn` navigue, il ne rend pas. */
+  account: () => Account | null;
+  signedIn: () => boolean;
+  signIn: (provider: string) => void;
+  signOut: () => Promise<void>;
+  deleteAccount: () => Promise<boolean>;
   setLefty: (on: boolean) => void;
   setSky: (on: boolean) => void;
   setSkyDetail: (high: boolean) => void;
@@ -215,7 +221,7 @@ export class Settings {
     simple('tglTips', initial.tips, (on) => this.options.setTips(on));
     simple('tglGhost', initial.ghost, (on) => this.options.setGhost(on));
     simple('tglRanked', initial.ranked, (on) => this.options.setRanked(on));
-    this.bindName(initial.name);
+    this.bindAccount();
     simple('tglSky', initial.sky, (on) => this.options.setSky(on));
     simple('tglSkyHi', initial.skyDetail, (on) => this.options.setSkyDetail(on));
     simple('tglFps', initial.showFps, (on) => {
@@ -268,14 +274,39 @@ export class Settings {
     });
   }
 
-  /** Le nom envoyé avec une partie classée. Assaini à chaque frappe, poussé au repos. */
-  private bindName(start: string): void {
-    const el = byId('nameInput') as HTMLInputElement | null;
-    if (!el) return;
-    el.value = start;
-    el.addEventListener('input', () => {
-      el.value = el.value.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0, 16);
+  /**
+   * Le compte, dans le groupe Ranked : qui l'on est, ou l'invitation à se
+   * connecter. Repeint par `paintAccount`, que le client appelle quand la
+   * session change — au démarrage, une fois `/me` répondu, et à la sortie.
+   */
+  private bindAccount(): void {
+    byId('btnSignIn')?.addEventListener('click', () => this.options.signIn('google'));
+    byId('btnSignOut')?.addEventListener('click', () => {
+      void this.options.signOut().then(() => this.paintAccount());
     });
-    el.addEventListener('change', () => this.options.setName(el.value.trim()));
+    byId('btnDeleteAccount')?.addEventListener('click', () => {
+      // Une confirmation native : c'est la seule chose qui ne se clique pas par erreur.
+      if (!window.confirm('Delete your account and every ranked run it holds?')) return;
+      void this.options.deleteAccount().then(() => this.paintAccount());
+    });
+    this.paintAccount();
+  }
+
+  /** L'état du compte tel que le client le connaît, à cet instant. */
+  paintAccount(): void {
+    const account = this.options.account();
+    const signedIn = this.options.signedIn();
+    const line = byId('accountLine');
+    if (line) {
+      line.textContent = account
+        ? `Signed in as ${account.name}`
+        : signedIn
+          ? 'Signed in — checking with the server…'
+          : 'Not signed in. Ranked runs need an account; the board shows its name.';
+    }
+    byId('btnSignIn')?.toggleAttribute('hidden', signedIn);
+    byId('btnSignOut')?.toggleAttribute('hidden', !signedIn);
+    byId('btnDeleteAccount')?.toggleAttribute('hidden', !account);
+    this.options.rebuildNav();
   }
 }

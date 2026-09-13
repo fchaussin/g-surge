@@ -45,6 +45,7 @@ import { Pickups } from './pickups.js';
 import { PreferenceStore } from './preferences.js';
 import { Ranked, type Unranked } from './ranked.js';
 import { ScoreScreen, type ScoreBreakdown } from './score-screen.js';
+import { Session } from './session.js';
 import { Scores } from './scores.js';
 import { Screens } from './screens.js';
 import { Settings } from './settings.js';
@@ -85,6 +86,8 @@ function freshSeed(): string {
 }
 
 const prefs = new PreferenceStore();
+// Lue avant tout : le jeton du retour de connexion est dans l'URL, et il en sort ici.
+const session = new Session();
 const pinnedSeed = seedFromUrl();
 const sim = new Sim({ seed: pinnedSeed ?? freshSeed(), difficulty: prefs.values.difficulty });
 
@@ -292,7 +295,14 @@ const settings = new Settings({
     rankedOn = on;
     prefs.set('ranked', on);
   },
-  setName: (n) => prefs.set('name', n),
+  account: () => session.account,
+  signedIn: () => session.signedIn,
+  signIn: (provider) => {
+    // Une navigation, pas un fetch : le fournisseur veut la page entière.
+    window.location.assign(session.signInUrl(provider));
+  },
+  signOut: () => session.signOut(),
+  deleteAccount: () => session.deleteAccount(),
   clearScores: () => {
     scores.clear();
     ghosts.clear();
@@ -377,7 +387,9 @@ function startRun(): void {
 async function startRanked(): Promise<Unranked | null> {
   if (endsARun()) submit();
   ranked.abandon();
-  const issued = await ranked.request(difficulty);
+  // Sans session, inutile de demander : le serveur dirait la même chose, une
+  // requête plus tard. Le classé se joue connecté.
+  const issued = session.signedIn ? await ranked.request(difficulty) : 'sign-in';
   if (typeof issued === 'string') {
     startRun();
     hud.setBest(`unranked \u00b7 ${UNRANKED[issued]}`);
@@ -520,7 +532,7 @@ function endRun(): void {
     // commencé : l'écran ne bouge que s'il montre encore celle-ci. Une réponse
     // plus rapide que le délai ci-dessus n'est pas perdue : elle va dans la
     // carte, que `show` lira en montant.
-    void ranked.submit(sim, prefs.values.name).then((verdict) => {
+    void ranked.submit(sim).then((verdict) => {
       if (runId !== shown) return;
       const text =
         typeof verdict === 'string'
@@ -541,6 +553,7 @@ const UNRANKED: Record<Unranked, string> = {
   refused: 'refused by the server',
   unreachable: 'server unreachable',
   off: 'ranked mode is off',
+  'sign-in': 'sign in to play ranked',
 };
 /** Compte les parties, pour qu'une réponse tardive ne touche pas l'écran d'une autre. */
 let runId = 0;
@@ -788,6 +801,10 @@ screens.revealCursorOnPrecisePointer();
 // départ.
 back.start();
 settings.syncAll();
+// Le compte : les réglages se repeignent quand la session change, et `/me`
+// est demandé une fois au démarrage — sans jeton, il ne demande rien.
+session.onChange = () => settings.paintAccount();
+void session.refresh();
 
 // Un onglet fermé ou masqué n'exécute jamais un minuteur en attente, et les
 // navigateurs mobiles peuvent ne jamais émettre `unload`.

@@ -17,7 +17,8 @@ import { api, ApiError, online, type Issued } from './api.js';
 import { TrackStream } from './stream.js';
 
 /** Pourquoi une partie classée ne l'est finalement pas. `off` : le serveur a coupé le mode, `RANKED_OFF`. */
-export type Unranked = 'offline' | 'no-ticket' | 'dry' | 'refused' | 'unreachable' | 'off';
+export type Unranked =
+  'offline' | 'no-ticket' | 'dry' | 'refused' | 'unreachable' | 'off' | 'sign-in';
 
 export class Ranked {
   private stream: TrackStream | null = null;
@@ -38,7 +39,9 @@ export class Ranked {
     try {
       return await api.ticket(difficulty);
     } catch (e) {
-      return e instanceof ApiError && e.code === 'ranked-off' ? 'off' : 'no-ticket';
+      if (e instanceof ApiError && e.code === 'ranked-off') return 'off';
+      if (e instanceof ApiError && e.code === 'sign-in') return 'sign-in';
+      return 'no-ticket';
     }
   }
 
@@ -74,18 +77,19 @@ export class Ranked {
    * les cas. `claim` est ce que le client a lui-même calculé — envoyé pour
    * être comparé, jamais pour compter : le serveur rejoue et n'en croit rien.
    */
-  async submit(sim: Sim, name: string): Promise<Outcome | Unranked> {
+  async submit(sim: Sim): Promise<Outcome | Unranked> {
     const stream = this.stream;
     this.stream = null;
     if (!stream) return 'offline';
     try {
       const trace = sim.trace();
       const claim = outcomeOf(sim.state, trace.steps);
-      const { outcome, rank } = await api.run(stream.ticket, trace, name, claim);
+      const { outcome, rank } = await api.run(stream.ticket, trace, claim);
       this.rank = rank;
       return outcome;
     } catch (e) {
-      if (e instanceof ApiError) return e.code === 'ranked-off' ? 'off' : 'refused';
+      if (e instanceof ApiError)
+        return e.code === 'ranked-off' ? 'off' : e.code === 'sign-in' ? 'sign-in' : 'refused';
       return 'unreachable';
     }
   }

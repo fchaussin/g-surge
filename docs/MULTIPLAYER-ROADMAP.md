@@ -36,7 +36,7 @@ and what could go wrong. No dates; the order is the commitment, as with
 | M5 | The streamed track | nothing, if done right | — | phase 2 — **done**, 1.16.1 and 1.16.3; the menu switch is M3's |
 | M3 | The weekly board | a ranked mode and a board that resets every week | — | phase 1 on the streamed track — **done**, 1.17.0 and 1.18.0 |
 | M4 | Public ghosts | any board entry can be watched | storage policy: how many traces, how long | proof made visible — **done**, 1.22.0 and 1.22.1 |
-| M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers |
+| M6 | Identity and the global board | sign-in, an all-time board, a report button | identity provider; moderation; data policy | phase 1 + levers — **sign-in built and proven, 1.24.0**; Google waits for the author's client, the rest of M6 is open |
 | M7 | Rooms | racing others live on the same track | room size; how a race ends | phase 3 |
 | M8 | Hardening | nothing, or that it keeps working | budget ceiling and alerts | — |
 
@@ -361,6 +361,34 @@ privacy note in the menu; who moderates; the archive policy.
 **Risks.** This is the milestone with obligations attached — accounts mean
 a data controller. Keep the data to two fields and the deletion one click,
 and the obligations stay small.
+
+**State on 13 September 2026 — the sign-in half, 1.24.0.** Built without a
+real provider, and that is the point: the OpenID Connect code flow lives in
+`server/src/auth.ts`, providers are a table, and the whole path is proven in
+workerd against a fake provider that the test mounts beside the server —
+discovery, a test RSA key, signed `id_token`s — so what Google will do is
+the same sequence of calls on other addresses. What changed against the
+plan above, and why:
+
+- **A bearer token, not a session cookie.** The API and the game are not one
+  origin — `gsurge-api.w23.fr` and `g-surge.w23.fr`, and `*.workers.dev`
+  against `*.pages.dev` in preview, where a cookie is third-party and blocked.
+  The token rides in `Authorization`, is kept with the preferences, and comes
+  back from sign-in in the URL fragment, which never reaches a server or a
+  log. Sessions are still rows, so sign-out and deletion invalidate what
+  circulates.
+- **The weekly board requires sign-in too.** The author decided that to
+  record anything a player must be signed in; the free-text name and its
+  `PILOT` fallback are gone, the board shows the account's name. The offline
+  game does not change by a step.
+- **What waits for the author:** a Google OAuth client — its id in
+  `wrangler.jsonc`, its secret and `SESSION_SECRET` by `wrangler secret put`,
+  the callback URL registered; `.env.example` says exactly which. The menu
+  offers the button only when `/health` lists the provider as configured.
+  Apple is one more row, when there are iOS players to justify its yearly
+  fee and six-monthly key.
+- **Still open in M6:** the global all-time board, reports and moderation,
+  plausibility flags, per-account rate limits.
 
 **Version.** Minor. Major only if a board key breaks, which the epoch design
 avoids.

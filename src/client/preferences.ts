@@ -35,7 +35,6 @@ export interface Preferences {
   /** Jouer sur le tableau de la semaine plutôt qu'en local. */
   ranked: boolean;
   /** Le nom envoyé avec une partie classée. Vide : le serveur en choisit un générique. */
-  name: string;
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
@@ -51,7 +50,6 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   ghost: false,
   renderScale: 1,
   ranked: false,
-  name: '',
 };
 
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
@@ -60,12 +58,6 @@ const number = (v: unknown, fallback: number, min: number, max: number): number 
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fallback;
 
 /** Vide vaut « pas encore choisi » ; deux à seize lettres, chiffres, espace, `-` ou `_` sinon. */
-const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u;
-const name = (v: unknown, fallback: string): string => {
-  if (typeof v !== 'string') return fallback;
-  const trimmed = v.trim();
-  return trimmed === '' || NAME_RE.test(trimmed) ? trimmed : fallback;
-};
 
 /** Exporté pour ses tests seuls : le stockage est une entrée non fiable, et ceci est la porte. */
 export function sanitise(raw: unknown): Preferences {
@@ -90,7 +82,6 @@ export function sanitise(raw: unknown): Preferences {
     // sanitise reconstruit l'objet champ par champ, les clés inconnues tombent.
     renderScale: number(r.renderScale, d.renderScale, 0.4, 1),
     ranked: bool(r.ranked, d.ranked),
-    name: name(r.name, d.name),
   };
 }
 

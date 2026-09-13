@@ -17,8 +17,8 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 41 | ~8 400 |
-| `server/src/` | 8 | ~800 |
+| `src/client/` | 42 | ~8 600 |
+| `server/src/` | 10 | ~1 300 |
 | `index.html` | 1 | ~900 |
 <!-- /generated:layout -->
 
@@ -206,6 +206,7 @@ which is what makes the step runnable outside a page.
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
 | `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
+| `session.ts` | The player's session: the token read from the URL fragment on return from sign-in and erased from it in the same gesture, kept with the preferences, sent as a bearer by `api.ts`; `/me` says who it is, a 401 forgets it |
 | `base64.ts` | The bytes of a trace either way, for local ghosts and for the wire — the core cannot hold it, `src/sim/` has neither `btoa` nor `atob` |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |
 | `history.ts` | The system back button: one spare history entry, always, so a back goes up one screen instead of out of the game — and, installed, asks before leaving |
@@ -268,6 +269,8 @@ Miniflare in `tests/server.test.ts`, `wrangler dev` and `deploy`.
 | `tickets.ts` | Tickets in the object's storage: the seed the client never sees, the issue time the submission window is measured against — one run per ticket, in real time, on the object's clock |
 | `track.ts` | `chunk(seed, difficulty, from)`: 256 segments from the seeded generator, packed — the same range always answers the same bytes |
 | `epoch.ts` | `epoch(now)`, the ISO week key the board resets on — Monday 00:00 UTC — and `nextReset(now)` for the board's countdown |
+| `auth.ts` | Accounts: the OpenID Connect code flow in the Worker — a signed `state`, the code exchanged, the `id_token` verified on the provider's published keys — sessions as D1 rows so sign-out and deletion invalidate what still circulates, a bearer token rather than a cookie because the API and the game are not one origin; providers are a table, Google first, a `test` one under `DEBUG=1` only |
+| `origins.ts` | The origins the API answers and may redirect back to — one list for both, because they are the same question |
 | `limits.ts` | What one address may ask for per minute on the two routes that arm or spend a replay, counted in the object's memory — an address is not a player, which is why the caps are wide for a human and narrow for a loop |
 | `wire.ts` | `asTrace`: the body's trace, packed and base64 as the client now sends it, or the JSON shape a bundle from before a deploy still sends |
 | `http.ts` | `json` and `refuse` |

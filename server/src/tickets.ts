@@ -18,6 +18,8 @@ export interface Ticket {
   readonly difficulty: Difficulty;
   /** `Date.now()` de l'objet à l'émission. */
   readonly issued: number;
+  /** Le compte qui l'a demandé : la partie sera à lui, ou ne sera pas classée. */
+  readonly account: number;
 }
 
 /** Une partie classée dure au plus une heure ; au-delà le ticket ne vaut plus rien. */
@@ -42,9 +44,13 @@ export function randomHex(): string {
 export class Tickets {
   constructor(private readonly storage: DurableObjectStorage) {}
 
-  async issue(difficulty: Difficulty, now: number): Promise<{ id: string; ticket: Ticket }> {
+  async issue(
+    difficulty: Difficulty,
+    now: number,
+    account: number,
+  ): Promise<{ id: string; ticket: Ticket }> {
     const id = randomHex();
-    const ticket: Ticket = { seed: randomHex(), difficulty, issued: now };
+    const ticket: Ticket = { seed: randomHex(), difficulty, issued: now, account };
     await this.storage.put(PREFIX + id, ticket);
     await this.sweep(now);
     return { id, ticket };
