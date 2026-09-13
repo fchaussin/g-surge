@@ -27,6 +27,7 @@ import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
+import { Duel, DUEL_LINK, type DuelEnd } from './duel.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
@@ -129,6 +130,7 @@ const haptics = new Haptics();
 const scores = new Scores();
 const ghosts = new GhostStore();
 const ranked = new Ranked();
+const duel = new Duel();
 const tips = new Tips();
 const scoreScreen = new ScoreScreen(() => audio.resume());
 
@@ -172,6 +174,8 @@ const screens = new Screens({
     // Toujours une lecture fraîche à l'ouverture, jamais celle d'une visite précédente.
     if (mode === 'board') boardScreen.open();
     if (mode !== 'watch' && watching) stopWatching();
+    // Revenir au menu quitte le salon : la prise se ferme, le fantôme s'efface.
+    if (mode === 'menu' && duel.active) leaveDuel();
   },
 });
 
@@ -463,6 +467,91 @@ function stopWatching(): void {
   hud.setBest(scores.bestLabel);
 }
 
+/**
+ * Un duel. Le salon sert la piste, la simulation reste la sienne ; ce qui
+ * change est ce qui part — la trace en morceaux — et ce qui arrive — l'autre
+ * vaisseau, dessiné par le fantôme. L'ouvreur attend sur l'écran
+ * d'invitation ; le second arrive par le lien, et les deux démarrent quand la
+ * seconde prise s'ouvre.
+ */
+const DUEL_WHY: Record<DuelEnd, string> = {
+  offline: 'offline',
+  'sign-in': 'sign in to duel',
+  refused: 'refused by the server',
+  unreachable: 'server unreachable',
+  full: 'that room is full',
+  gone: 'that room is gone',
+  diverged: 'connection dropped: out of sync',
+  expired: 'the room has expired',
+};
+
+async function openDuel(): Promise<void> {
+  screens.setMode('duel');
+  if (!session.signedIn) {
+    sayDuel(DUEL_WHY['sign-in']);
+    return;
+  }
+  sayDuel('Opening a room…');
+  const why = await duel.open(difficulty);
+  if (screens.mode !== 'duel') return;
+  if (why) {
+    sayDuel(DUEL_WHY[why]);
+    return;
+  }
+  duel.connect();
+  const link = document.getElementById('inviteLink') as HTMLInputElement | null;
+  if (link) link.value = duel.inviteLink();
+  sayDuel('Share this link with the other pilot. The race starts when they arrive.');
+}
+
+async function joinDuel(room: string): Promise<void> {
+  screens.setMode('duel');
+  sayDuel('Joining…');
+  const why = await duel.join(room);
+  if (why) {
+    sayDuel(DUEL_WHY[why]);
+    return;
+  }
+  duel.connect();
+  startDuel();
+}
+
+function startDuel(): void {
+  if (endsARun()) submit();
+  ranked.abandon();
+  ghost.disarm();
+  ghost.unfollow();
+  sim.reset(freshSeed());
+  if (!duel.begin(sim)) {
+    sayDuel(DUEL_WHY.gone);
+    return;
+  }
+  launch();
+  hud.setBest('duel');
+}
+
+function leaveDuel(): void {
+  duel.leave();
+  ghost.unfollow();
+}
+
+function sayDuel(text: string): void {
+  const line = document.getElementById('duelLine');
+  if (line) line.textContent = text;
+}
+
+duel.onChange = (why) => {
+  if (why) {
+    // la prise s'est fermée : la partie continue seule, et le HUD le dit
+    if (screens.isLive) hud.setBest(`duel \u00b7 ${DUEL_WHY[why]}`);
+    else sayDuel(DUEL_WHY[why]);
+    ghost.unfollow();
+    return;
+  }
+  // l'autre est là : l'ouvreur démarre
+  if (screens.mode === 'duel' && duel.seats >= 2) startDuel();
+};
+
 /** Ce que toute partie fait après que sa piste est en place. */
 function launch(): void {
   unrankedWhy = null;
@@ -583,9 +672,13 @@ function renderFrame(frameDt: number): void {
   // Le palier de pièce est le barreau de poussée : une seule notion, celle que
   // le noyau publie, au lieu d'un seuil de vitesse qui l'approximait mal.
   pickups.update(sim.track, state.cursor, thrust, frameDt);
-  ghost.update(sim);
+  if (duel.active) {
+    duel.pump(sim);
+    if (duel.other) ghost.follow(duel.other, frameDt);
+  }
+  ghost.update(sim, frameDt);
   ranked.pump();
-  if (ghost.armed && screens.isPlaying) hud.setGap(ghost.gap);
+  if (ghost.armed && screens.isPlaying) hud.setGap(ghost.gap, duel.active ? 'rival' : 'ghost');
   ship.setPose(state.lat, state.hop, bank);
   // Gîte et lacet sont montrés, pas simulés : ils traînent derrière l'état pour
   // que la coque se lise comme une masse au lieu de sauter d'une attitude à
@@ -740,6 +833,17 @@ on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
 on('btnBoardMenu', () => screens.setMode('board'));
 on('btnStay', () => screens.setMode('menu'));
+on('btnDuel', () => void openDuel());
+on('btnCancelDuel', () => screens.setMode('menu'));
+on('btnCopyInvite', () => {
+  const link = document.getElementById('inviteLink') as HTMLInputElement | null;
+  if (!link || !link.value) return;
+  link.select();
+  void navigator.clipboard?.writeText(link.value).then(
+    () => sayDuel('Link copied. The race starts when the other pilot arrives.'),
+    () => sayDuel('Copy failed — select the link and copy it by hand.'),
+  );
+});
 on('btnStopWatch', () => screens.back());
 on('btnLeave', () => back.leave());
 on('btnCloseBoard', () => screens.setMode('menu'));
@@ -793,6 +897,19 @@ viewport.setRenderScale(prefs.values.renderScale);
 
 screens.setMode('menu');
 screens.revealCursorOnPrecisePointer();
+// Un lien d'invitation : le fragment porte le salon, et il en sort ici.
+{
+  const hash = window.location.hash;
+  const room = hash.startsWith('#') ? new URLSearchParams(hash.slice(1)).get(DUEL_LINK) : null;
+  if (room && /^[0-9a-f]{16}$/.test(room)) {
+    history.replaceState(history.state, '', window.location.pathname + window.location.search);
+    if (session.signedIn) void joinDuel(room);
+    else {
+      screens.setMode('duel');
+      sayDuel(DUEL_WHY['sign-in']);
+    }
+  }
+}
 // Le retour du système remonte d'un écran plutôt que de quitter le jeu, et
 // met en pause pendant une partie. Posé après `setMode`, qui est l'état de
 // départ.

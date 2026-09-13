@@ -23,7 +23,17 @@
  * d'où l'on vient, pas au menu.
  */
 export type Mode =
-  'menu' | 'run' | 'watch' | 'wreck' | 'pause' | 'over' | 'settings' | 'help' | 'board' | 'quit';
+  | 'menu'
+  | 'run'
+  | 'watch'
+  | 'wreck'
+  | 'pause'
+  | 'over'
+  | 'settings'
+  | 'help'
+  | 'board'
+  | 'duel'
+  | 'quit';
 
 /**
  * Les éléments navigables par écran, dans l'ordre. Les réglages bâtissent la
@@ -49,6 +59,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   over: ['btnAgain', 'btnOverMenu'],
   board: ['segBoardDiff', 'btnCloseBoard'],
   quit: ['btnStay', 'btnLeave'],
+  duel: ['btnCopyInvite', 'btnCancelDuel'],
 };
 
 /** L'élément présélectionné à l'ouverture d'un écran. */
@@ -59,6 +70,7 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   help: 'btnCloseHelp',
   board: 'btnCloseBoard',
   quit: 'btnStay',
+  duel: 'btnCopyInvite',
 };
 
 /** Les écrans qui sont aussi des identifiants. `run` n'en est pas un : il montre le HUD. */
@@ -70,6 +82,7 @@ export const LAYERS: readonly Mode[] = [
   'settings',
   'board',
   'quit',
+  'duel',
 ];
 
 export interface ScreensOptions {
@@ -128,7 +141,10 @@ export class Screens {
     // Le bouton de son se poserait sur ces deux écrans ; et pendant une partie
     // il se décale à droite, pour que la pause ait le coin.
     const mute = document.getElementById('btnMute');
-    mute?.classList.toggle('hide', mode === 'settings' || mode === 'help' || mode === 'board');
+    mute?.classList.toggle(
+      'hide',
+      mode === 'settings' || mode === 'help' || mode === 'board' || mode === 'duel',
+    );
     mute?.classList.toggle('run', mode === 'run');
 
     this.buildNav();
@@ -297,6 +313,7 @@ export class Screens {
       case 'board':
       case 'over':
       case 'quit':
+      case 'duel':
         this.setMode('menu');
         return true;
       default:

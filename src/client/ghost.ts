@@ -18,6 +18,7 @@ import { Group, MeshBasicMaterial } from 'three';
 import {
   BACK,
   COUNT,
+  HZ,
   SEG,
   Sim,
   TraceCursor,
@@ -25,6 +26,7 @@ import {
   trackPoint,
   type Trace,
 } from '../sim/index.js';
+import type { Relay } from './duel.js';
 import { hullBody } from './ship.js';
 
 /** Le cyan du drift, vu à travers : la teinte du jeu pour « la même chose, en écho ». */
@@ -44,6 +46,21 @@ export class Ghost {
   private readonly body: Group;
   private readonly point = trackPoint();
   private cursor: TraceCursor | null = null;
+  /**
+   * En duel, le fantôme n'a pas de simulation : il est dessiné depuis les
+   * six nombres que le salon relaie de l'autre. Entre deux relais — cent
+   * millisecondes — la distance est extrapolée à la vitesse déduite des
+   * deux derniers, et le reste est lissé sur l'horloge d'affichage.
+   */
+  private puppet: {
+    at: Relay;
+    speed: number;
+    since: number;
+    dist: number;
+    lat: number;
+    hop: number;
+    yaw: number;
+  } | null = null;
 
   constructor() {
     this.material = new MeshBasicMaterial({
@@ -57,9 +74,41 @@ export class Ghost {
     this.group.visible = false;
   }
 
-  /** Vrai entre `arm` et `disarm`, que la trace soit finie ou non. */
+  /** Vrai entre `arm` et `disarm`, que la trace soit finie ou non — ou en duel. */
   get armed(): boolean {
-    return this.cursor !== null;
+    return this.cursor !== null || this.puppet !== null;
+  }
+
+  /**
+   * Le dernier relais de l'autre vaisseau. Le premier arme le fantôme ; les
+   * suivants donnent la vitesse à laquelle extrapoler jusqu'au prochain.
+   */
+  follow(relay: Relay, frameDt: number): void {
+    const p = this.puppet;
+    if (p && p.at.steps === relay.steps) {
+      p.since += frameDt;
+      return;
+    }
+    const speed =
+      p && relay.steps > p.at.steps
+        ? ((relay.dist - p.at.dist) / (relay.steps - p.at.steps)) * HZ
+        : 0;
+    this.puppet = {
+      at: relay,
+      speed,
+      since: 0,
+      dist: p ? p.dist : relay.dist,
+      lat: p ? p.lat : relay.lat,
+      hop: p ? p.hop : relay.hop,
+      yaw: p ? p.yaw : relay.yaw,
+    };
+  }
+
+  /** Quitte le duel : plus rien à suivre. */
+  unfollow(): void {
+    this.puppet = null;
+    this.gap = 0;
+    this.group.visible = false;
   }
 
   /** La trace en course, pour savoir sur quelle graine et contre quel score. */
@@ -103,17 +152,37 @@ export class Ghost {
    * Place le fantôme dans le monde de la partie vivante. Après `buildPath`
    * de la piste vivante, comme les pièces.
    */
-  update(live: Sim): void {
-    if (this.cursor === null) {
+  update(live: Sim, frameDt = 0): void {
+    const p = this.puppet;
+    if (this.cursor === null && p === null) {
       this.group.visible = false;
       return;
     }
-    const g = this.sim.state;
     const l = live.state;
-    // position absolue le long de la piste : segment du vaisseau plus l'avance dans le segment
-    const ghostAt = this.sim.track.nid[BACK]! * SEG + g.cursor;
     const liveAt = live.track.nid[BACK]! * SEG + l.cursor;
-    const d = ghostAt - liveAt;
+    let d: number;
+    let g: { lat: number; hop: number; yaw: number; wrecked: boolean; tier: number };
+    if (p) {
+      // extrapolé à la vitesse du dernier relais, puis lissé : le relais a
+      // cent millisecondes, le lissage en cache la marche d'escalier
+      const target = p.at.wrecked ? p.at.dist : p.at.dist + p.speed * p.since;
+      const k = Math.min(1, frameDt * 14);
+      p.dist += (target - p.dist) * k;
+      p.lat += (p.at.lat - p.lat) * k;
+      p.hop += (p.at.hop - p.hop) * k;
+      p.yaw += (p.at.yaw - p.yaw) * k;
+      // Les deux distances comptent les mêmes mètres depuis le départ, donc
+      // leur différence est l'écart le long de la piste — sans passer par la
+      // position absolue du ruban, qui porte l'origine du tampon.
+      d = p.dist - l.dist;
+      g = { lat: p.lat, hop: p.hop, yaw: p.yaw, wrecked: p.at.wrecked, tier: p.at.tier };
+    } else {
+      const s = this.sim.state;
+      // position absolue le long de la piste : segment du vaisseau plus l'avance dans le segment
+      const ghostAt = this.sim.track.nid[BACK]! * SEG + s.cursor;
+      d = ghostAt - liveAt;
+      g = { lat: s.lat, hop: s.hop, yaw: s.yaw, wrecked: s.wrecked, tier: thrustTier(s) };
+    }
     this.gap = d;
 
     // hors du ruban intégré, ou derrière la caméra : rien à dessiner
@@ -138,7 +207,7 @@ export class Ghost {
     this.body.rotation.z = -g.yaw * 0.9;
     // il s'efface en approchant la caméra, et pâlit quand il n'a plus de poussée
     const near = Math.min(1, (d + CAMERA_BEHIND) / FADE_SPAN);
-    const lit = g.wrecked ? 0.5 : 0.85 + thrustTier(g) * 0.05;
+    const lit = g.wrecked ? 0.5 : 0.85 + g.tier * 0.05;
     this.material.opacity = GHOST_OPACITY * near * lit;
   }
 }

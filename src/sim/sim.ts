@@ -70,6 +70,16 @@ export class Sim {
     return this.recorder.trace(this.currentSeed, this.difficulty);
   }
 
+  /** Pas enregistrés depuis le départ : ce qu'un morceau de duel compte. */
+  get steps(): number {
+    return this.recorder.steps;
+  }
+
+  /** Le morceau depuis `fromStep`, pour un salon. Voir `Recorder.window`. */
+  window(fromStep: number): Trace {
+    return this.recorder.window(fromStep, this.difficulty);
+  }
+
   /** Avance d'un pas. Renvoie le dévers sous le vaisseau, pour le rendu. */
   step(input: Input, dt: number, attract = false): number {
     this.events.length = 0;

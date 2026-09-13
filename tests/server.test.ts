@@ -877,7 +877,10 @@ describe('the server in workerd', () => {
     const wsA = await socketOf(room.member);
     const wsB = await socketOf(seatB.member);
     const relays: Record<string, unknown>[] = [];
-    wsB.addEventListener('message', (ev) => relays.push(JSON.parse(String(ev.data))));
+    wsB.addEventListener('message', (ev) => {
+      const m = JSON.parse(String(ev.data)) as Record<string, unknown>;
+      if (m.type === 'state') relays.push(m);
+    });
     const closedA = new Promise<number>((resolve) =>
       wsA.addEventListener('close', (ev) => resolve((ev as CloseEvent).code)),
     );

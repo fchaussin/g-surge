@@ -141,12 +141,16 @@ export class Hud {
    * L'écart au fantôme, dans l'emplacement du record : positif quand il est
    * devant. Écrit par pas de cinq mètres, pas à chaque frame.
    */
-  setGap(metres: number): void {
+  /** L'écart au fantôme — ou au rival, en duel : même chiffre, pas le même mot. */
+  setGap(metres: number, who: 'ghost' | 'rival' = 'ghost'): void {
     const step = Math.round(metres / 5) * 5;
-    if (step === this.lastGap || !this.best) return;
+    if ((step === this.lastGap && who === this.lastWho) || !this.best) return;
     this.lastGap = step;
-    this.best.textContent = `ghost ${step >= 0 ? '+' : '\u2212'}${Math.abs(step)} m`;
+    this.lastWho = who;
+    this.best.textContent = `${who} ${step >= 0 ? '+' : '\u2212'}${Math.abs(step)} m`;
   }
+
+  private lastWho: 'ghost' | 'rival' = 'ghost';
 
   private lastGap: number | null = null;
 

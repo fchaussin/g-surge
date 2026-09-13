@@ -494,6 +494,10 @@
   .wbtn{margin-left:10px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);
     background:transparent;color:var(--dim);font-size:9px;letter-spacing:.14em;font-weight:700}
   .wbtn:active{color:var(--text);background:rgba(37,226,255,.12)}
+  /* Le lien d'invitation : lisible, sélectionnable, jamais éditable. */
+  #inviteLink{display:block;width:100%;margin:0 0 10px;padding:10px 12px;border-radius:10px;
+    border:1px solid var(--line);background:rgba(8,12,20,.6);color:var(--neon);
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;user-select:all;-webkit-user-select:all}
 
   .damage{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;
     --sev:0;background:radial-gradient(ellipse at 50% 52%,
@@ -715,6 +719,7 @@
     <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
     <button class="btn ghost" id="btnSettingsMenu">SETTINGS</button>
     <button class="btn ghost" id="btnBoardMenu">WEEKLY BOARD</button>
+    <button class="btn ghost" id="btnDuel">DUEL</button>
     <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
     <div class="install" id="installCard" hidden>
       <p id="installText">Install G-SURGE: full screen, works offline, and it keeps itself up to date.</p>
@@ -902,6 +907,23 @@
     <div class="pausedist">scores and settings stay on this device</div>
     <button class="btn" id="btnStay">STAY</button>
     <button class="btn ghost" id="btnLeave">LEAVE</button>
+  </div>
+</div>
+
+<div class="layer" id="duel">
+  <div class="sheet">
+    <header><h2>DUEL</h2>
+      <button class="close" id="btnCancelDuel">✕</button></header>
+    <div class="body">
+      <div class="grp">
+        <p class="acct" id="duelLine">Opening a room…</p>
+        <input type="text" id="inviteLink" readonly aria-label="Invite link">
+        <button class="btn" id="btnCopyInvite">COPY LINK</button>
+      </div>
+      <div class="grp">
+        <p>Same track for both, on the server. The other pilot's ship rides beside yours as a ghost; there are no collisions. The race starts as soon as they arrive.</p>
+      </div>
+    </div>
   </div>
 </div>
 

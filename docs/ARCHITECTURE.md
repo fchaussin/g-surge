@@ -16,10 +16,10 @@ public/            build output, gitignored — what Cloudflare Pages serves
 <!-- generated:layout -->
 | Where | Files | Lines |
 |---|---|---|
-| `src/sim/` | 14 | ~3 000 |
-| `src/client/` | 42 | ~8 600 |
+| `src/sim/` | 14 | ~3 100 |
+| `src/client/` | 43 | ~9 000 |
 | `server/src/` | 11 | ~1 800 |
-| `index.html` | 1 | ~900 |
+| `index.html` | 1 | ~1 000 |
 <!-- /generated:layout -->
 
 Line counts include comments, which this codebase writes at length, and are
@@ -206,6 +206,7 @@ which is what makes the step runnable outside a page.
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |
 | `core.ts` | `CORE_DIGEST`, the digest of `src/sim/` stamped at build by `vite.config.ts` — the key a trace carries so a server replays with the core that produced it |
 | `updates.ts` | The service worker's registration, and the announcement when a new version takes control — the reload is the player's |
+| `duel.ts` | The client half of a room: opens or joins by link, streams the room's track like a ticket's, sends the trace in windows every 72 steps — 10 Hz of simulated time — with the distance the simulation shows, and keeps the other ship's last relay for the ghost to follow |
 | `session.ts` | The player's session: the token read from the URL fragment on return from sign-in and erased from it in the same gesture, kept with the preferences, sent as a bearer by `api.ts`; `/me` says who it is, a 401 forgets it |
 | `base64.ts` | The bytes of a trace either way, for local ghosts and for the wire — the core cannot hold it, `src/sim/` has neither `btoa` nor `atob` |
 | `install.ts` | The install invitation: a prompt where the browser offers one, a hint on iOS, silence once installed or dismissed |

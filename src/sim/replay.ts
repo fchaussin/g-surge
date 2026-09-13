@@ -131,6 +131,35 @@ export class Recorder {
     this.count++;
   }
 
+  /**
+   * La fenêtre depuis `fromStep` : les plages qui commencent à ce pas ou
+   * après, `from` rendu relatif, `steps` ce qui s'est joué depuis. C'est le
+   * morceau qu'un salon reçoit à 10 Hz — une trace à part entière pour
+   * `packTrace` et `unpackTrace`, sans graine puisque le salon a la sienne.
+   * Recherche dichotomique sur `from`, qui est croissant : rien de linéaire
+   * dans une chose appelée dix fois par seconde sur des milliers de plages.
+   */
+  window(fromStep: number, difficulty: Difficulty): Trace {
+    let lo = 0;
+    let hi = this.spans;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.from[mid]! < fromStep) lo = mid + 1;
+      else hi = mid;
+    }
+    const from = new Array<number>(this.spans - lo);
+    for (let i = lo; i < this.spans; i++) from[i - lo] = this.from[i]! - fromStep;
+    return {
+      seed: '',
+      difficulty,
+      steps: this.count - fromStep,
+      from,
+      steer: Array.from(this.steer.subarray(lo, this.spans)),
+      flags: Array.from(this.flags.subarray(lo, this.spans)),
+      truncated: false,
+    };
+  }
+
   /** Fige la trace. Les tableaux sont copiés : la partie suivante réécrit les tampons. */
   trace(seed: string, difficulty: Difficulty): Trace {
     const n = this.spans;

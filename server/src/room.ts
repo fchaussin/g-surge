@@ -87,6 +87,7 @@ interface Chunk {
 
 /** Ce que l'objet relaie : les six nombres du noyau, et rien d'autre. */
 export interface Relay {
+  type: 'state';
   who: string;
   steps: number;
   dist: number;
@@ -182,6 +183,10 @@ export class Room extends DurableObject<Env> {
     // tout ce qui reste pour savoir qui parle.
     this.ctx.acceptWebSocket(server, [member]);
     this.start(member, stored);
+    // Les autres apprennent qu'une place de plus est occupée : c'est ce qui
+    // dit à celui qui attend que le duel peut commencer.
+    const seats = JSON.stringify({ type: 'seats', seats: this.ctx.getWebSockets().length });
+    for (const other of this.ctx.getWebSockets()) if (other !== server) other.send(seats);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -213,6 +218,7 @@ export class Room extends DurableObject<Env> {
 
     const s = live.sim.state;
     const relay: Relay = {
+      type: 'state',
       who: member,
       steps: live.steps,
       dist: s.dist,

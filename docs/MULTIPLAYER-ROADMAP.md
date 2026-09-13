@@ -510,10 +510,14 @@ real core packing a real stick-shaped run, not an estimate:
 **Deliverables, in two steps.** The third of the original three — queues,
 friend lists — is dropped until a duel proves it is wanted.
 
-1. **Two ships, one track, live.** *Server half done, 1.25.0 — `room.ts`,
-   proven in workerd with two scripted members: the relayed state is the
-   sender's simulation to the bit, and a member who lies on its distance is
-   closed with 4001.* A room object owns the track generator
+1. **Two ships, one track, live.** *Done, 1.25.0. Server: `room.ts`, proven
+   in workerd with two scripted members — the relayed state is the sender's
+   simulation to the bit, a member who lies on its distance is closed with
+   4001. Client: `duel.ts` and the ghost's puppet mode, proven in Playwright
+   with the room played by `routeWebSocket` — chunks leave every 72 steps in
+   a form the server decodes, the other ship draws thirty metres ahead from
+   relays, dead-reckoned between them and eased on the frame clock.* A room
+   object owns the track generator
    (M5), issues the same nodes to both members, receives each member's
    trace in chunks at 10 Hz and replays them authoritatively. It relays to
    the room what the core produces and nothing else: `dist`, `lat`, `hop`,

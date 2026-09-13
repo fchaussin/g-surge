@@ -32,6 +32,18 @@ export interface Issued {
   chunk: WireChunk;
 }
 
+/** Une place dans un salon : ce que `/room` et `/room/:id/join` rendent. */
+export interface Seat {
+  room: string;
+  member: string;
+  difficulty: Difficulty;
+  seats: number;
+  chunk: WireChunk;
+}
+
+/** L'adresse de la prise d'un salon : la même origine que l'API, en `ws`. */
+export const socketUrl = (path: string): string => API_URL.replace(/^http/, 'ws') + path;
+
 export interface Refusal {
   error: string;
 }
@@ -131,6 +143,12 @@ export const api = {
   me: (): Promise<Account> => call('/me'),
   logout: (): Promise<{ ok: true }> => post('/logout', {}),
   deleteAccount: (): Promise<{ ok: true }> => post('/me/delete', {}),
+  /** Un salon de duel : l'ouvrir, le rejoindre par son identifiant, tirer sa piste. */
+  openRoom: (difficulty: Difficulty): Promise<Seat> => post('/room', { difficulty }),
+  joinRoom: (room: string): Promise<Seat> =>
+    post(`/room/${room}/join`, {}).then((seat) => ({ ...(seat as Omit<Seat, 'room'>), room })),
+  roomChunk: (room: string, from: number): Promise<WireChunk> =>
+    call(`/room/${room}/track/${from}`),
   /** Ce que le serveur sait faire : les fournisseurs de connexion configurés. */
   health: (): Promise<{ ok: boolean; ranked: boolean; providers: string[] }> => call('/health'),
   board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>

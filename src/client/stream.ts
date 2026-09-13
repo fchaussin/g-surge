@@ -25,12 +25,25 @@ export class TrackStream {
   /** Requêtes ratées d'affilée, pour la télémétrie et rien d'autre : on redemande toujours. */
   failures = 0;
 
-  constructor(readonly ticket: string) {}
+  constructor(
+    readonly ticket: string,
+    /** D'où viennent les tranches suivantes : un ticket, ou un salon. */
+    private readonly fetchChunk: (from: number) => Promise<WireChunk>,
+  ) {}
 
   /** Depuis un ticket : la première tranche est déjà là. `null` si elle est mal formée. */
   static from(issued: Issued): TrackStream | null {
-    const stream = new TrackStream(issued.ticket);
-    return stream.accept(issued.chunk) ? stream : null;
+    return TrackStream.of(issued.chunk, (from) => api.chunk(issued.ticket, from), issued.ticket);
+  }
+
+  /** Depuis une première tranche et la façon d'obtenir les suivantes. */
+  static of(
+    first: WireChunk,
+    fetchChunk: (from: number) => Promise<WireChunk>,
+    ticket = '',
+  ): TrackStream | null {
+    const stream = new TrackStream(ticket, fetchChunk);
+    return stream.accept(first) ? stream : null;
   }
 
   /** Branche la file sur la piste vivante ; à faire après `sim.reset`, avant le premier pas. */
@@ -43,8 +56,7 @@ export class TrackStream {
     if (this.inflight || this.queue.ahead >= LOW) return;
     this.inflight = true;
     const from = this.queue.wanted;
-    api
-      .chunk(this.ticket, from)
+    this.fetchChunk(from)
       .then((chunk) => {
         if (!this.accept(chunk)) this.failures++;
         else this.failures = 0;
