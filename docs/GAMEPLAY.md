@@ -32,8 +32,12 @@ start within a window that narrows from `comboWindow` to `comboWindowMin` as the
 combo grows. From `comboArm` drifts on, each further drift pays
 `speed × combo × comboScore` points straight into the score, and the climb
 towards the next rung runs `1 + comboClimb × level` faster, capped at
-`comboClimbMax`. A wall, a bad landing or an expired window drop the combo to
-zero. It measures regularity, not angle: no drift is "perfect" on its own, the
+`comboClimbMax`. **An expired window costs one rung, not the chain**: it drops
+to the level below and the window reopens, so a straight or a gentle corner
+thins the combo instead of killing it — which is what it used to do, every
+time, since nothing lets you produce a qualifying drift every 1.5 s. A wall or
+a bad landing still drop it to zero: cleanliness is paid at once, regularity
+frays. It measures regularity, not angle: no drift is "perfect" on its own, the
 sequence is.
 
 **The Near Miss** pays for a wall skimmed and not touched. Within `nearBand`
@@ -44,6 +48,15 @@ where closeness is how deep into the band the ship got, 0 to 1. A touch during
 the pass cancels it without ending it: the band re-arms on the next pass. Nothing
 counts in the air, where the edge is a different object. No new gauge, as the
 specification asked.
+
+**Skimming during an armed combo chains.** Each clean pass raises the chain by
+one and multiplies what a pass pays — points and reserve — by
+`1 + nearChain × links`, capped at `nearChainMax`. It also returns
+`nearHull × closeness` of hull, multiplied the same way, and that is **the only
+hull a run gets besides repairs and regeneration**. It is meant to be earned:
+it takes holding a combo *and* shaving the wall without touching it. A wall
+takes the chain with the combo, and outside a combo a near miss pays exactly
+what it paid before.
 
 **Invincibility and wall riding.** A rainbow prism grants `rideTime` seconds in
 which the walls are harmless — no hull lost, no speed cut, no multiplier halved,
@@ -141,6 +154,7 @@ easy.
 <!-- generated:difficulty -->
 | | Easy | Medium | Hard |
 |---|---|---|---|
+| Track width, and margin per side | 27.6 m, 11.9 m each side | 25.3 m, 10.8 m each side | 23.0 m, 9.6 m each side |
 | Tightest corner at top speed | 189 m | 149 m | 123 m |
 | Its load, banking deducted | 27.3 m/s² | 35.3 m/s² | 43.2 m/s² |
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
@@ -151,6 +165,14 @@ easy.
 | Worst hit, `hullImpactMax` | 24 pts, 3 s of scraping | 34 pts, 2 s of scraping | 42 pts, 2 s of scraping |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
+
+**The track itself is narrower as the level rises**, decided on 14 September
+2026 after playing: Easy is a fifth wider than the reference — which is Hard,
+and was everyone's width until then — and Medium takes half of that. Margin
+for error is part of difficulty in the same way corner load or the price of a
+hit is, and it is the one the player feels without reading a number. It moves
+the frozen references of the two easier levels, track and physics alike, since
+pickups are placed relative to the edges and the wall is where the run ends.
 
 The settings reset applies the current level rather than easy. `renderScale`
 is kept out of that assignment: it describes the machine, not the game.

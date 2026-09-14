@@ -22,7 +22,6 @@ import { Rng } from './rng.js';
 import {
   BACK,
   clamp,
-  HALF,
   ITEM_COIN,
   ITEM_FIX,
   ITEM_FUEL,
@@ -237,7 +236,7 @@ export class SeededNodes implements NodeSource {
     if (r < T.rideChance) {
       this.spawn('extras', {
         id,
-        lat: rng.centered(HALF - 3.5),
+        lat: rng.centered(T.half - 3.5),
         type: ITEM_RIDE,
         done: false,
         taken: false,
@@ -245,7 +244,7 @@ export class SeededNodes implements NodeSource {
     } else if (r < T.rideChance + T.fuelCanChance) {
       this.spawn('extras', {
         id,
-        lat: rng.centered(HALF - 3.5),
+        lat: rng.centered(T.half - 3.5),
         type: ITEM_FUEL,
         done: false,
         taken: false,
@@ -260,7 +259,7 @@ export class SeededNodes implements NodeSource {
 
     if (run.left > 0) {
       run.left--;
-      run.lat = clamp(run.lat + run.drift, -(HALF - 3), HALF - 3);
+      run.lat = clamp(run.lat + run.drift, -(T.half - 3), T.half - 3);
       this.spawn('items', { id, lat: run.lat, type: ITEM_COIN, done: false, taken: false });
       return;
     }
@@ -269,7 +268,7 @@ export class SeededNodes implements NodeSource {
     if (r < T.supChance) {
       this.spawn('items', {
         id,
-        lat: rng.centered(HALF - 3.5),
+        lat: rng.centered(T.half - 3.5),
         type: ITEM_SUP,
         done: false,
         taken: false,
@@ -277,14 +276,14 @@ export class SeededNodes implements NodeSource {
     } else if (r < T.supChance + T.fixChance) {
       this.spawn('items', {
         id,
-        lat: rng.centered(HALF - 3.5),
+        lat: rng.centered(T.half - 3.5),
         type: ITEM_FIX,
         done: false,
         taken: false,
       });
     } else if (r < T.supChance + T.fixChance + T.coinChance) {
       run.left = 5 + rng.int(6);
-      run.lat = rng.centered(HALF - 4);
+      run.lat = rng.centered(T.half - 4);
       run.drift = rng.centered(0.8);
     }
   }

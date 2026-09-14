@@ -7,7 +7,7 @@
  * état. C'est donc le seul filet de cette mécanique.
  */
 import { describe, expect, it } from 'vitest';
-import { BACK, HALF, ITEM_SUP, Sim } from '../src/sim/index.js';
+import { BACK, ITEM_SUP, Sim } from '../src/sim/index.js';
 import { SurgeMeter } from '../src/client/surge.js';
 
 const DT = 1 / 720;
@@ -92,7 +92,7 @@ describe('the climb', () => {
     holdDrift(sim, 0.5, { boost: true });
     expect(sim.state.climb).toBeGreaterThan(30);
 
-    sim.state.lat = HALF; // contre la paroi
+    sim.state.lat = sim.tuning.half; // contre la paroi
     sim.state.latVel = 8;
     sim.step(BOOSTING, DT, false);
     expect(sim.state.climb).toBe(0);

@@ -90,8 +90,15 @@ export type SimEvent =
   /**
    * Un mur frôlé sans être touché : entré dans la bande, ressorti propre.
    * `closeness` est la proximité maximale atteinte, 0 à 1 ; `bonus` les points
-   * versés, déjà dosés par la vitesse et cette proximité.
+   * versés, déjà dosés par la vitesse, cette proximité et la chaîne. `chain`
+   * est le rang du frôlement dans l'enchaînement en cours, zéro hors combo :
+   * de quoi monter le son et la lueur avec lui.
    */
-  | { readonly type: 'nearMiss'; readonly closeness: number; readonly bonus: number }
+  | {
+      readonly type: 'nearMiss';
+      readonly closeness: number;
+      readonly bonus: number;
+      readonly chain: number;
+    }
   /** Coque à zéro : la partie est terminée. */
   | { readonly type: 'wreck' };

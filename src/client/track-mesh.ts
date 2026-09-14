@@ -167,6 +167,11 @@ export class TrackMesh {
   private readonly skirtL: Mesh;
   private readonly skirtR: Mesh;
   private readonly gantries: Object3D[] = [];
+  /**
+   * La demi-largeur en cours. `HALF` est la référence ; les difficultés
+   * élargissent, donc la géométrie doit suivre le réglage et non la constante.
+   */
+  private half = HALF;
 
   constructor(renderer: WebGLRenderer) {
     this.road = makeRibbon(
@@ -234,12 +239,12 @@ export class TrackMesh {
       setPair(
         rp,
         i,
-        X - rx * HALF,
-        Y - ry * HALF,
-        Z - rz * HALF,
-        X + rx * HALF,
-        Y + ry * HALF,
-        Z + rz * HALF,
+        X - rx * this.half,
+        Y - ry * this.half,
+        Z - rz * this.half,
+        X + rx * this.half,
+        Y + ry * this.half,
+        Z + rz * this.half,
       );
       setColorPair(rc, i, id % 8 < 4 ? ROAD_A : ROAD_B);
 
@@ -251,10 +256,10 @@ export class TrackMesh {
       ru[o4 + 2] = 1;
       ru[o4 + 3] = v;
 
-      const l1 = -HALF - LIP,
-        l2 = -HALF,
-        r1 = HALF,
-        r2 = HALF + LIP;
+      const l1 = -this.half - LIP,
+        l2 = -this.half,
+        r1 = this.half,
+        r2 = this.half + LIP;
       setPair(lp, i, X + rx * l1, Y + ry * l1, Z + rz * l1, X + rx * l2, Y + ry * l2, Z + rz * l2);
       setPair(qp, i, X + rx * r1, Y + ry * r1, Z + rz * r1, X + rx * r2, Y + ry * r2, Z + rz * r2);
 
@@ -304,19 +309,30 @@ export class TrackMesh {
     this.updateGantries(track);
   }
 
+  /**
+   * La largeur de la difficulté courante. À appeler avant la première frame et
+   * à chaque changement de difficulté : la route suit au prochain `update`,
+   * les portiques sont rebâtis puisque leur géométrie est posée une fois.
+   */
+  setWidth(half: number): void {
+    if (half === this.half) return;
+    this.half = half;
+    this.rebuildGantries();
+  }
+
   private buildGantries(): void {
     const dark = new MeshBasicMaterial({ color: 0x11161f });
     const glow = new MeshBasicMaterial({ color: 0xff2f9a });
     const leg = new BoxGeometry(0.7, 9, 0.7);
-    const beamGeo = new BoxGeometry((HALF + 2.6) * 2, 1.1, 0.8);
-    const barGeo = new BoxGeometry((HALF + 2.2) * 2, 0.22, 0.9);
+    const beamGeo = new BoxGeometry((this.half + 2.6) * 2, 1.1, 0.8);
+    const barGeo = new BoxGeometry((this.half + 2.2) * 2, 0.22, 0.9);
 
     for (let i = 0; i < GANTRY_COUNT; i++) {
       const grp = new Group();
       const left = new Mesh(leg, dark);
       const right = new Mesh(leg, dark);
-      left.position.set(-(HALF + 2.2), 4.5, 0);
-      right.position.set(HALF + 2.2, 4.5, 0);
+      left.position.set(-(this.half + 2.2), 4.5, 0);
+      right.position.set(this.half + 2.2, 4.5, 0);
       const beam = new Mesh(beamGeo, dark);
       beam.position.y = 9.2;
       const bar = new Mesh(barGeo, glow);
@@ -325,6 +341,26 @@ export class TrackMesh {
       grp.visible = false;
       this.group.add(grp);
       this.gantries.push(grp);
+    }
+  }
+
+  /**
+   * Les portiques à la largeur courante. Les groupes restent les mêmes — ils
+   * sont en réservoir — seules les géométries changent, et les anciennes sont
+   * libérées : ce sont des tampons sur la carte graphique, pas des objets que
+   * le ramasse-miettes emporte.
+   */
+  private rebuildGantries(): void {
+    const beamGeo = new BoxGeometry((this.half + 2.6) * 2, 1.1, 0.8);
+    const barGeo = new BoxGeometry((this.half + 2.2) * 2, 0.22, 0.9);
+    for (const grp of this.gantries) {
+      const [left, right, beam, bar] = grp.children as Mesh[];
+      left!.position.x = -(this.half + 2.2);
+      right!.position.x = this.half + 2.2;
+      beam!.geometry.dispose();
+      beam!.geometry = beamGeo;
+      bar!.geometry.dispose();
+      bar!.geometry = barGeo;
     }
   }
 

@@ -8,11 +8,12 @@
  * n'ait pas à y être conduite.
  */
 import { describe, expect, it } from 'vitest';
-import { HALF, SHIP, Sim, type SimEvent } from '../src/sim/index.js';
+import { DEFAULTS, SHIP, Sim, type SimEvent } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
-const LIM = HALF - SHIP;
+/** Le bord, à la largeur du niveau de ces tests — `fresh()` joue en facile. */
+const LIM = DEFAULTS.half - SHIP;
 
 function fresh(seed = 'near'): Sim {
   const sim = new Sim({ seed });
@@ -60,7 +61,7 @@ describe('the near miss', () => {
     hold(sim, LIM - 0.3, 0.2, ev);
     // Contre la paroi, en poussant dedans : contact.
     for (let i = 0; i < 30; i++) {
-      sim.state.lat = HALF;
+      sim.state.lat = sim.tuning.half;
       sim.state.latVel = 8;
       sim.step(NEUTRAL, DT, false);
       ev.push(...sim.events);
@@ -101,6 +102,65 @@ describe('the near miss', () => {
     attract.step(NEUTRAL, DT, true);
     expect(attract.state.near).toBe(false);
     expect(attract.events.some((e) => e.type === 'nearMiss')).toBe(false);
+  });
+
+  /**
+   * La chaîne : frôler pendant un enchaînement armé paie de plus en plus, et
+   * rend de la coque. C'est la seule source de coque en dehors des réparations
+   * et de la régénération, et elle se mérite — il faut tenir le combo **et**
+   * raser le mur sans le toucher. Hors combo, rien ne change.
+   */
+  it('chains inside an armed combo: pays more each time, and gives hull back', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.speed = 200;
+    sim.state.hull = 50;
+    // Hors combo : un frôlement ne rend aucune coque.
+    hold(sim, LIM - 0.2, 0.3, ev);
+    hold(sim, 0, DT, ev);
+    expect(misses(ev)).toHaveLength(1);
+    expect(misses(ev)[0]!.chain).toBe(0);
+    // Rien d'autre que la régénération ordinaire, 0,25 par seconde.
+    expect(sim.state.hull).toBeLessThan(50.2);
+
+    // Armé : chaque frôlement compte, paie davantage, et rend un peu de coque.
+    sim.state.combo = sim.tuning.comboArm;
+    sim.state.comboLeft = 1e9;
+    const paid: number[] = [];
+    for (let n = 0; n < 3; n++) {
+      const hull = sim.state.hull;
+      const before = ev.length;
+      sim.state.speed = 200;
+      hold(sim, LIM - 0.2, 0.3, ev);
+      hold(sim, 0, DT, ev);
+      const miss = misses(ev.slice(before))[0]!;
+      expect(miss.chain).toBe(n + 1);
+      // bien au-delà de la régénération : la coque rendue par la chaîne
+      expect(sim.state.hull).toBeGreaterThan(hull + 0.5);
+      paid.push(miss.bonus);
+    }
+    expect(paid[1]).toBeGreaterThan(paid[0]!);
+    expect(paid[2]).toBeGreaterThan(paid[1]!);
+
+    // Un mur casse la chaîne avec l'enchaînement.
+    sim.state.lat = sim.tuning.half;
+    sim.state.latVel = 8;
+    sim.step(NEUTRAL, DT, false);
+    expect(sim.state.nearChain).toBe(0);
+  });
+
+  /** La coque rendue reste un filet, pas une fontaine : elle plafonne à 100. */
+  it('never pushes the hull past full', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.speed = 200;
+    sim.state.hull = 100;
+    sim.state.combo = sim.tuning.comboArm;
+    sim.state.comboLeft = 1e9;
+    hold(sim, LIM - 0.2, 0.3, ev);
+    hold(sim, 0, DT, ev);
+    expect(misses(ev)).toHaveLength(1);
+    expect(sim.state.hull).toBe(100);
   });
 
   it('stays out of the band on an ordinary line', () => {

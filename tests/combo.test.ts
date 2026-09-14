@@ -7,7 +7,7 @@
  * `step()` recalcule `drift` à chaque pas.
  */
 import { describe, expect, it } from 'vitest';
-import { HALF, Sim, type SimEvent } from '../src/sim/index.js';
+import { Sim, type SimEvent } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -82,7 +82,13 @@ describe('the perfect drift combo', () => {
     expect(ups(ev).map((e) => e.count)).toEqual([1, 2]);
   });
 
-  it('drops when the window expires, and says so only from an armed level', () => {
+  /**
+   * La fenêtre expirée retire un barreau, elle ne tue plus l'enchaînement.
+   * L'ancien comportement le perdait systématiquement : une ligne droite ne
+   * laisse pas produire un drift qualifiant toutes les 1,5 s. Ce qui l'annule
+   * d'un coup est le mur, et il a son propre test.
+   */
+  it('loses one rung per expired window, and says so on crossing the armed level', () => {
     const sim = fresh();
     const ev: SimEvent[] = [];
     drift(sim, 0.4, ev);
@@ -90,14 +96,27 @@ describe('the perfect drift combo', () => {
     expect(sim.state.combo).toBe(0);
     expect(ends(ev)).toHaveLength(0); // perdre un combo de un n'est pas un événement
 
-    for (let n = 0; n < 3; n++) {
+    for (let n = 0; n < 4; n++) {
       drift(sim, 0.4, ev);
       straight(sim, 0.3, ev);
     }
-    expect(sim.state.combo).toBe(3);
+    expect(sim.state.combo).toBe(4);
+
+    // une fenêtre, un barreau : 4 → 3, et rien à annoncer, on reste armé
     straight(sim, sim.tuning.comboWindow, ev);
-    expect(sim.state.combo).toBe(0);
+    expect(sim.state.combo).toBe(3);
+    expect(ends(ev)).toHaveLength(0);
+
+    // la suivante repasse sous le seuil : c'est là que l'enchaînement finit
+    straight(sim, sim.tuning.comboWindow, ev);
+    expect(sim.state.combo).toBe(2);
     expect(ends(ev).map((e) => e.count)).toEqual([3]);
+
+    // et il descend jusqu'à zéro sans rien annoncer de plus
+    straight(sim, sim.tuning.comboWindow * 3, ev);
+    expect(sim.state.combo).toBe(0);
+    expect(sim.state.comboLeft).toBe(0);
+    expect(ends(ev)).toHaveLength(1);
   });
 
   it('tightens the window as the combo grows', () => {
@@ -125,7 +144,7 @@ describe('the perfect drift combo', () => {
       straight(sim, 0.2, ev);
     }
     expect(sim.state.combo).toBe(3);
-    sim.state.lat = HALF;
+    sim.state.lat = sim.tuning.half;
     sim.state.latVel = 8;
     sim.step(NEUTRAL, DT, false);
     expect(sim.state.combo).toBe(0);

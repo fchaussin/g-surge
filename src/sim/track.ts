@@ -18,6 +18,12 @@ import type { Tuning } from './tuning.js';
 export const COUNT = 130;
 export const SEG = 12;
 export const BACK = 10;
+/**
+ * La demi-largeur de référence, en mètres : celle de la difficulté difficile,
+ * et celle d'avant que la largeur devienne un réglage. Ce que la simulation
+ * lit est `Tuning.half`, qui vaut ceci en difficile et davantage ailleurs ;
+ * cette constante reste la référence et le repère des tests.
+ */
 export const HALF = 11.5;
 export const SHIP = 1.9;
 

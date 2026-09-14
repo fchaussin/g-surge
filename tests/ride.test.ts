@@ -8,7 +8,7 @@
  * cette séparation tient.
  */
 import { describe, expect, it } from 'vitest';
-import { BACK, HALF, ITEM_FUEL, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
+import { BACK, ITEM_FUEL, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -40,7 +40,7 @@ function grind(sim: Sim, steps: number, out: SimEvent[]): void {
   for (let i = 0; i < steps; i++) {
     sim.track.items.length = 0;
     sim.track.extras.length = 0;
-    sim.state.lat = HALF;
+    sim.state.lat = sim.tuning.half;
     sim.state.latVel = 8;
     sim.state.yaw = 0;
     sim.step(NEUTRAL, DT, false);

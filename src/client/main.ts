@@ -372,6 +372,9 @@ function switchDifficulty(d: Difficulty): void {
   const scale = sim.tuning.renderScale;
   sim.setDifficulty(d);
   sim.tuning.renderScale = scale;
+  // La piste n'a pas la même largeur d'un niveau à l'autre : la route suit au
+  // prochain `update`, les portiques sont rebâtis ici.
+  trackMesh.setWidth(sim.tuning.half);
 }
 
 function startRun(): void {
@@ -1240,6 +1243,7 @@ if (!fullscreen.available) {
 // adapte.
 sim.tuning.renderScale = prefs.values.renderScale;
 viewport.setRenderScale(prefs.values.renderScale);
+trackMesh.setWidth(sim.tuning.half);
 
 screens.setMode('menu');
 screens.setMenuGates({ account: session.signedIn });
@@ -1277,7 +1281,14 @@ function paintAccountRow(): void {
   if (!row || !who || !act || !face) return;
   const account = session.account;
   const signedIn = session.signedIn;
-  face.innerHTML = account ? avatarSvg(account.face ?? account.name, 22) : '';
+  // Sa propre photo ici aussi, à la demande de l'auteur : c'est une requête
+  // vers le fournisseur sur l'écran qu'on voit le plus, mais c'est son écran
+  // et sa tête. Les pixels restent le repli.
+  paintFace(
+    face,
+    account ? { name: account.name, face: account.face, pic: session.picture ?? undefined } : null,
+    22,
+  );
   who.textContent = account
     ? account.name
     : signedIn

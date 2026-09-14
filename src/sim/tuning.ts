@@ -63,6 +63,18 @@ export interface Tuning {
   nearScore: number;
   /** Points de réserve rendus à la proximité maximale. */
   nearCharge: number;
+  /**
+   * Part de gain supplémentaire par frôlement enchaîné pendant un combo armé,
+   * plafonnée à `nearChainMax`. Elle multiplie les points et la réserve.
+   */
+  nearChain: number;
+  nearChainMax: number;
+  /**
+   * Points de coque rendus par frôlement enchaîné, à la proximité maximale et
+   * avant la chaîne. Hors combo armé, un frôlement n'en rend aucun : la coque
+   * reste un budget, et c'est le seul robinet qui s'ouvre à la maîtrise.
+   */
+  nearHull: number;
 
   /* Invincibilité et wall riding */
   /** Mètres de piste avant lesquels aucun « extra » n'apparaît. */
@@ -87,6 +99,14 @@ export interface Tuning {
   fuelCan: number;
   /** Vitesse de croisière plafonnée à sec, en m/s : le moteur tousse, il ne s'arrête pas. */
   fuelDrySpeed: number;
+  /**
+   * Demi-largeur de la piste, en mètres. `HALF` dans `track.ts` en est la
+   * référence — la difficile — et les deux autres niveaux l'élargissent : la
+   * marge d'erreur fait partie de la difficulté, au même titre que la charge
+   * des virages ou le coût d'un choc. Le générateur la lit aussi, puisque les
+   * objets se posent par rapport aux bords.
+   */
+  half: number;
   centri: number;
   bankAssist: number;
   bankScale: number;
@@ -208,6 +228,14 @@ export const DEFAULTS: Readonly<Tuning> = {
   nearMinHeld: 0.08,
   nearScore: 0.6,
   nearCharge: 6,
+  /* La chaîne : un cinquième de plus par frôlement, plafonné à trois fois le
+   * gain nu, atteint au quinzième. La coque rendue est petite devant un choc —
+   * 1,5 point contre 24 au plafond en facile — donc il en faut une poignée
+   * pour effacer un mur, et elle ne dispense pas des réparations. À rejuger en
+   * jouant. */
+  nearChain: 0.2,
+  nearChainMax: 3,
+  nearHull: 1.5,
   /* Au-delà des traces figées, qui couvrent 1 345 m. Aussi rare qu'un super
    * boost, huit secondes — six semblaient courtes en jeu —, et un gain qui
    * pousse la vitesse un quart au-dessus de sa cible tant qu'on frotte — la
@@ -236,6 +264,11 @@ export const DEFAULTS: Readonly<Tuning> = {
   fuelCanChance: 0.008,
   fuelCan: 35,
   fuelDrySpeed: 83.3,
+  /* Facile : un cinquième de plus que la référence, décidé le 14 septembre
+   * 2026 en jouant. Moyen en prend la moitié, difficile garde la piste
+   * étroite. Ça déplace les références de piste et de physique des deux
+   * premiers niveaux, ce qui est le propre d'un changement de comportement. */
+  half: 13.8,
   centri: 0.085,
   bankAssist: 0.3,
   bankScale: 0.9,
@@ -344,6 +377,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
   medium: {
     mul: 1.35,
     set: {
+      half: 12.65,
       curveLoad: 38,
       speedRamp: 6000,
       hullImpact: 2.0,
@@ -363,6 +397,7 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
   hard: {
     mul: 1.8,
     set: {
+      half: 11.5,
       curveLoad: 46,
       speedRamp: 4000,
       hullImpact: 2.6,

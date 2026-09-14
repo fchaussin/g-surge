@@ -17,7 +17,6 @@ import { thrustTier, type SimState } from './state.js';
 import {
   BACK,
   clamp,
-  HALF,
   ITEM_COIN,
   ITEM_FIX,
   ITEM_FUEL,
@@ -51,6 +50,17 @@ export interface Input {
  * intention, pas une intention neuve.
  */
 export const COIN_GAIN: readonly [number, number, number, number] = [0.13, 0.3, 0.55, 1.35];
+
+/**
+ * La fenêtre pour rouvrir un drift à ce niveau d'enchaînement, en secondes.
+ * Elle se resserre de `comboWindow` à `comboWindowMin` sur les dix premiers
+ * barreaux. Lue à la montée comme à la descente, pour que les deux sens
+ * parlent de la même fenêtre.
+ */
+function comboWindow(combo: number, T: Tuning): number {
+  const t = Math.min(1, combo / 10);
+  return T.comboWindow + (T.comboWindowMin - T.comboWindow) * t;
+}
 
 /**
  * Avance la simulation de `dt`, en émettant ses événements dans `out`.
@@ -210,7 +220,7 @@ export function step(
       out.push({ type: 'land' });
       // Sous invincibilité la bordure est inoffensive, en l'air comme au sol :
       // une réception dessus n'est qu'une réception.
-      if (Math.abs(state.lat) > HALF - SHIP && !riding) {
+      if (Math.abs(state.lat) > T.half - SHIP && !riding) {
         // réception hors piste
         state.speed *= 1 - T.badLanding;
         state.energy = Math.max(0, state.energy - 40);
@@ -222,6 +232,7 @@ export function step(
         if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
         state.combo = 0;
         state.comboLeft = 0;
+        state.nearChain = 0;
         out.push({ type: 'badLanding' });
       }
     }
@@ -255,8 +266,7 @@ export function step(
       // juge, pas la longueur.
       if (!attract && state.driftHeld >= T.comboMinHeld) {
         state.combo++;
-        const t = Math.min(1, state.combo / 10);
-        state.comboLeft = T.comboWindow + (T.comboWindowMin - T.comboWindow) * t;
+        state.comboLeft = comboWindow(state.combo, T);
         const bonus =
           state.combo >= T.comboArm ? state.speed * state.combo * T.comboScore * diffMul : 0;
         state.score += bonus;
@@ -265,14 +275,26 @@ export function step(
     }
   }
   if (state.drift) state.driftHeld += dt;
-  // Hors drift la fenêtre s'écoule ; expirée, le combo tombe. Pendant un drift
-  // elle ne bouge pas : c'est le drift suivant qu'on attend, pas sa fin.
+  // Hors drift la fenêtre s'écoule. Expirée, elle retire **un barreau** et se
+  // rouvre : l'enchaînement redescend au lieu de mourir.
+  //
+  // Il mourait d'un coup, et se perdait donc systématiquement — une ligne
+  // droite ou une courbe douce ne laisse pas produire un drift qualifiant
+  // toutes les 1,5 s. Ce qui l'annule d'un seul coup reste un mur ou une
+  // mauvaise réception : la propreté se paie d'un coup, la régularité
+  // s'effrite. Le paiement reste borné par l'effort, puisque tenir un combo
+  // haut demande toujours de drifter.
   if (!state.drift && state.combo > 0) {
     state.comboLeft -= dt;
     if (state.comboLeft <= 0) {
-      if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
-      state.combo = 0;
-      state.comboLeft = 0;
+      const was = state.combo;
+      state.combo--;
+      state.comboLeft = state.combo > 0 ? comboWindow(state.combo, T) : 0;
+      // L'enchaînement n'est « fini » qu'en repassant sous le seuil d'armement.
+      if (was >= T.comboArm && state.combo < T.comboArm) {
+        out.push({ type: 'comboEnd', count: was });
+        state.nearChain = 0;
+      }
     }
   }
 
@@ -324,7 +346,7 @@ export function step(
   if (state.drift && !attract) state.energy = Math.min(100, state.energy + T.driftCharge * dt);
   state.slip = dv;
 
-  const lim = HALF - SHIP + (state.air ? T.airOverhang : 0);
+  const lim = T.half - SHIP + (state.air ? T.airOverhang : 0);
   if (Math.abs(state.lat) > lim) {
     const impact = Math.abs(state.latVel);
     state.lat = Math.sign(state.lat) * lim;
@@ -340,6 +362,7 @@ export function step(
         if (state.combo >= T.comboArm) out.push({ type: 'comboEnd', count: state.combo });
         state.combo = 0;
         state.comboLeft = 0;
+        state.nearChain = 0;
         state.speed -= state.speed * T.wallPenalty * dt * 6;
         state.energy = Math.max(0, state.energy - T.wallDrain * dt);
         if (!state.contact) {
@@ -384,7 +407,7 @@ export function step(
   // rien ne compte, la bordure y est un autre objet. Aucune référence figée ne
   // bouge : le pilote de référence entre dans la bande et touche à chaque fois.
   if (!attract) {
-    const edge = HALF - SHIP - Math.abs(state.lat);
+    const edge = T.half - SHIP - Math.abs(state.lat);
     const inBand = !state.air && edge < T.nearBand;
     if (inBand) {
       if (!state.near) {
@@ -399,10 +422,22 @@ export function step(
     } else if (state.near) {
       state.near = false;
       if (!state.air && state.nearClean && state.nearHeld >= T.nearMinHeld) {
-        const bonus = state.speed * T.nearScore * state.nearPeak * diffMul;
+        // Frôler pendant un enchaînement armé les compte : chaque frôlement de
+        // la chaîne vaut plus que le précédent, et rend un peu de coque. C'est
+        // la seule source de coque en dehors des réparations et de la
+        // régénération — le budget coque du 11 septembre tient parce qu'elle se
+        // mérite : il faut tenir un combo **et** raser le mur sans le toucher.
+        // Hors combo, un frôlement paie ce qu'il payait.
+        const armed = state.combo >= T.comboArm;
+        if (armed) state.nearChain++;
+        const chain = armed ? Math.min(T.nearChainMax, T.nearChain * state.nearChain) : 0;
+        const bonus = state.speed * T.nearScore * state.nearPeak * (1 + chain) * diffMul;
         state.score += bonus;
-        state.energy = Math.min(100, state.energy + T.nearCharge * state.nearPeak);
-        out.push({ type: 'nearMiss', closeness: state.nearPeak, bonus });
+        state.energy = Math.min(100, state.energy + T.nearCharge * state.nearPeak * (1 + chain));
+        if (armed) {
+          state.hull = Math.min(100, state.hull + T.nearHull * state.nearPeak * (1 + chain));
+        }
+        out.push({ type: 'nearMiss', closeness: state.nearPeak, bonus, chain: state.nearChain });
       }
     }
   }

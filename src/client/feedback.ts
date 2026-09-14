@@ -231,10 +231,17 @@ export class Feedback {
           break;
         case 'nearMiss':
           // L'orangé d'une brûlure, entre le rouge du mur et l'or de la réserve :
-          // c'est un risque payé, pas un choc et pas une pièce.
-          hud.showPop(`NEAR MISS  +${Math.round(e.bonus)}`, '#ff8a5c');
-          this.flash(0xff8a5c, 0.5 + e.closeness * 0.5);
-          haptics.buzz(8 + Math.round(e.closeness * 14));
+          // c'est un risque payé, pas un choc et pas une pièce. La chaîne se
+          // lit dans l'étiquette et se sent dans la secousse : c'est là qu'un
+          // joueur apprend que frôler pendant un combo vaut plus.
+          hud.showPop(
+            e.chain > 1
+              ? `NEAR MISS ×${e.chain}  +${Math.round(e.bonus)}`
+              : `NEAR MISS  +${Math.round(e.bonus)}`,
+            '#ff8a5c',
+          );
+          this.flash(0xff8a5c, Math.min(1, 0.5 + e.closeness * 0.5 + e.chain * 0.06));
+          haptics.buzz(8 + Math.round(e.closeness * 14) + Math.min(12, e.chain * 2));
           break;
         case 'supEnd':
           // Blanc, qui est la couleur que la jauge de boost prend déjà à plein :

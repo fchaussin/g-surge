@@ -43,6 +43,12 @@ export interface SimState {
   surgeT: number;
   /** Drifts propres enchaînés, le combo du Perfect Drift. Zéro hors combo. */
   combo: number;
+  /**
+   * Frôlements propres enchaînés pendant un combo armé. Ils démultiplient ce
+   * qu'un frôlement paie, et sont la seule source de coque en dehors des
+   * réparations. Zéro hors combo, et remis à zéro par un mur.
+   */
+  nearChain: number;
   /** Secondes restantes pour rouvrir un drift avant que le combo tombe. */
   comboLeft: number;
   /** Near Miss : dans la bande près du mur, et sans contact depuis l'entrée. */
@@ -150,6 +156,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.slip = 0;
   state.drift = false;
   state.driftHeld = 0;
+  state.nearChain = 0;
   state.climb = 0;
   state.surgeT = 0;
   state.combo = 0;

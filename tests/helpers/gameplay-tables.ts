@@ -20,6 +20,7 @@ import {
   SEG,
   COIN_GAIN,
   DIFF,
+  SHIP,
   tuningFor,
   type Difficulty,
   type Tuning,
@@ -147,6 +148,9 @@ export function difficulties(): string {
     const impact = clamp(t.hullImpact * TYPICAL_IMPACT, 2, t.hullImpactMax);
     return {
       radius: `${corner.radius.toFixed(0)} m`,
+      // La largeur pleine, et la marge qui reste au vaisseau de chaque côté :
+      // c'est la seconde qui se joue, la première qui se voit.
+      width: `${(t.half * 2).toFixed(1)} m, ${(t.half - SHIP).toFixed(1)} m each side`,
       load: `${corner.net.toFixed(1)} m/s²`,
       grip: `${t.gripLimit}`,
       share: `${Math.round((100 * corner.net) / t.gripLimit)} %`,
@@ -163,6 +167,7 @@ export function difficulties(): string {
   return [
     '| | Easy | Medium | Hard |',
     '|---|---|---|---|',
+    row('Track width, and margin per side', (c) => c.width),
     row('Tightest corner at top speed', (c) => c.radius),
     row('Its load, banking deducted', (c) => c.load),
     row('Grip threshold, `gripLimit`', (c) => c.grip),
