@@ -83,6 +83,15 @@ export const TABS = [
   { tab: 'tabAdv', page: 'pageAdv' },
 ] as const;
 
+/**
+ * Ce que l'accord fin garde de réglable en classé : l'échelle de rendu décrit
+ * la machine et non le jeu, elle ne touche pas la simulation — `src/sim/` ne la
+ * lit jamais — et `resetTuning` la préserve déjà. Tout le reste est verrouillé,
+ * parce que le serveur rejoue la trace avec les valeurs de la difficulté : une
+ * partie accordée à la main y arriverait en désaccord, donc en absurdité.
+ */
+const FREE_IN_RANKED: ReadonlySet<keyof Tuning> = new Set<keyof Tuning>(['renderScale']);
+
 /** Tient ensemble la classe d'un interrupteur et son état annoncé. */
 function paintToggle(el: HTMLElement | null, on: boolean): void {
   if (!el) return;
@@ -91,7 +100,10 @@ function paintToggle(el: HTMLElement | null, on: boolean): void {
 }
 
 export class Settings {
-  private readonly rows = new Map<keyof Tuning, { input: HTMLInputElement; out: HTMLElement }>();
+  private readonly rows = new Map<
+    keyof Tuning,
+    { row: HTMLElement; input: HTMLInputElement; out: HTMLElement; reset: HTMLButtonElement }
+  >();
   private clearArmed = false;
 
   constructor(private readonly options: SettingsOptions) {
@@ -121,6 +133,29 @@ export class Settings {
     byId('btnMute')?.classList.toggle('off', !on);
   }
 
+  /**
+   * Le classé, peint aux deux endroits où il se commande — GENERAL et le
+   * doublon en tête d'ADVANCED — et ce qu'il verrouille au passage. Le doublon
+   * est là pour ça : l'accord fin grisé sans son interrupteur au-dessus laisse
+   * le joueur chercher ce qui l'a fermé.
+   */
+  private paintRanked(on: boolean): void {
+    paintToggle(byId('tglRanked'), on);
+    paintToggle(byId('tglRankedAdv'), on);
+    for (const [key, r] of this.rows) {
+      const locked = on && !FREE_IN_RANKED.has(key);
+      r.row.classList.toggle('locked', locked);
+      r.input.disabled = locked;
+      r.reset.disabled = locked;
+    }
+    const all = byId('btnDefault') as HTMLButtonElement | null;
+    if (all) all.disabled = on;
+    byId('tuningLock')?.toggleAttribute('hidden', !on);
+    // Ce qui est désactivé sort de la navigation clavier : `buildNav` écarte
+    // `[disabled]`, mais il faut le lui redemander.
+    this.options.rebuildNav();
+  }
+
   private buildSliders(): void {
     const host = byId('slidersAdv');
     if (!host) return;
@@ -139,14 +174,15 @@ export class Settings {
 
       const input = row.querySelector('input')!;
       const out = row.querySelector('b')!;
-      this.rows.set(spec.key, { input, out });
+      const reset = row.querySelector<HTMLButtonElement>('.rst')!;
+      this.rows.set(spec.key, { row, input, out, reset });
 
       input.addEventListener('input', () => {
         const v = parseFloat(input.value);
         this.options.setTuning(spec.key, v);
         out.textContent = String(v);
       });
-      row.querySelector('.rst')!.addEventListener('click', () => {
+      reset.addEventListener('click', () => {
         this.options.setTuning(spec.key, DEFAULTS[spec.key]);
         this.syncRow(spec.key);
       });
@@ -229,7 +265,23 @@ export class Settings {
 
     simple('tglTips', initial.tips, (on) => this.options.setTips(on));
     simple('tglGhost', initial.ghost, (on) => this.options.setGhost(on));
-    simple('tglRanked', initial.ranked, (on) => this.options.setRanked(on));
+    // Le classé a deux contrôles, comme le son : peints ensemble, jamais l'un
+    // sans l'autre. Allumer rend l'accord fin à ses valeurs de difficulté —
+    // « indisponible » ne suffit pas, il faut aussi qu'il cesse d'agir.
+    let rankedOn = initial.ranked;
+    this.paintRanked(rankedOn);
+    this.options.setRanked(rankedOn);
+    const flipRanked = () => {
+      rankedOn = !rankedOn;
+      if (rankedOn) {
+        this.options.resetTuning();
+        this.syncAll();
+      }
+      this.paintRanked(rankedOn);
+      this.options.setRanked(rankedOn);
+    };
+    byId('tglRanked')?.addEventListener('click', flipRanked);
+    byId('tglRankedAdv')?.addEventListener('click', flipRanked);
     this.bindAccount();
     simple('tglSky', initial.sky, (on) => this.options.setSky(on));
     simple('tglSkyHi', initial.skyDetail, (on) => this.options.setSkyDetail(on));

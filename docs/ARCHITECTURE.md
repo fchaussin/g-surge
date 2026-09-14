@@ -17,9 +17,9 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 100 |
-| `src/client/` | 47 | ~10 700 |
+| `src/client/` | 47 | ~10 800 |
 | `server/src/` | 13 | ~2 500 |
-| `index.html` | 1 | ~1 100 |
+| `index.html` | 1 | ~1 200 |
 <!-- /generated:layout -->
 
 Line counts include comments, which this codebase writes at length, and are

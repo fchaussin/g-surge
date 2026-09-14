@@ -103,4 +103,56 @@ test.describe('machine à états et navigation', () => {
 
     expect(game.errors()).toEqual([]);
   });
+
+  /**
+   * L'accord fin ne vaut qu'en local : le serveur rejoue la trace avec les
+   * valeurs de la difficulté, et une partie accordée à la main y arriverait en
+   * désaccord. Le classé le verrouille donc — sauf l'échelle de rendu, qui
+   * décrit la machine et que `src/sim/` ne lit jamais — et le rend à ses
+   * valeurs en se rallumant : « indisponible » ne suffit pas, il faut aussi
+   * qu'il cesse d'agir. Le doublon en tête d'ADVANCED est le même interrupteur
+   * que celui de GENERAL, et c'est ce qui rend le verrou lisible.
+   */
+  test("le classé verrouille l'accord fin, et ses deux interrupteurs n'en font qu'un", async ({
+    game,
+    page,
+  }) => {
+    // Une quinzaine de gestes sur le panneau, pendant que la partie continue de
+    // rendre derrière : mesuré à 30 s sur le profil mobile, contre un budget de
+    // 30. Comme ailleurs dans cette suite, c'était le budget, pas un flake.
+    test.slow();
+    await game.boot();
+    await page.locator('#btnSettingsMenu').click();
+    await page.locator('#tabAdv').click();
+
+    const speed = page.locator('#slidersAdv input[aria-label="Top speed"]');
+    const scale = page.locator('#slidersAdv input[aria-label="Render scale"]');
+
+    // classé d'entrée : tout est fermé, sauf ce qui ne touche pas la simulation
+    await expect(page.locator('#tglRankedAdv')).toHaveClass(/on/);
+    await expect(speed).toBeDisabled();
+    await expect(scale).toBeEnabled();
+    await expect(page.locator('#btnDefault')).toBeDisabled();
+    await expect(page.locator('#tuningLock')).toBeVisible();
+
+    // le doublon éteint le classé, et l'interrupteur de GENERAL le sait
+    await page.locator('#tglRankedAdv').click();
+    await expect(speed).toBeEnabled();
+    await expect(page.locator('#tuningLock')).toBeHidden();
+    await page.locator('#tabGen').click();
+    await expect(page.locator('#tglRanked')).not.toHaveClass(/on/);
+
+    // une valeur touchée hors classé, puis rendue en rallumant
+    await page.locator('#tabAdv').click();
+    const was = await page.evaluate(() => window.__gsNext.tuning().speedMax);
+    expect(was).not.toBe(200);
+    await speed.fill('200');
+    expect(await page.evaluate(() => window.__gsNext.tuning().speedMax)).toBe(200);
+
+    await page.locator('#tglRankedAdv').click();
+    expect(await page.evaluate(() => window.__gsNext.tuning().speedMax)).toBe(was);
+    await expect(speed).toBeDisabled();
+
+    expect(game.errors()).toEqual([]);
+  });
 });

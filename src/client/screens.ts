@@ -226,12 +226,14 @@ export class Screens {
       const nodes = Array.from(
         document.querySelectorAll<HTMLElement>(
           '#settings .close, #settings .navgroup, ' +
-            '#settings .page.on button, #settings .page.on input[type=range]',
+            '#settings .page.on button:not([disabled]), ' +
+            '#settings .page.on input[type=range]:not([disabled])',
         ),
       );
       // Un groupe compte pour un arrêt, donc ses propres boutons sont écartés.
       // Les boutons de remise à zéro sont sautés : une commodité par ligne, pas
-      // un arrêt.
+      // un arrêt. Un contrôle désactivé est écarté par le sélecteur : l'accord
+      // fin se verrouille en classé, et le clavier ne doit pas s'y arrêter.
       this.navList = nodes.filter(
         (el) =>
           el.classList.contains('navgroup') ||

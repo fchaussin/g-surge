@@ -227,6 +227,14 @@
   .t-row label b{color:var(--neon);font-weight:600;font-variant-numeric:tabular-nums}
   .t-row input{width:100%;margin:0;accent-color:var(--neon)}
   .t-row .hint{font-size:11px;color:var(--dim2);margin-top:3px;line-height:1.4}
+  /* Une ligne verrouillée reste lisible : le classé se lit dans l'écart, pas
+     dans une rangée disparue — on doit voir ce qu'on récupère en l'éteignant. */
+  .t-row.locked{opacity:.35;pointer-events:none}
+  /* Une explication, pas une alarme : la couleur d'accent, celle de
+     l'interrupteur qui ferme la section, et non celle des avertissements. */
+  .grp p.lock{color:var(--neon)}
+  .grp p.lock[hidden]{display:none}
+  .btn[disabled]{opacity:.35;pointer-events:none}
   .switch{display:flex;align-items:center;justify-content:space-between;gap:14px;
     padding:12px 0;border-top:1px solid rgba(223,242,248,.07);max-width:520px}
   .switch span{font-size:13px}
@@ -934,7 +942,7 @@
         </div>
         <div class="switch">
           <span>Race your ghost<small>Your best run rides beside you, on its own track</small></span>
-          <button class="toggle" id="tglGhost" aria-pressed="false"></button>
+          <button class="toggle on" id="tglGhost" aria-pressed="true"></button>
         </div>
         <div class="switch" id="rowHaptics">
           <span>Haptics<small>Vibration on impacts, pickups and boost</small></span>
@@ -964,7 +972,7 @@
         <h3>Ranked</h3>
         <div class="switch">
           <span>Play ranked<small>This week's board, on a track the server keeps to itself</small></span>
-          <button class="toggle" id="tglRanked" aria-pressed="false"></button>
+          <button class="toggle on" id="tglRanked" aria-pressed="true"></button>
         </div>
       </div>
       </div>
@@ -992,8 +1000,16 @@
       </div>
       <div class="page" id="pageAdv">
         <div class="grp">
+          <h3>Ranked</h3>
+          <div class="switch">
+            <span>Play ranked<small>The same switch as in GENERAL, here because it locks everything below</small></span>
+            <button class="toggle on" id="tglRankedAdv" aria-pressed="true"></button>
+          </div>
+        </div>
+        <div class="grp">
           <h3>Fine tuning</h3>
           <p>Every value of the simulation, applied live. Each one has its own reset, and wrong settings here can make the ship undrivable. The global reset is at the bottom.</p>
+          <p class="lock" id="tuningLock">Locked while ranked is on, and the ship flies the difficulty's own values: the board only compares ships that are the same. Render scale stays — it describes this device, not the game.</p>
           <div id="slidersAdv"></div>
           <button class="btn ghost" id="btnDefault">RESET EVERYTHING TO DEFAULTS</button>
         </div>

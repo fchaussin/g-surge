@@ -138,9 +138,7 @@ test.describe('the session', () => {
     await page.goto('/#session=' + TOKEN);
     await page.waitForSelector('#boot.gone', { timeout: 20_000 });
     await page.locator('#btnNameSkip').click();
-    await page.locator('#btnSettingsMenu').click();
-    await page.locator('#tglRanked').click();
-    await page.keyboard.press('Escape');
+    // Rien à allumer : le classé l'est d'entrée, `DEFAULT_PREFERENCES`.
     await page.locator('#btnStart').click();
     await expect.poll(() => game.mode()).toBe('run');
     await expect(page.locator('#recline')).toHaveText('ranked');
@@ -229,9 +227,6 @@ test.describe('the session', () => {
 
   test('a ranked run without an account starts unranked and says so', async ({ game, page }) => {
     await game.boot();
-    await page.locator('#btnSettingsMenu').click();
-    await page.locator('#tglRanked').click();
-    await page.keyboard.press('Escape');
     await page.locator('#btnStart').click();
     await expect.poll(() => game.mode()).toBe('run');
     await expect(page.locator('#recline')).toHaveText('unranked · sign in to play ranked');

@@ -25,11 +25,18 @@ describe('the preferences sanitiser', () => {
       skyDetail: false,
       showFps: true,
       installDismissed: true,
-      ghost: true,
+      ghost: false,
       renderScale: 0.7,
-      ranked: true,
+      ranked: false,
     };
     expect(sanitise(written)).toEqual(written);
+  });
+
+  // Chaque champ ci-dessus s'écarte de son défaut, sans quoi il ne prouverait
+  // rien ; ces deux-là sont allumés d'entrée, et c'est ce que le test tient.
+  it('starts with the ghost and the ranked board on', () => {
+    expect(DEFAULT_PREFERENCES.ghost).toBe(true);
+    expect(DEFAULT_PREFERENCES.ranked).toBe(true);
   });
 
   it('drops a bad value for its default, field by field, and never the whole object', () => {

@@ -213,6 +213,20 @@ that the track is the server's own. Revisit any of the three by editing
 `server/src/epoch.ts`, `preferences.ts`'s `NAME_RE`, or the Settings markup —
 none is load-bearing elsewhere.
 
+**Ranked is on out of the box** since 1.31.0, and it locks the ADVANCED tab's
+fine tuning: the switch is duplicated at the top of that tab, turning it on
+returns the simulation to `tuningFor(difficulty)`, and only the render scale
+stays adjustable — it describes the device and `src/sim/` never reads it. So a
+ranked trace is always produced under the difficulty's own values, which is
+what the replay assumes; `runs.mismatch` now catches a client that lies, not a
+player who moved a slider.
+
+**To judge in play, with it on by default:** a player who is not signed in now
+reads `unranked · sign in to play ranked` in the HUD's record slot for every
+run, where the best used to be. The boot gate offers PLAY OFFLINE but does not
+turn the switch off; if that line reads as nagging, having PLAY OFFLINE set
+`ranked` to false is the one-line fix.
+
 **Risks.** Clock skew between the object and the client does not matter —
 the window is measured on the server's own clock at issue and at
 submission. A ticket held across a page reload is lost; that is acceptable

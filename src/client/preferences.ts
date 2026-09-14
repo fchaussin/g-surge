@@ -47,9 +47,13 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = {
   skyDetail: true,
   showFps: false,
   installDismissed: false,
-  ghost: false,
+  // Les deux façons de courir contre quelqu'un sont allumées d'entrée : le
+  // fantôme contre soi-même, le classé contre le tableau. Éteintes par défaut,
+  // elles n'étaient trouvées que par qui allait les chercher, et le tableau de
+  // la semaine est resté vide.
+  ghost: true,
   renderScale: 1,
-  ranked: false,
+  ranked: true,
 };
 
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);

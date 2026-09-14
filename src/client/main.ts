@@ -376,9 +376,24 @@ function switchDifficulty(d: Difficulty): void {
   trackMesh.setWidth(sim.tuning.half);
 }
 
-function startRun(): void {
+/**
+ * Ce qu'une nouvelle partie doit à la précédente : la classer si elle était en
+ * cours, et lâcher son ticket. Une seule fois — `startRanked` finissait la
+ * partie puis retombait sur `startRun`, qui la finissait de nouveau : deux
+ * lignes au palmarès et deux fantômes proposés pour une seule course.
+ */
+function endPrevious(): void {
   if (endsARun()) submit();
   ranked.abandon();
+}
+
+function startRun(): void {
+  endPrevious();
+  freshRun();
+}
+
+/** La partie locale elle-même, la précédente déjà close. */
+function freshRun(): void {
   // Avec le fantôme, la partie se joue sur la piste de la meilleure : c'est la
   // seule façon de courir contre elle. Une graine épinglée par l'URL l'emporte,
   // et le fantôme ne court alors que si c'est aussi la sienne.
@@ -391,17 +406,16 @@ function startRun(): void {
 
 /**
  * Une partie classée : le ticket d'abord, la piste servie ensuite. Sans
- * ticket — hors ligne, serveur muet — c'est `startRun`, et le joueur le sait
+ * ticket — hors ligne, serveur muet — c'est une partie locale, et le joueur le sait
  * par l'étiquette. Rend la raison si la partie n'est pas classée.
  */
 async function startRanked(): Promise<Unranked | null> {
-  if (endsARun()) submit();
-  ranked.abandon();
+  endPrevious();
   // Sans session, inutile de demander : le serveur dirait la même chose, une
   // requête plus tard. Le classé se joue connecté.
   const issued = session.signedIn ? await ranked.request(difficulty) : 'sign-in';
   if (typeof issued === 'string') {
-    startRun();
+    freshRun();
     hud.setBest(`unranked \u00b7 ${UNRANKED[issued]}`);
     return issued;
   }
@@ -409,7 +423,7 @@ async function startRanked(): Promise<Unranked | null> {
   sim.reset(freshSeed());
   ghost.disarm();
   if (!ranked.begin(sim, issued)) {
-    startRun();
+    freshRun();
     return 'no-ticket';
   }
   launch();
@@ -449,8 +463,7 @@ async function watchEntry(entry: BoardEntry, d: Difficulty): Promise<void> {
     boardScreen.say('That run is no longer kept — only the week’s best are.');
     return;
   }
-  if (endsARun()) submit();
-  ranked.abandon();
+  endPrevious();
   ghost.disarm();
   difficultyBeforeWatch = difficulty;
   switchDifficulty(trace.difficulty);
@@ -770,8 +783,7 @@ function showResult(ranking: Standing[]): void {
 }
 
 function startDuel(): void {
-  if (endsARun()) submit();
-  ranked.abandon();
+  endPrevious();
   ghost.disarm();
   ghost.unfollow();
   rivalOut = false;
