@@ -13,6 +13,7 @@
  */
 import { DEFAULTS, type Difficulty, type Tuning } from '../sim/index.js';
 import type { Account } from './api.js';
+import { avatarSvg } from './avatar.js';
 import type { Preferences } from './preferences.js';
 import { SLIDERS } from './sliders.js';
 
@@ -159,6 +160,11 @@ export class Settings {
     });
   }
 
+  /** Ouvre le panneau sur un onglet précis — le menu y renvoie pour le compte. */
+  showTab(tab: (typeof TABS)[number]['tab']): void {
+    byId(tab)?.click();
+  }
+
   private bindTabs(): void {
     const show = (which: (typeof TABS)[number]) => {
       for (const t of TABS) {
@@ -272,7 +278,7 @@ export class Settings {
       this.clearArmed = false;
       button.textContent = 'CLEARED';
       setTimeout(() => {
-        button.textContent = 'CLEAR LEADERBOARD';
+        button.textContent = 'CLEAR TOP SCORES';
       }, 1600);
     });
   }
@@ -318,6 +324,14 @@ export class Settings {
         : signedIn
           ? 'Signed in — checking with the server…'
           : 'Not signed in. Ranked runs need an account; the board shows its name.';
+    }
+    // Le visage du compte, le même que celui du tableau : il tient à
+    // l'identifiant du fournisseur, pas au pseudo, donc se renommer ne le
+    // change pas. Rien à échapper, `avatarSvg` ne rend que des nombres.
+    const face = byId('accountFace');
+    if (face) {
+      face.innerHTML = account ? avatarSvg(account.face ?? account.name, 28) : '';
+      face.toggleAttribute('hidden', !account);
     }
     byId('btnSignIn')?.toggleAttribute('hidden', signedIn);
     byId('btnSignOut')?.toggleAttribute('hidden', !signedIn);

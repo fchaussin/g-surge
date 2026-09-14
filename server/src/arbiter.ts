@@ -26,6 +26,7 @@ import { json, refuse } from './http.js';
 import { Tickets } from './tickets.js';
 import { chunk, CHUNK } from './track.js';
 import { Limits } from './limits.js';
+import { faceOf } from './auth.js';
 import { sanitiseName } from './names.js';
 import { asTrace } from './wire.js';
 
@@ -217,13 +218,26 @@ export class Arbiter extends DurableObject<Env> {
     if (!orderBy) return refuse(400, 'category');
     const now = Date.now();
     const epochKey = epoch(now);
+    // La jointure ne sert qu'au visage : le sujet du fournisseur est lu ici et
+    // ne sort jamais tel quel — `faceOf` le hache, et c'est le condensé qui
+    // part. Une partie sans compte, ou dont le compte est parti, n'a pas de
+    // visage ; le client retombe alors sur le pseudo.
     const rows = await this.env.DB.prepare(
-      `SELECT id, name, score, dist, time, coins, speed_peak AS speedPeak FROM runs
-       WHERE epoch = ? AND difficulty = ? ORDER BY ${orderBy} LIMIT 10`,
+      `SELECT r.id AS id, r.name AS name, r.score AS score, r.dist AS dist,
+              r.time AS time, r.coins AS coins, r.speed_peak AS speedPeak,
+              a.subject AS subject
+       FROM runs r LEFT JOIN accounts a ON a.id = r.account_id
+       WHERE r.epoch = ? AND r.difficulty = ? ORDER BY ${orderBy} LIMIT 10`,
     )
       .bind(epochKey, difficulty)
-      .all();
-    return json({ epoch: epochKey, resetAt: nextReset(now), entries: rows.results });
+      .all<Record<string, unknown> & { subject: string | null }>();
+    const entries = await Promise.all(
+      rows.results.map(async (row) => {
+        const { subject, ...entry } = row;
+        return subject ? { ...entry, face: await faceOf(subject) } : entry;
+      }),
+    );
+    return json({ epoch: epochKey, resetAt: nextReset(now), entries });
   }
 
   /**

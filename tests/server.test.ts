@@ -341,6 +341,136 @@ describe('the server in workerd', () => {
     expect((await get('/board/insane')).status).toBe(400);
   });
 
+  /**
+   * Le visage d'un pilote tient à son compte, pas à son pseudo : le tableau
+   * porte le condensé de son identifiant chez le fournisseur, jamais
+   * l'identifiant lui-même, et un renommage ne le change pas. C'est la seule
+   * chose qui traverse : sans elle, se renommer changerait de visage, et
+   * deux pilotes de même pseudo en partageraient un.
+   */
+  it('gives each board entry a face that survives a rename, and never the provider id', async () => {
+    const run = await rankedRun('facing', 'hard', 6, { name: 'Faceman' });
+    expect(run.status).toBe(200);
+    const board = (await (await get('/board/hard')).json()) as {
+      entries: { name: string; face?: string; subject?: string }[];
+    };
+    const mine = board.entries.find((e) => e.name === 'Faceman')!;
+    expect(mine).toBeDefined();
+    expect(mine.face).toMatch(/^[0-9a-f]{16}$/);
+    expect(mine.subject).toBeUndefined();
+
+    // le même compte, renommé : même graine, autre nom
+    const as = await signIn('Faceman');
+    expect((await post('/me/name', { name: 'Renamed' }, as)).status).toBe(200);
+    const me = (await (await get('/me', as)).json()) as { name: string; face: string };
+    expect(me.name).toBe('Renamed');
+    expect(me.face).toBe(mine.face);
+  });
+
+  /**
+   * Le parcours entier d'une amitié, puis d'un défi. Ce qui compte : un code
+   * ne lie pas tout seul — sinon quiconque en croise un pourrait défier son
+   * propriétaire — un défi n'atteint qu'un ami, et l'invité trouve le salon
+   * ouvert sans qu'aucun lien n'ait circulé.
+   */
+  it('links two pilots by code, and lets a friend open a room for the other', async () => {
+    const ada = await signIn('Ada F');
+    const bob = await signIn('Bob F');
+    const mine = (await (await get('/friends', ada)).json()) as { code: string };
+    const theirs = (await (await get('/friends', bob)).json()) as { code: string };
+    expect(mine.code).toMatch(/^[A-Z2-9]{6}$/);
+    expect(theirs.code).not.toBe(mine.code);
+    // le code est stable d'un appel à l'autre
+    expect(((await (await get('/friends', ada)).json()) as { code: string }).code).toBe(mine.code);
+
+    // un code inconnu, et le sien : refusés
+    expect((await post('/friends/add', { code: 'ZZZZZZ' }, ada)).status).toBe(400);
+    expect((await post('/friends/add', { code: mine.code }, ada)).status).toBe(400);
+
+    // Ada demande ; tant que Bob n'a pas accepté, elle ne peut pas le défier
+    expect((await post('/friends/add', { code: theirs.code }, ada)).status).toBe(200);
+    expect(
+      (await post('/friends/challenge', { code: theirs.code, difficulty: 'easy' }, ada)).status,
+    ).toBe(400);
+    const waiting = (await (await get('/friends', bob)).json()) as {
+      friends: unknown[];
+      requests: { name: string; code: string; face: string }[];
+    };
+    expect(waiting.friends).toEqual([]);
+    expect(waiting.requests).toHaveLength(1);
+    expect(waiting.requests[0]!.name).toBe('Ada F');
+    expect(waiting.requests[0]!.face).toMatch(/^[0-9a-f]{16}$/);
+
+    // Bob accepte : les deux se voient
+    expect((await post('/friends/accept', { code: mine.code }, bob)).status).toBe(200);
+    const hers = (await (await get('/friends', ada)).json()) as { friends: { name: string }[] };
+    expect(hers.friends.map((f) => f.name)).toEqual(['Bob F']);
+
+    // Ada défie : le salon est ouvert de son côté, et Bob le trouve
+    const opened = await post(
+      '/friends/challenge',
+      { code: theirs.code, difficulty: 'easy', race: 400 },
+      ada,
+    );
+    expect(opened.status).toBe(200);
+    const seat = (await opened.json()) as { room: string; member: string };
+    expect(seat.room).toMatch(/^[0-9a-f]{16}$/);
+    const invited = (await (await get('/friends', bob)).json()) as {
+      invites: { room: string; from: { name: string } }[];
+    };
+    expect(invited.invites).toHaveLength(1);
+    expect(invited.invites[0]!.room).toBe(seat.room);
+    expect(invited.invites[0]!.from.name).toBe('Ada F');
+    // et il le rejoint comme n'importe quel salon, sans lien
+    expect((await post(`/room/${seat.room}/join`, {}, bob)).status).toBe(200);
+
+    // retirée, l'amitié ne laisse plus défier
+    expect((await post('/friends/remove', { code: theirs.code }, ada)).status).toBe(200);
+    expect(
+      (await post('/friends/challenge', { code: theirs.code, difficulty: 'easy' }, ada)).status,
+    ).toBe(400);
+  });
+
+  /**
+   * La photo du fournisseur traverse un salon sans jamais être gardée.
+   *
+   * Trois choses à prouver, et la première est la seule qui protège quelqu'un :
+   * l'adresse vient du client, donc un client modifié y mettrait un mouchard ou
+   * n'importe quelle image, et elle s'afficherait chez l'autre — l'hôte est
+   * épinglé pour ça. Ensuite qu'elle arrive bien à l'autre pilote. Enfin
+   * qu'aucune table n'en garde trace, ce que l'onglet Profil promet.
+   */
+  it('relays a provider photo to the other pilot, pinned to the provider and stored nowhere', async () => {
+    const ada = await signIn('Pic A');
+    const bob = await signIn('Pic B');
+    const real = 'https://lh3.googleusercontent.com/a/ACg8ocKphoto=s96-c';
+
+    // une adresse qui n'est pas celle du fournisseur ne traverse pas
+    const evil = (await (
+      await post('/room', { difficulty: 'easy', pic: 'https://evil.example/beacon.png' }, ada)
+    ).json()) as { room: string };
+    const seenEvil = (await (await post(`/room/${evil.room}/join`, {}, bob)).json()) as {
+      rivals: { name: string; pic?: string }[];
+    };
+    expect(seenEvil.rivals[0]!.name).toBe('Pic A');
+    expect(seenEvil.rivals[0]!.pic).toBeUndefined();
+
+    // celle du fournisseur, oui
+    const good = (await (await post('/room', { difficulty: 'easy', pic: real }, ada)).json()) as {
+      room: string;
+    };
+    const seen = (await (await post(`/room/${good.room}/join`, { pic: real }, bob)).json()) as {
+      rivals: { pic?: string }[];
+    };
+    expect(seen.rivals[0]!.pic).toBe(real);
+
+    // et rien n'en reste en base : aucune colonne d'aucune ligne ne la porte
+    const db = await mf.getD1Database('DB');
+    const rows = await db.prepare('SELECT * FROM accounts').all<Record<string, unknown>>();
+    const flat = JSON.stringify(rows.results);
+    expect(flat).not.toContain('googleusercontent');
+  });
+
   it('reads the board by category — score, distance, top speed, average — never mixing difficulty', async () => {
     // D'autres tests de ce fichier ont déjà posé des parties sur chaque
     // difficulté ; le test mesure l'ordre et l'appartenance, jamais un compte
@@ -854,10 +984,26 @@ describe('the server in workerd', () => {
     };
     expect(room.room).toMatch(/^[0-9a-f]{16}$/);
     expect(room.seats).toBe(1);
+    // Le lien revenu à son émetteur : un salon refuse deux fois le même compte.
+    // Sans cette garde l'ouvreur prend la seconde place, et l'invité arrive sur
+    // un salon plein — ce que le QR d'invitation rend facile.
+    const mine = await post(`/room/${room.room}/join`, {}, a);
+    expect(mine.status).toBe(409);
+    expect((await mine.json()) as { error: string }).toEqual({ error: 'self' });
     const joined = await post(`/room/${room.room}/join`, {}, b);
     expect(joined.status).toBe(200);
-    const seatB = (await joined.json()) as { member: string; seats: number; chunk: WireChunk };
+    const seatB = (await joined.json()) as {
+      member: string;
+      seats: number;
+      rivals: { name: string; face: string }[];
+      chunk: WireChunk;
+    };
     expect(seatB.seats).toBe(2);
+    // Qui invite : celui qui arrive doit pouvoir l'annoncer sur sa grille de
+    // départ. Le salon donne le nom et le visage, et rien d'autre du compte.
+    expect(seatB.rivals).toHaveLength(1);
+    expect(seatB.rivals[0]!.name).toBe('Ada L');
+    expect(seatB.rivals[0]!.face).toMatch(/^[0-9a-f]{16}$/);
     // deux places, pas trois ; et sans compte, pas de salon du tout
     expect((await post(`/room/${room.room}/join`, {}, c)).status).toBe(409);
     expect((await post('/room', { difficulty: 'easy' })).status).toBe(401);
@@ -887,9 +1033,11 @@ describe('the server in workerd', () => {
       if (m.type === 'result') resultsB.push(m);
     });
     const resultsA: Record<string, unknown>[] = [];
+    const seatsA: Record<string, unknown>[] = [];
     wsA.addEventListener('message', (ev) => {
       const m = JSON.parse(String(ev.data)) as Record<string, unknown>;
       if (m.type === 'result') resultsA.push(m);
+      if (m.type === 'seats') seatsA.push(m);
     });
     // la seconde prise ouverte, le départ va aux deux, avec son décompte
     await new Promise<void>((resolve) => {
@@ -897,6 +1045,8 @@ describe('the server in workerd', () => {
       tick();
     });
     expect(startsB[0]).toMatchObject({ countdown: 3, race: 400 });
+    // Et celui qui attendait apprend qui vient d'entrer, pas seulement combien.
+    expect(seatsA[0]).toMatchObject({ seats: 2, rivals: [{ name: 'Bob B' }] });
 
     // A joue sur la piste du salon, tirée par tranches comme un client
     const queue = new QueuedNodes();

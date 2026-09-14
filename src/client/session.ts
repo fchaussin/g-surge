@@ -17,6 +17,15 @@ import { api, API_URL, ApiError, setAuthToken, type Account } from './api.js';
 
 const KEY = 'gsurge.session.v1';
 /**
+ * La photo du fournisseur, gardée sur l'appareil et nulle part ailleurs.
+ *
+ * Elle arrive dans le fragment du retour de connexion, comme le jeton et pour
+ * la même raison. Le serveur ne la garde pas : c'est le client qui la porte, et
+ * le salon d'un duel qui la relaie à l'autre pilote, le temps de la course.
+ * Elle s'en va avec la session.
+ */
+const PIC = 'gsurge.picture.v1';
+/**
  * Posé dans `sessionStorage` juste avant de partir chez le fournisseur, et
  * exigé pour lire `#session=` au retour : un lien reçu avec un fragment ne
  * connecte pas — il faut être parti d'ici. `sessionStorage` vit dans l'onglet
@@ -55,6 +64,11 @@ export class Session {
   /** Vrai si un jeton est là — le serveur reste seul juge de ce qu'il vaut. */
   get signedIn(): boolean {
     return this.token() !== null;
+  }
+
+  /** La photo du fournisseur, si elle est venue au retour de connexion. */
+  get picture(): string | null {
+    return storage()?.getItem(PIC) ?? null;
   }
 
   /** L'adresse chez le serveur qui ouvre la connexion : une navigation, pas un `fetch`. */
@@ -118,6 +132,9 @@ export class Session {
 
   private forget(): void {
     storage()?.removeItem(KEY);
+    // La photo s'en va avec la session : elle vient du fournisseur, elle ne
+    // survit pas à une déconnexion.
+    storage()?.removeItem(PIC);
     setAuthToken(null);
     this.account = null;
     this.onChange?.();
@@ -138,6 +155,9 @@ export class Session {
     // Un fragment sans départ d'ici est un lien reçu : effacé, jamais rangé.
     if (started) {
       storage()?.setItem(KEY, token);
+      const pic = new URLSearchParams(hash.slice(1)).get('pic');
+      if (pic) storage()?.setItem(PIC, pic);
+      else storage()?.removeItem(PIC);
       this.fresh = true;
     }
     // Effacé sans recharger : l'adresse redevient celle du jeu.

@@ -17,7 +17,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { LAYERS, NAV_DEFAULT, NAV_IDS } from '../src/client/screens.js';
+import { LAYERS, MENU_NEEDS, NAV_DEFAULT, NAV_IDS } from '../src/client/screens.js';
 import { TABS } from '../src/client/settings.js';
 import { ROOT } from './helpers/layout-tables.js';
 
@@ -51,6 +51,7 @@ function lookedUp(): string[] {
   }
   for (const ids of Object.values(NAV_IDS)) for (const id of ids) out.add(id);
   for (const id of Object.values(NAV_DEFAULT)) out.add(id);
+  for (const id of Object.keys(MENU_NEEDS)) out.add(id);
   for (const id of LAYERS) out.add(id);
   for (const t of TABS) {
     out.add(t.tab);

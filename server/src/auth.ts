@@ -131,6 +131,20 @@ async function sha256Hex(data: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * La graine du visage d'un joueur : l'identifiant Google, haché.
+ *
+ * L'avatar doit tenir au compte et non au pseudo — le renommer ne change pas
+ * de pilote. Mais l'identifiant du fournisseur ne sort jamais d'ici : ce qui
+ * part au client est ce condensé, stable, irréversible, et qui ne dit rien de
+ * plus qu'« encore lui ». Seize caractères suffisent à ce qu'un visage soit
+ * tiré ; il n'y a pas de collision à craindre, deux comptes qui en
+ * partageraient un ne partageraient qu'un dessin.
+ */
+export async function faceOf(subject: string): Promise<string> {
+  return (await sha256Hex(`gsurge-face:${subject}`)).slice(0, 16);
+}
+
 /* --------------------------------------------------------------- state -- */
 
 interface State {
@@ -226,6 +240,8 @@ interface Claims {
   exp: number;
   nonce?: string;
   name?: string;
+  /** L'adresse de la photo du compte chez le fournisseur. Lue, jamais gardée. */
+  picture?: string;
 }
 
 /** Vérifie signature, émetteur, audience, expiration et nonce. `null` si l'un manque. */
@@ -302,7 +318,35 @@ export async function startUrl(
   return { url: url.toString(), bind: await hmac(env.SESSION_SECRET, `bind:${state}`) };
 }
 
-export type Finished = { returnTo: string; token: string } | { error: string };
+export type Finished =
+  | {
+      returnTo: string;
+      token: string;
+      /**
+       * La photo du fournisseur, si elle passe `photoUrl`. Elle repart au
+       * client dans le fragment, avec le jeton, et **n'est écrite nulle part** :
+       * le duel la fait voyager d'un joueur à l'autre par le salon, qui meurt
+       * avec la course. C'est ce qui permet de la montrer sans que le compte
+       * gagne un champ — `NETWORK.md` et l'onglet Profil promettent le
+       * contraire.
+       */
+      picture?: string;
+    }
+  | { error: string };
+
+/**
+ * L'adresse d'une photo de profil Google, ou `null`.
+ *
+ * L'hôte est épinglé, et ce n'est pas de la coquetterie : dans un duel c'est
+ * le client qui envoie sa propre adresse au salon, donc un client modifié y
+ * mettrait ce qu'il veut — un mouchard, une image quelconque — et ça
+ * s'afficherait chez l'autre. Épinglé, le pire cas est une photo de profil
+ * Google quelconque.
+ */
+export function photoUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length > 300) return null;
+  return /^https:\/\/lh\d+\.googleusercontent\.com\/[A-Za-z0-9_\-./=]+$/.test(raw) ? raw : null;
+}
 
 /** Le retour du fournisseur : le code devient une session. */
 export async function finish(
@@ -347,7 +391,8 @@ export async function finish(
   const name = displayName(claims.name);
   const account = await upsertAccount(env, provider.name, claims.sub, name, now);
   const token = await openSession(env, account, now);
-  return { returnTo: state.r, token };
+  const picture = photoUrl(claims.picture);
+  return picture ? { returnTo: state.r, token, picture } : { returnTo: state.r, token };
 }
 
 /** Le nom que le fournisseur donne, borné ; `PILOT` s'il n'en donne pas. */
@@ -363,6 +408,8 @@ export interface Account {
   name: string;
   /** La clé publique du joueur : un ULID, triable par date de création. */
   ulid: string;
+  /** La graine de son visage : l'identifiant Google haché, jamais lui-même. */
+  face: string;
   /** Le compteur de duels. Absent tant qu'il n'en a joué aucun. */
   duels?: { wins: number; losses: number; played: number };
 }
@@ -436,7 +483,7 @@ export async function accountOf(env: Env, req: Request, now: number): Promise<Ac
   const token = auth.slice(7).trim();
   if (!/^[A-Za-z0-9_-]{20,}$/.test(token)) return null;
   const row = await env.DB.prepare(
-    `SELECT a.id AS id, a.name AS name, a.ulid AS ulid,
+    `SELECT a.id AS id, a.name AS name, a.ulid AS ulid, a.subject AS subject,
             d.wins AS wins, d.losses AS losses, d.played AS played
      FROM sessions s JOIN accounts a ON a.id = s.account_id
      LEFT JOIN duels d ON d.ulid = a.ulid
@@ -447,6 +494,7 @@ export async function accountOf(env: Env, req: Request, now: number): Promise<Ac
       id: number;
       name: string;
       ulid: string | null;
+      subject: string;
       wins: number | null;
       losses: number | null;
       played: number | null;
@@ -458,7 +506,12 @@ export async function accountOf(env: Env, req: Request, now: number): Promise<Ac
     id = ulid(now);
     await env.DB.prepare('UPDATE accounts SET ulid = ? WHERE id = ?').bind(id, row.id).run();
   }
-  const account: Account = { id: row.id, name: row.name, ulid: id };
+  const account: Account = {
+    id: row.id,
+    name: row.name,
+    ulid: id,
+    face: await faceOf(row.subject),
+  };
   if (row.played !== null)
     account.duels = { wins: row.wins ?? 0, losses: row.losses ?? 0, played: row.played };
   return account;

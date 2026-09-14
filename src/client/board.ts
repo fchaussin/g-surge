@@ -10,6 +10,7 @@
  */
 import type { Difficulty } from '../sim/index.js';
 import { api, online, type Board, type BoardCategory, type BoardEntry } from './api.js';
+import { avatarSvg } from './avatar.js';
 
 const fmt = (v: number): string => Math.round(v).toLocaleString('en-GB');
 const kmh = (mps: number): string => `${fmt(mps * 3.6)} km/h`;
@@ -116,6 +117,8 @@ export class BoardScreen {
       .map(
         (e, i) =>
           `<li><span class="rk">${i + 1}</span>` +
+          // Le visage du pseudo : tiré du nom, donc sans rien à échapper.
+          avatarSvg(e.face ?? e.name) +
           `<span class="nm">${escapeHtml(e.name)}</span>` +
           `<span class="dv">${value(e)}</span>` +
           `<button class="wbtn" data-watch="${e.id}" ` +

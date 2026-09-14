@@ -517,8 +517,10 @@ real core packing a real stick-shaped run, not an estimate:
   player-races a day on the free plan is far past what this game needs. If
   cost ever bites, 4 Hz is one constant away and multiplies capacity by 2.5.
 
-**Deliverables, in two steps.** The third of the original three — queues,
-friend lists — is dropped until a duel proves it is wanted.
+**Deliverables, in three steps.** The third of the original three — queues,
+friend lists — was dropped *until a duel proves it is wanted*. The duel
+played, the author asked for friends on 13 September 2026, and step 3 below
+is what that condition let in. Queues and matchmaking stay dropped.
 
 1. **Two ships, one track, live.** *Done, 1.25.0. Server: `room.ts`, proven
    in workerd with two scripted members — the relayed state is the sender's
@@ -554,6 +556,36 @@ friend lists — is dropped until a duel proves it is wanted.
    code** drawn without a library (`qr.ts` — the one test that counts is a
    phone's camera, not yet done), and a paste field that joins from a whole
    link or its bare code. Its copy is a proposal, still the author's.
+
+   **The screens were reworked on 13 September 1.28.0**, the author having
+   played the flow: pairing, countdown and result all lived in one grey line
+   of the invite sheet, between a link field and a QR. Now the invite sheet
+   only shares. Both pilots meet on a **starting grid** — the rival's name and
+   pixel face, a state line, then the countdown in large type — which the
+   invited player reaches straight from the link, without ever seeing the
+   sharing controls; the room carries the other's name and face for it. During
+   the race a toast says when the rival is out or has left. And the end of a
+   duel is the **run's own score card**, the verdict written under the score
+   as a ranked run's is, rather than a return to the pairing screen: it is the
+   race just played that deserves the screen.
+
+3. **Friends, and a challenge with no link.** *Done, 1.28.0.* Server:
+   `friends.ts` and migration `0007`. A **six-character code** per account,
+   dictatable — no O/0, no I/1 — beside the ULID, which stays the public key
+   and is not made to be typed. A friendship is **asked for and accepted**:
+   a code is enough to ask, never to link, or anyone who glimpsed one could
+   fill a stranger's list and challenge them; two people who exchange codes at
+   the same moment are linked by the second request rather than deadlocked. A
+   **challenge is a room already open**, held ten minutes, found by the friend
+   when they next open the game — nothing notifies them. There is deliberately
+   **no presence and no push**: a heartbeat is 4 300 requests a player a day
+   against the free plan's 100 000, `NETWORK.md` has the arithmetic, and Web
+   Push is a feature of its own with a consent flow and, on iOS, an installed
+   app. Client: the duel sheet now opens on **people** — challenges received,
+   then friends to challenge, then the two codes — and **no longer opens a
+   room by being looked at**, which the old screen did on every visit; the
+   link and its QR moved behind *Invite by link*, for whoever is not a friend
+   yet. What crosses about a pilot is a name, a face and a code.
 
 **Proof.** A room test with N scripted members in workerd where every
 member's relayed states equal a Node replay of its chunks. Playwright with

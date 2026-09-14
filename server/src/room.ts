@@ -89,10 +89,36 @@ interface Stored {
   seed: string;
   difficulty: Difficulty;
   /** Jeton de membre → compte. L'ordre d'insertion est l'ordre d'arrivée. */
-  members: Record<string, { account: number; name: string; ulid: string }>;
+  members: Record<
+    string,
+    { account: number; name: string; ulid: string; face?: string; pic?: string }
+  >;
   /** La ligne d'arrivée de ce salon. `RACE_M`, sauf sous `DEBUG` où un test la rapproche. */
   race: number;
 }
+
+/**
+ * Ce qu'un pilote montre à l'autre : de quoi l'annoncer sur l'écran de départ.
+ * Rien de plus ne sort du salon — ni compte, ni ULID.
+ */
+export interface Pilot {
+  name: string;
+  /** La graine de son visage, quand le compte en porte une. */
+  face?: string;
+  /**
+   * Sa photo chez le fournisseur, quand il en a une et l'a envoyée. Elle ne
+   * vit que dans ce salon : elle n'est écrite dans aucune table, et disparaît
+   * avec l'objet. Le visage en pixels reste le repli, et l'identité ailleurs.
+   */
+  pic?: string;
+}
+
+const pilotOf = (m: { name: string; face?: string; pic?: string }): Pilot => {
+  const out: Pilot = { name: m.name };
+  if (m.face) out.face = m.face;
+  if (m.pic) out.pic = m.pic;
+  return out;
+};
 
 /** Où en est un membre dans la course. */
 interface Standing {
@@ -173,11 +199,21 @@ export class Room extends DurableObject<Env> {
     return this.seat(req, stored);
   }
 
-  /** Le second membre rejoint. Un troisième trouve la porte fermée. */
+  /**
+   * Le second membre rejoint. Un troisième trouve la porte fermée, et celui
+   * qui a ouvert ne peut pas se rejoindre lui-même : un duel oppose deux
+   * comptes. Le lien part par un moyen que personne ne maîtrise — un QR sur un
+   * écran, un message — et il finit par revenir sur le téléphone de celui qui
+   * l'a émis. Sans cette garde il y prend la seconde place, et le salon est
+   * mort pour l'invité.
+   */
   private async join(req: Request): Promise<Response> {
     const stored = await this.load();
     if (!stored) return refuse(404, 'room');
     if (Object.keys(stored.members).length >= SEATS) return refuse(409, 'full');
+    const account = Number(req.headers.get('x-gs-account') ?? 0);
+    if (Object.values(stored.members).some((m) => m.account === account))
+      return refuse(409, 'self');
     return this.seat(req, stored);
   }
 
@@ -187,13 +223,20 @@ export class Room extends DurableObject<Env> {
     const rawName = req.headers.get('x-gs-name');
     const name = rawName ? decodeURIComponent(rawName) : 'PILOT';
     const ulid = req.headers.get('x-gs-ulid') ?? '';
+    const face = req.headers.get('x-gs-face') ?? '';
+    // Filtrée par le Worker, jamais par le client : voir `photoUrl`.
+    const pic = req.headers.get('x-gs-pic') ?? '';
+    // Qui est déjà là, avant de s'ajouter : c'est ce que l'écran de départ
+    // montre à celui qui arrive par un lien — « untel vous invite ».
+    const rivals = Object.values(stored.members).map((m) => pilotOf(m));
     const member = randomHex();
-    stored.members[member] = { account, name, ulid };
+    stored.members[member] = { account, name, ulid, face, pic };
     await this.ctx.storage.put('room', stored);
     return json({
       member,
       difficulty: stored.difficulty,
       seats: Object.keys(stored.members).length,
+      rivals,
       chunk: chunk(stored.seed, stored.difficulty, 0),
     });
   }
@@ -228,7 +271,13 @@ export class Room extends DurableObject<Env> {
     // Les autres apprennent qu'une place de plus est occupée : c'est ce qui
     // dit à celui qui attend que le duel peut commencer.
     const sockets = this.ctx.getWebSockets();
-    const seats = JSON.stringify({ type: 'seats', seats: sockets.length });
+    // Le nouveau venu se présente : celui qui attendait sur l'écran de partage
+    // apprend son nom et son visage en même temps que son arrivée.
+    const seats = JSON.stringify({
+      type: 'seats',
+      seats: sockets.length,
+      rivals: [pilotOf(stored.members[member]!)],
+    });
     for (const other of sockets) if (other !== server) other.send(seats);
     // Les deux sont là : le départ, avec son décompte, pour les deux. Le
     // nouveau venu reçoit le sien sur sa prise, avant tout autre message.

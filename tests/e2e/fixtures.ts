@@ -36,6 +36,7 @@ async function readMode(page: Page): Promise<string> {
       'board',
       'quit',
       'duel',
+      'grid',
     ];
     for (const id of layers) {
       if (document.getElementById(id)?.classList.contains('on')) return id;
@@ -46,6 +47,50 @@ async function readMode(page: Page): Promise<string> {
     if (hud?.classList.contains('on')) return hud.classList.contains('watch') ? 'watch' : 'run';
     return 'unknown';
   });
+}
+
+/**
+ * Un pilote déjà connecté sur cet appareil : le jeton rangé là où la session
+ * le range, et `/me` répondu. À poser avant le chargement, et exigé par tout
+ * écran que le menu ne montre qu'avec un compte — le tableau de la semaine et
+ * le duel.
+ */
+export async function signIn(page: Page, name = 'Ada L'): Promise<void> {
+  await page.addInitScript(
+    (t) => localStorage.setItem('gsurge.session.v1', t),
+    'abcdefghijklmnopqrstuvwxyz0123456789',
+  );
+  await page.route('**/me', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 3, name }) }),
+  );
+  await mockFriends(page);
+}
+
+/**
+ * La liste d'amis, servie. L'écran de duel la demande à chaque ouverture :
+ * sans cette route, un test qui ouvre l'écran voit une erreur réseau.
+ */
+export async function mockFriends(
+  page: Page,
+  list: Partial<{
+    code: string;
+    friends: unknown[];
+    requests: unknown[];
+    invites: unknown[];
+  }> = {},
+): Promise<void> {
+  await page.route('**/friends', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'ABC234',
+        friends: [],
+        requests: [],
+        invites: [],
+        ...list,
+      }),
+    }),
+  );
 }
 
 export const test = base.extend<{ game: GameHarness; page: Page }>({

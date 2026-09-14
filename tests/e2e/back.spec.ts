@@ -7,7 +7,7 @@
  * jeu doit toujours avoir une entrée de plus à consommer, sinon le premier
  * retour sort.
  */
-import { expect, test } from './fixtures.js';
+import { expect, signIn, test } from './fixtures.js';
 
 test.describe('le retour système', () => {
   test('remonte d’un écran depuis chaque feuille du menu', async ({ game, page }) => {
@@ -26,6 +26,7 @@ test.describe('le retour système', () => {
   // Le tableau à part : il appelle le serveur, qui n'existe pas ici, donc la
   // console porte son échec de requête. Ce qui est testé reste le retour.
   test('referme le tableau classé', async ({ game, page }) => {
+    await signIn(page);
     await game.boot();
     await page.locator('#btnBoardMenu').click();
     expect(await game.mode()).toBe('board');

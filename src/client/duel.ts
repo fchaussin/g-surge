@@ -26,6 +26,21 @@ import { packTrace } from '../sim/index.js';
 /** Un morceau tous les 72 pas : 10 Hz à 720 pas par seconde. La constante du serveur est la même cadence. */
 export const CHUNK_STEPS = Math.round(0.1 / DT);
 
+/**
+ * L'autre pilote, tel que le salon le présente : de quoi l'annoncer sur
+ * l'écran de départ. Le nom qu'il a choisi, et la graine de son visage.
+ */
+export interface Pilot {
+  name: string;
+  face?: string;
+  /**
+   * Sa photo chez le fournisseur, quand il en a une. Elle vient de son
+   * appareil, traverse le salon, et n'est écrite nulle part — voir
+   * `session.ts` et `server/src/auth.ts`. Les pixels restent le repli.
+   */
+  pic?: string;
+}
+
 /** Ce que le salon relaie de l'autre vaisseau : les six nombres du noyau, et le pas où ils valent. */
 export interface Relay {
   who: string;
@@ -49,14 +64,23 @@ export interface Standing {
 
 type Message =
   | ({ type: 'state' } & Relay)
-  | { type: 'seats'; seats: number }
+  | { type: 'seats'; seats: number; rivals?: Pilot[] }
   | { type: 'start'; countdown: number; race: number }
   | { type: 'result'; race: number; ranking: Standing[] }
   | { type: string; [k: string]: unknown };
 
 /** Pourquoi un duel n'a pas commencé, ou s'est arrêté. */
 export type DuelEnd =
-  'offline' | 'sign-in' | 'refused' | 'unreachable' | 'full' | 'gone' | 'diverged' | 'expired';
+  | 'offline'
+  | 'sign-in'
+  /** Le salon est déjà le sien : le lien est revenu à son émetteur. */
+  | 'self'
+  | 'refused'
+  | 'unreachable'
+  | 'full'
+  | 'gone'
+  | 'diverged'
+  | 'expired';
 
 export const DUEL_LINK = 'duel';
 
@@ -71,6 +95,12 @@ export class Duel {
   other: Relay | null = null;
   /** Combien de places sont prises, d'après le salon. */
   seats = 0;
+  /**
+   * L'autre pilote, dès qu'il est connu : donné à l'entrée pour celui qui
+   * rejoint — c'est lui qui invite — et annoncé par le salon à celui qui
+   * attendait, quand l'autre arrive.
+   */
+  rival: Pilot | null = null;
   /** Appelé quand l'autre arrive, part, ou que la prise se ferme. */
   onChange: ((why: DuelEnd | null) => void) | null = null;
   /** Le départ : le décompte en secondes, et la ligne d'arrivée en mètres. */
@@ -94,10 +124,10 @@ export class Duel {
   }
 
   /** Ouvre un salon. Rend la raison si ce n'est pas possible. */
-  async open(difficulty: Difficulty): Promise<DuelEnd | null> {
+  async open(difficulty: Difficulty, pic: string | null = null): Promise<DuelEnd | null> {
     if (!online()) return 'offline';
     try {
-      const seat = await api.openRoom(difficulty);
+      const seat = await api.openRoom(difficulty, pic);
       this.room = seat.room;
       this.seat = seat;
       this.seats = seat.seats;
@@ -107,14 +137,29 @@ export class Duel {
     }
   }
 
+  /**
+   * Adopte un salon ouvert ailleurs — le défi lancé à un ami, où c'est
+   * `/friends/challenge` qui a ouvert la place. Même état qu'après `open`,
+   * plus le pilote visé, qu'on connaît déjà puisqu'on l'a choisi.
+   */
+  adopt(seat: Seat, rival: Pilot | null = null): void {
+    this.room = seat.room;
+    this.seat = seat;
+    this.seats = seat.seats;
+    this.rival = rival;
+  }
+
   /** Rejoint le salon d'un lien. */
-  async join(room: string): Promise<DuelEnd | null> {
+  async join(room: string, pic: string | null = null): Promise<DuelEnd | null> {
     if (!online()) return 'offline';
     try {
-      const seat = await api.joinRoom(room);
+      const seat = await api.joinRoom(room, pic);
       this.room = room;
       this.seat = seat;
       this.seats = seat.seats;
+      // Celui qui rejoint apprend d'emblée qui l'invite : le salon lui donne
+      // les pilotes déjà assis, et il n'y en a qu'un.
+      this.rival = seat.rivals?.[0] ?? null;
       return null;
     } catch (e) {
       return reasonOf(e);
@@ -152,7 +197,9 @@ export class Duel {
       }
       if (m.type === 'state') this.other = m as Relay;
       else if (m.type === 'seats') {
-        this.seats = (m as { seats: number }).seats;
+        const seats = m as { seats: number; rivals?: Pilot[] };
+        this.seats = seats.seats;
+        if (seats.rivals?.[0]) this.rival = seats.rivals[0];
         this.onChange?.(null);
       } else if (m.type === 'start') {
         const { countdown, race } = m as { countdown: number; race: number };
@@ -220,6 +267,7 @@ function reasonOf(e: unknown): DuelEnd {
   if (e instanceof Error && 'code' in e) {
     const code = (e as { code: string }).code;
     if (code === 'sign-in') return 'sign-in';
+    if (code === 'self') return 'self';
     if (code === 'full' || code === 'exists') return 'full';
     if (code === 'room' || code === 'member') return 'gone';
     return 'refused';

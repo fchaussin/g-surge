@@ -16,10 +16,12 @@ import {
   deleteAccount,
   finish,
   logout,
+  photoUrl,
   providerFor,
   setName,
   startUrl,
 } from './auth.js';
+import * as friends from './friends.js';
 import { json, refuse } from './http.js';
 import { allowedOrigin } from './origins.js';
 
@@ -111,12 +113,54 @@ function cookieValue(header: string | null, name: string): string | null {
 }
 
 /** Le compte résolu, pour l'arbitre : il ne voit jamais un jeton, seulement qui c'est. */
-const accountHeaders = (a: { id: number; name: string; ulid: string }): Record<string, string> => ({
+const accountHeaders = (a: {
+  id: number;
+  name: string;
+  ulid: string;
+  face: string;
+}): Record<string, string> => ({
   'x-gs-account': String(a.id),
   'x-gs-ulid': a.ulid,
+  // le visage voyage avec le nom : le salon le relaie à l'autre pilote, qui
+  // n'a aucun autre moyen de savoir à quoi ressemble celui qui l'invite
+  'x-gs-face': a.face,
   // encodé : un en-tête ne porte que de l'ASCII, un nom non
   'x-gs-name': encodeURIComponent(a.name),
 });
+
+/**
+ * Ouvre un salon : un identifiant tiré ici nomme l'objet, qui fait le reste.
+ * Deux chemins y mènent — le partage d'un lien et le défi d'un ami — et ils
+ * doivent ouvrir le même salon de la même façon.
+ */
+async function openRoom(
+  env: Env,
+  req: Request,
+  account: { id: number; name: string; ulid: string; face: string },
+  body: string,
+  pic: string | null,
+): Promise<Response> {
+  const fresh = [...crypto.getRandomValues(new Uint8Array(8))]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  const res = await env.ROOM.get(env.ROOM.idFromName(fresh)).fetch('https://room/open', {
+    method: 'POST',
+    body,
+    headers: { ...ipHeaders(req, env), ...accountHeaders(account), ...picHeader(pic) },
+  });
+  if (!res.ok) return res;
+  return json({ room: fresh, ...((await res.json()) as object) });
+}
+
+/**
+ * La photo que le client déclare, épinglée sur l'hôte de Google avant d'entrer
+ * dans un salon. Elle vient du client — le serveur n'en garde aucune — donc
+ * c'est ici qu'elle est filtrée, une fois, avant d'être relayée à quelqu'un.
+ */
+const picHeader = (pic: string | null): Record<string, string> => (pic ? { 'x-gs-pic': pic } : {});
+
+/** La photo d'un corps JSON, validée. `null` si elle n'y est pas ou ne convient pas. */
+const picOf = (body: unknown): string | null => photoUrl((body as { pic?: unknown } | null)?.pic);
 
 function ipHeaders(req: Request, env: Env): Record<string, string> {
   const headers: Record<string, string> = { 'x-gs-ip': req.headers.get('cf-connecting-ip') ?? '' };
@@ -164,8 +208,11 @@ async function route(req: Request, env: Env): Promise<Response> {
     const bind = cookieValue(req.headers.get('cookie'), BIND_COOKIE);
     const done = await finish(env, provider, url, callbackUrl, bind, now);
     if ('error' in done) return refuse(400, done.error);
-    // Le fragment ne quitte jamais le navigateur : c'est là que le jeton va.
-    return Response.redirect(`${done.returnTo}/#session=${done.token}`, 302);
+    // Le fragment ne quitte jamais le navigateur : c'est là que le jeton va,
+    // et la photo du fournisseur avec lui — elle n'est écrite nulle part, le
+    // client la garde sur son appareil et le salon la relaie le temps d'un duel.
+    const pic = done.picture ? `&pic=${encodeURIComponent(done.picture)}` : '';
+    return Response.redirect(`${done.returnTo}/#session=${done.token}${pic}`, 302);
   }
   if (url.pathname === '/me') {
     if (req.method !== 'GET') return refuse(405, 'method');
@@ -189,6 +236,9 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return refuse(405, 'method');
     const account = await accountOf(env, req, now);
     if (!account) return refuse(401, 'sign-in');
+    // Les amitiés et les défis partent avec le compte : ils le nomment des
+    // deux côtés, et une ligne orpheline montrerait un ami qui n'existe plus.
+    await env.DB.batch(friends.cleanup(env, account.id));
     await deleteAccount(env, account.id);
     return json({ ok: true });
   }
@@ -196,6 +246,49 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return refuse(405, 'method');
     const { name } = (await req.json()) as { name?: string };
     return json({ token: await debugLogin(env, typeof name === 'string' ? name : 'PILOT', now) });
+  }
+
+  // Les amis, et les défis qu'ils se lancent — `friends.ts`. Tout demande un
+  // compte : une amitié lie deux comptes, et un défi ouvre un salon.
+  if (url.pathname.startsWith('/friends')) {
+    const account = await accountOf(env, req, now);
+    if (!account) return refuse(401, 'sign-in');
+    if (url.pathname === '/friends') {
+      if (req.method !== 'GET') return refuse(405, 'method');
+      return json(await friends.overview(env, account.id, now));
+    }
+    if (req.method !== 'POST') return refuse(405, 'method');
+    const body = (await req.json().catch(() => null)) as { code?: unknown } | null;
+    if (!body) return refuse(400, 'json');
+    if (url.pathname === '/friends/add') {
+      const why = await friends.request(env, account.id, body.code, now);
+      return why ? refuse(400, why) : json({ ok: true });
+    }
+    if (url.pathname === '/friends/accept') {
+      const why = await friends.accept(env, account.id, body.code);
+      return why ? refuse(400, why) : json({ ok: true });
+    }
+    if (url.pathname === '/friends/remove') {
+      const why = await friends.remove(env, account.id, body.code);
+      return why ? refuse(400, why) : json({ ok: true });
+    }
+    if (url.pathname === '/friends/challenge') {
+      const target = await friends.challengeTarget(env, account.id, body.code);
+      if (typeof target === 'string') return refuse(400, target);
+      const { difficulty, race } = body as { difficulty?: unknown; race?: unknown };
+      const opened = await openRoom(
+        env,
+        req,
+        account,
+        JSON.stringify({ difficulty, race }),
+        picOf(body),
+      );
+      if (!opened.ok) return opened;
+      const seat = (await opened.json()) as { room: string };
+      await friends.challenge(env, account.id, target.id, seat.room, String(difficulty), now);
+      return json(seat);
+    }
+    return refuse(404, 'not-found');
   }
 
   // Les salons. Un identifiant tiré ici nomme l'objet ; tout le reste est
@@ -207,18 +300,15 @@ async function route(req: Request, env: Env): Promise<Response> {
     if (!id && req.method === 'POST' && !action) {
       const account = await accountOf(env, req, now);
       if (!account) return refuse(401, 'sign-in');
-      const fresh = [...crypto.getRandomValues(new Uint8Array(8))]
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
       const body = await req.text();
-      if (body.length > 256) return refuse(413, 'size');
-      const res = await env.ROOM.get(env.ROOM.idFromName(fresh)).fetch('https://room/open', {
-        method: 'POST',
-        body,
-        headers: { ...ipHeaders(req, env), ...accountHeaders(account) },
-      });
-      if (!res.ok) return res;
-      return json({ room: fresh, ...((await res.json()) as object) });
+      if (body.length > 512) return refuse(413, 'size');
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        return refuse(400, 'json');
+      }
+      return openRoom(env, req, account, body, picOf(parsed));
     }
     if (!id) return refuse(404, 'not-found');
     const stub = env.ROOM.get(env.ROOM.idFromName(id));
@@ -226,9 +316,12 @@ async function route(req: Request, env: Env): Promise<Response> {
       if (req.method !== 'POST') return refuse(405, 'method');
       const account = await accountOf(env, req, now);
       if (!account) return refuse(401, 'sign-in');
+      const body = await req.text();
+      if (body.length > 512) return refuse(413, 'size');
+      const pic = picOf(body ? ((JSON.parse(body) as unknown) ?? null) : null);
       return stub.fetch('https://room/join', {
         method: 'POST',
-        headers: { ...ipHeaders(req, env), ...accountHeaders(account) },
+        headers: { ...ipHeaders(req, env), ...accountHeaders(account), ...picHeader(pic) },
       });
     }
     if (action?.startsWith('track/')) {

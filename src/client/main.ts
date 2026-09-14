@@ -24,16 +24,19 @@ import {
 } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { api, type BoardCategory, type BoardEntry } from './api.js';
+import { avatarSvg } from './avatar.js';
+import { photoFor, rememberPhoto } from './photos.js';
 import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
-import { Duel, DUEL_LINK, type DuelEnd, type Standing } from './duel.js';
+import { Duel, DUEL_LINK, type DuelEnd, type Pilot, type Standing } from './duel.js';
 import { drawQr } from './qr.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
 import { Feedback } from './feedback.js';
+import { Friends } from './friends.js';
 import { Fullscreen } from './fullscreen.js';
 import { Ghost } from './ghost.js';
 import { GhostStore } from './ghosts.js';
@@ -480,7 +483,8 @@ function stopWatching(): void {
  */
 const DUEL_WHY: Record<DuelEnd, string> = {
   offline: 'offline',
-  'sign-in': 'sign in to duel',
+  'sign-in': 'Sign in to take the other seat. A duel needs two accounts.',
+  self: 'This room is your own. The other pilot needs their own account.',
   refused: 'refused by the server',
   unreachable: 'server unreachable',
   full: 'that room is full',
@@ -489,20 +493,116 @@ const DUEL_WHY: Record<DuelEnd, string> = {
   expired: 'the room has expired',
 };
 
-async function openDuel(): Promise<void> {
+/**
+ * Le bloc de partage — le lien, les deux boutons, le QR — n'a de sens que pour
+ * celui qui ouvre le salon, et seulement une fois qu'il est ouvert. Il reste
+ * masqué partout ailleurs : masqué, il sort aussi de la navigation clavier,
+ * que `buildNav` refait.
+ */
+function showShare(on: boolean): void {
+  document.getElementById('duelShare')?.toggleAttribute('hidden', !on);
+  screens.buildNav();
+}
+
+/**
+ * Le salon qu'une invitation attend, le temps d'une connexion.
+ *
+ * Le lien porte le salon dans son fragment, et le fragment ne survit pas à
+ * l'aller-retour chez le fournisseur : le retour se fait sur l'origine seule,
+ * et le serveur y accroche déjà `#session=`. Il est donc mis de côté ici, dans
+ * le stockage de l'onglet — le même que la marque de départ de `session.ts`,
+ * et pour la même raison : il vit dans l'onglet et traverse la navigation.
+ */
+const PENDING_DUEL = 'gsurge.duel.pending';
+
+function pendingDuel(): string | null {
+  try {
+    return sessionStorage.getItem(PENDING_DUEL);
+  } catch {
+    return null;
+  }
+}
+
+function rememberDuel(room: string | null): void {
+  try {
+    if (room) sessionStorage.setItem(PENDING_DUEL, room);
+    else sessionStorage.removeItem(PENDING_DUEL);
+  } catch {
+    // sans stockage d'onglet, l'invitation se perd à la connexion ; le message
+    // reste juste, et le lien peut être rouvert
+  }
+}
+
+/** L'écran d'invitation sans compte : le refus, et de quoi en sortir. */
+function askSignIn(room: string | null): void {
+  rememberDuel(room);
+  sayDuel(DUEL_WHY['sign-in']);
+  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', false);
+  screens.buildNav();
+}
+
+/**
+ * Le salon mis de côté, rejoint dès qu'un compte est là. Rend vrai s'il a pris
+ * la main : l'appelant n'a alors rien d'autre à montrer.
+ */
+function resumePendingDuel(): boolean {
+  const room = pendingDuel();
+  if (!room || !session.signedIn) return false;
+  rememberDuel(null);
+  void joinDuel(room);
+  return true;
+}
+
+/**
+ * Les amis, en tête de l'écran de duel. Un défi ouvre un salon exactement
+ * comme le bouton de partage, et mène à la même grille de départ ; la
+ * différence est qu'il n'y a rien à faire parvenir à personne.
+ */
+const friends = new Friends({
+  difficulty: () => difficulty,
+  picture: () => session.picture,
+  onOpened: (seat, friend) => {
+    duel.adopt(seat, friend);
+    duel.connect();
+    showShare(false);
+    showGrid('has been challenged. Waiting for them to join…');
+  },
+  onJoin: (room) => void joinDuel(room),
+  onRebuild: () => screens.buildNav(),
+});
+
+/**
+ * L'écran de duel : les amis, la liste des défis reçus, et le lien en dernier
+ * recours. **Il n'ouvre plus de salon en s'ouvrant** — c'est ce que faisait
+ * l'ancien, si bien que regarder l'écran créait un objet à chaque visite.
+ */
+function openDuel(): void {
   screens.setMode('duel');
+  showShare(false);
+  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', true);
   if (!session.signedIn) {
-    sayDuel(DUEL_WHY['sign-in']);
+    askSignIn(null);
+    return;
+  }
+  sayDuel('Challenge a friend, or invite by link.');
+  friends.load();
+}
+
+/** Le lien : pour qui n'est pas encore un ami. C'est ici que le salon s'ouvre. */
+async function makeLink(): Promise<void> {
+  if (!session.signedIn) {
+    askSignIn(null);
     return;
   }
   sayDuel('Opening a room…');
-  const why = await duel.open(difficulty);
+  const why = await duel.open(difficulty, session.picture);
   if (screens.mode !== 'duel') return;
   if (why) {
     sayDuel(DUEL_WHY[why]);
     return;
   }
   duel.connect();
+  showShare(true);
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (link) link.value = duel.inviteLink();
   // Le lien en QR aussi : d'un téléphone à l'autre, sans clavier.
@@ -520,15 +620,57 @@ async function openDuel(): Promise<void> {
 
 async function joinDuel(room: string): Promise<void> {
   screens.setMode('duel');
-  sayDuel('Joining…');
-  const why = await duel.join(room);
-  if (why) {
-    sayDuel(DUEL_WHY[why]);
+  showShare(false);
+  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', true);
+  if (!session.signedIn) {
+    askSignIn(room);
     return;
   }
-  // Le départ viendra du salon, avec son décompte, quand les deux prises sont là.
+  sayDuel('Joining…');
+  const why = await duel.join(room, session.picture);
+  if (why) {
+    // Sans compte, il reste de quoi en prendre un : le salon attend le retour.
+    if (why === 'sign-in') askSignIn(room);
+    else sayDuel(DUEL_WHY[why]);
+    return;
+  }
+  // Le départ viendra du salon, avec son décompte, quand les deux prises sont
+  // là. D'ici là, la grille : qui invite, et où l'on en est.
   duel.connect();
-  sayDuel('In the room. Waiting for the start…');
+  // Sans nom en face — un serveur d'avant, qui ne donne pas les pilotes — la
+  // phrase ne peut pas commencer par « untel ».
+  showGrid(duel.rival ? 'invites you to race. Getting ready…' : 'In the room. Getting ready…');
+}
+
+/* ------------------------------------------------------ la grille de départ -- */
+
+/**
+ * L'écran de départ, celui que les deux pilotes voient : le visage et le nom
+ * d'en face, une ligne d'état, et le décompte quand il vient. Il remplace
+ * l'ancien bricolage — décompte, attente et résultat écrits tour à tour dans la
+ * ligne grise de l'écran de partage, entre un champ d'invitation et un QR.
+ */
+function showGrid(line: string): void {
+  const rival = duel.rival;
+  // Le salon est le seul endroit où la photo d'un pilote circule ; l'appareil
+  // s'en souvient pour la liste d'amis, que le serveur ne peut pas fournir.
+  rememberPhoto(rival?.face, rival?.pic);
+  const face = document.getElementById('gridFace');
+  if (face) paintFace(face, rival, 56);
+  const who = document.getElementById('gridWho');
+  if (who) who.textContent = rival?.name ?? 'DUEL';
+  const count = document.getElementById('gridCount');
+  if (count) {
+    count.hidden = true;
+    count.classList.remove('go');
+  }
+  sayGrid(line);
+  if (screens.mode !== 'grid') screens.setMode('grid');
+}
+
+function sayGrid(text: string): void {
+  const line = document.getElementById('gridLine');
+  if (line) line.textContent = text;
 }
 
 /** Vrai entre le départ et la ligne ou l'épave : la course est en cours pour moi. */
@@ -540,38 +682,61 @@ let racing = false;
  * un décalage d'une frame entre les deux n'avantage personne.
  */
 function countdownThenStart(seconds: number): void {
+  const count = document.getElementById('gridCount');
+  sayGrid('Both pilots are here. Same track, same start.');
   let left = seconds;
   const tick = (): void => {
-    if (screens.mode !== 'duel' || !duel.active) return;
+    if (screens.mode !== 'grid' || !duel.active) return;
+    if (count) {
+      count.hidden = false;
+      count.textContent = left > 0 ? String(left) : 'GO';
+      count.classList.toggle('go', left <= 0);
+    }
     if (left <= 0) {
       racing = true;
       startDuel();
       return;
     }
-    sayDuel(`${left}`);
     left--;
     window.setTimeout(tick, 1000);
   };
   tick();
 }
 
-/** À la ligne : le reste de la trace part, la partie s'arrête, on attend l'autre. */
+/** Ce que la carte de fin dit tant que le salon n'a pas jugé. */
+const DUEL_WAIT = 'duel \u00b7 waiting for the other pilot…';
+
+/**
+ * À la ligne : le reste de la trace part, la partie compte, et la carte de
+ * score monte — la même que pour n'importe quelle fin, avec le duel en note.
+ * Le résultat la réécrira. C'est la partie qu'on vient de jouer qui doit
+ * s'afficher, pas l'écran d'appairage.
+ */
 function finishDuel(): void {
   racing = false;
   duel.flush(sim);
-  screens.setMode('duel');
-  sayDuel(`Finished — ${formatClock(sim.state.time)}. Waiting for the other pilot…`);
+  endRun(DUEL_WAIT, 0);
 }
 
-/** Le classement, tel que le salon l'a jugé. */
+/** Le classement, tel que le salon l'a jugé, écrit sous le score. */
 function showResult(ranking: Standing[]): void {
   racing = false;
   const me = duel.member;
   const won = ranking[0]?.who === me;
-  const line = (s: Standing): string =>
-    `${s.name} — ${s.finished ? `finished in ${formatClock(s.steps * DT)}` : `wrecked at ${(s.dist / 1000).toFixed(1)} km`}`;
-  if (screens.mode !== 'duel') screens.setMode('duel');
-  sayDuel(`${won ? 'YOU WON' : 'YOU LOST'} · ${ranking.map(line).join(' · ')}`);
+  const other = ranking.find((s) => s.who !== me);
+  const how = (s: Standing): string =>
+    s.finished
+      ? `finished in ${formatClock(s.steps * DT)}`
+      : `wrecked at ${(s.dist / 1000).toFixed(1)} km`;
+  const verdict =
+    `duel \u00b7 ${won ? 'YOU WON' : 'YOU LOST'}` +
+    (other ? ` \u00b7 ${other.name} ${how(other)}` : '');
+  noteCard(verdict);
+  const face = document.getElementById('overFace');
+  if (face) paintFace(face, other ? { name: other.name, ...(duel.rival ?? {}) } : null, 20);
+  // Le résultat peut arriver alors que la carte n'est pas là : quitté vers le
+  // menu, ou encore sur la grille parce que la course n'a jamais démarré.
+  if (screens.mode === 'grid') sayGrid(verdict);
   duel.leave();
   ghost.unfollow();
 }
@@ -581,9 +746,10 @@ function startDuel(): void {
   ranked.abandon();
   ghost.disarm();
   ghost.unfollow();
+  rivalOut = false;
   sim.reset(freshSeed());
   if (!duel.begin(sim)) {
-    sayDuel(DUEL_WHY.gone);
+    sayGrid(DUEL_WHY.gone);
     return;
   }
   launch();
@@ -600,19 +766,60 @@ function sayDuel(text: string): void {
   if (line) line.textContent = text;
 }
 
+/**
+ * Le visage d'un pilote dans un élément : ses pixels d'abord, sa photo par
+ * dessus si elle charge.
+ *
+ * Dans cet ordre et pas l'inverse : rien ne garantit qu'une adresse donnée à
+ * la connexion vaille encore trente jours plus tard — Google les fait tourner
+ * — et l'échange se fait au chargement, donc une photo absente ne laisse
+ * jamais de trou, elle ne remplace simplement rien. `no-referrer` par-dessus
+ * la politique du site : le fournisseur n'apprend même pas d'où on regarde.
+ */
+function paintFace(el: HTMLElement, pilot: Pilot | null, size: number): void {
+  el.innerHTML = pilot ? avatarSvg(pilot.face ?? pilot.name, size) : '';
+  // Celle qu'il envoie, ou celle qu'on a retenue de lui la dernière fois.
+  const url = pilot?.pic ?? photoFor(pilot?.face);
+  if (!pilot || !url) return;
+  const img = new Image(size, size);
+  img.className = 'photo';
+  img.alt = '';
+  img.referrerPolicy = 'no-referrer';
+  img.onload = () => {
+    el.replaceChildren(img);
+  };
+  img.src = url;
+}
+
+/** Vrai une fois que la sortie du rival a été annoncée, pour ne le dire qu'une fois. */
+let rivalOut = false;
+
 duel.onChange = (why) => {
   if (why) {
-    // la prise s'est fermée : la partie continue seule, et le HUD le dit
+    // la prise s'est fermée : la partie continue seule, et chaque écran le dit
+    // là où il peut — une bulle en course, la note sous le score, la ligne de
+    // la grille.
+    const wasRacing = racing;
     racing = false;
-    if (screens.isLive) hud.setBest(`duel \u00b7 ${DUEL_WHY[why]}`);
-    else sayDuel(DUEL_WHY[why]);
+    if (screens.isLive) {
+      hud.setBest(`duel \u00b7 ${DUEL_WHY[why]}`);
+      if (wasRacing && !rivalOut) {
+        rivalOut = true;
+        tips.say(`<b>${duel.rival?.name ?? 'The other pilot'}</b> left the race.`);
+      }
+    } else if (screens.mode === 'grid') sayGrid(DUEL_WHY[why]);
+    else noteCard(`duel \u00b7 ${DUEL_WHY[why]}`);
     ghost.unfollow();
     return;
   }
-  if (screens.mode === 'duel' && duel.seats >= 2) sayDuel('The other pilot is here.');
+  // L'autre vient d'entrer : celui qui attendait sur l'écran de partage passe
+  // sur la grille, où le décompte va tomber.
+  if (duel.seats >= 2 && (screens.mode === 'duel' || screens.mode === 'grid')) {
+    showGrid(duel.rival ? 'is here. Getting ready…' : 'The other pilot is here. Getting ready…');
+  }
 };
 duel.onStart = (countdown) => {
-  if (screens.mode === 'duel') countdownThenStart(countdown);
+  if (screens.mode === 'grid') countdownThenStart(countdown);
 };
 duel.onResult = (ranking) => showResult(ranking);
 
@@ -636,23 +843,32 @@ let unrankedWhy: Unranked | null = null;
  */
 const WRECK_HOLD_MS = 620;
 
-function endRun(): void {
+/**
+ * La carte de fin en cours, pour qu'une réponse tardive la réécrive : le
+ * verdict du tableau classé, ou le classement d'un duel. `up` dit si elle est
+ * déjà montée — avant, la note se pose dans la carte, que `show` lira.
+ */
+let liveCard: { card: ScoreBreakdown; id: number; up: boolean } | null = null;
+
+/** Réécrit la ligne sous le score de la partie qui vient de finir, et d'elle seule. */
+function noteCard(text: string): void {
+  if (!liveCard || liveCard.id !== runId) return;
+  liveCard.card.note = text;
+  if (liveCard.up) scoreScreen.note(text);
+}
+
+/**
+ * La fin d'une partie, quelle qu'elle soit : l'épave, ou la ligne d'arrivée
+ * d'un duel. `note` impose la ligne sous le score — un duel attend le
+ * classement du salon là où une partie seule attend celui du tableau — et
+ * `delayMs` laisse l'onde de choc à l'écran, ce qu'une arrivée n'a pas à faire.
+ */
+function endRun(note?: string, delayMs = WRECK_HOLD_MS): void {
   haptics.buzz([90, 60, 200]);
-  // En duel, l'épave est une sortie de course : le reste de la trace part,
-  // et l'écran attend le classement du salon plutôt que de montrer la carte.
+  // En duel, l'épave est aussi une sortie de course : le reste de la trace part.
   if (duel.active && racing) {
     racing = false;
     duel.flush(sim);
-    damage.reset();
-    submit();
-    screens.setMode('wreck');
-    const shown = runId;
-    window.setTimeout(() => {
-      if (runId !== shown || !duel.active) return;
-      screens.setMode('duel');
-      sayDuel('Wrecked. Waiting for the other pilot…');
-    }, WRECK_HOLD_MS);
-    return;
   }
   // La coque n'a plus de jauge à faire clignoter une fois explosée : sans
   // ceci le voile rouge continuait de pulser sur l'écran de score.
@@ -662,8 +878,12 @@ function endRun(): void {
   const wasRanked = ranked.active;
   const { wasBest, previousBest } = submit();
   // Le monde est déjà figé — `wreck` ne joue pas plus qu'`over` — mais rien
-  // n'est encore posé par-dessus : l'explosion a l'écran pour elle.
-  screens.setMode('wreck');
+  // n'est encore posé par-dessus : l'explosion a l'écran pour elle. Une
+  // arrivée n'explose pas, donc elle n'attend pas.
+  if (delayMs > 0) screens.setMode('wreck');
+  // Le visage du duel précédent n'a rien à faire sur la carte d'une partie
+  // seule : il n'est posé que par un verdict, et retiré à chaque fin.
+  document.getElementById('overFace')?.replaceChildren();
   const card: ScoreBreakdown = {
     distance: sim.state.dist,
     seconds: sim.state.time,
@@ -674,23 +894,25 @@ function endRun(): void {
     wasBest,
     previousBest,
     ghostScore: raced,
-    note: wasRanked
-      ? 'ranked \u00b7 checking'
-      : unrankedWhy
-        ? `unranked \u00b7 ${UNRANKED[unrankedWhy]}`
-        : '',
+    note:
+      note ??
+      (wasRanked
+        ? 'ranked \u00b7 checking'
+        : unrankedWhy
+          ? `unranked \u00b7 ${UNRANKED[unrankedWhy]}`
+          : ''),
   };
 
   // `show` compte ses sept lignes en les faisant sonner : elle ne peut pas
   // tourner derrière un calque caché, donc elle attend avec lui.
-  let carded = false;
   const shown = runId;
+  liveCard = { card, id: shown, up: false };
   window.setTimeout(() => {
     if (runId !== shown) return;
-    carded = true;
+    if (liveCard) liveCard.up = true;
     screens.setMode('over');
     scoreScreen.show(card);
-  }, WRECK_HOLD_MS);
+  }, delayMs);
 
   if (wasRanked) {
     // Le score du serveur remplace le local quand il arrive ; sinon le local
@@ -705,8 +927,7 @@ function endRun(): void {
           ? `unranked \u00b7 ${UNRANKED[verdict]}`
           : `ranked \u00b7 ${Math.round(verdict.score).toLocaleString('en-GB')} on the board` +
             (ranked.rank ? ` \u00b7 #${ranked.rank}` : '');
-      card.note = text;
-      if (carded) scoreScreen.note(text);
+      noteCard(text);
     });
   }
 }
@@ -755,6 +976,12 @@ function renderFrame(frameDt: number): void {
   if (duel.active) {
     duel.pump(sim);
     if (duel.other) ghost.follow(duel.other, frameDt);
+    // Le rival sorti : on le dit une fois, pendant la course. Sans ça son
+    // vaisseau s'arrêtait simplement de suivre, sans un mot.
+    if (racing && duel.other?.wrecked && !rivalOut) {
+      rivalOut = true;
+      tips.say(`<b>${duel.rival?.name ?? 'The other pilot'}</b> is out. Finish the line.`);
+    }
     // La ligne : la course de ce vaisseau est finie, l'objet jugera sur ce
     // qu'il a rejoué — le reste de la trace part tout de suite.
     if (racing && screens.isPlaying && duel.race > 0 && sim.state.dist >= duel.race) finishDuel();
@@ -918,7 +1145,8 @@ on('btnSettingsPause', () => screens.openSettings());
 on('btnCloseSettings', () => screens.setMode('menu'));
 on('btnBoardMenu', () => screens.setMode('board'));
 on('btnStay', () => screens.setMode('menu'));
-on('btnDuel', () => void openDuel());
+on('btnDuel', () => openDuel());
+on('btnMakeLink', () => void makeLink());
 on('btnShareInvite', () => {
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (!link || !link.value) return;
@@ -946,7 +1174,13 @@ function roomOf(text: string): string | null {
   const m = t.match(/(?:#|[?&])duel=([0-9a-f]{16})\b/) ?? t.match(/^([0-9a-f]{16})$/);
   return m ? m[1]! : null;
 }
-on('btnCancelDuel', () => screens.setMode('menu'));
+on('btnLeaveGrid', () => screens.setMode('menu'));
+on('btnCancelDuel', () => {
+  // Quitter l'écran, c'est renoncer à l'invitation : elle ne doit pas se
+  // rouvrir toute seule à la prochaine connexion de l'onglet.
+  rememberDuel(null);
+  screens.setMode('menu');
+});
 on('btnCopyInvite', () => {
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (!link || !link.value) return;
@@ -1008,6 +1242,8 @@ sim.tuning.renderScale = prefs.values.renderScale;
 viewport.setRenderScale(prefs.values.renderScale);
 
 screens.setMode('menu');
+screens.setMenuGates({ account: session.signedIn });
+paintAccountRow();
 screens.revealCursorOnPrecisePointer();
 // Entre le splash et le menu : qui vole ? Sans session, la porte propose de
 // se connecter ou de jouer hors ligne — le jeu est le même. Une session
@@ -1025,6 +1261,40 @@ if (session.fresh) {
 } else if (!session.signedIn && !gateSeen()) {
   screens.setMode('signin');
 }
+/**
+ * Qui vole, dans le menu. L'état du compte ne se lisait que dans l'onglet
+ * Profil, deux écrans plus loin, alors que c'est lui qui décide de ce que le
+ * menu propose — sans compte, le tableau et le duel n'y sont pas.
+ *
+ * Trois états : connecté et connu, connecté mais `/me` pas encore revenu, et
+ * hors ligne. Le troisième est le seul à proposer un geste.
+ */
+function paintAccountRow(): void {
+  const row = document.getElementById('btnAccount');
+  const face = document.getElementById('menuFace');
+  const who = document.getElementById('menuWho');
+  const act = document.getElementById('menuAct');
+  if (!row || !who || !act || !face) return;
+  const account = session.account;
+  const signedIn = session.signedIn;
+  face.innerHTML = account ? avatarSvg(account.face ?? account.name, 22) : '';
+  who.textContent = account
+    ? account.name
+    : signedIn
+      ? 'Signed in\u2026'
+      : // Court : la ligne est étroite sur un téléphone, et la porte qu'elle
+        // ouvre dit ce qu'un compte apporte.
+        'Playing offline';
+  act.textContent = signedIn ? 'ACCOUNT' : 'SIGN IN';
+  row.classList.toggle('out', !signedIn);
+}
+
+on('btnAccount', () => {
+  if (session.signedIn) {
+    screens.openSettings();
+    settings.showTab('tabProfile');
+  } else screens.setMode('signin');
+});
 on('btnGateSignIn', () => session.signIn('google'));
 on('btnGateOffline', () => {
   // Choisi pour l'onglet : la porte ne se représente pas à chaque écran.
@@ -1040,22 +1310,25 @@ on('btnNameSave', () => {
   const note = document.getElementById('nameNote');
   if (!input) return;
   void session.rename(input.value.trim()).then((ok) => {
-    if (ok) screens.setMode('menu');
-    else if (note) note.textContent = 'Two to sixteen letters, digits, space, - or _.';
+    if (ok && !resumePendingDuel()) screens.setMode('menu');
+    else if (!ok && note) note.textContent = 'Two to sixteen letters, digits, space, - or _.';
   });
 });
-on('btnNameSkip', () => screens.setMode('menu'));
-// Un lien d'invitation : le fragment porte le salon, et il en sort ici.
+on('btnNameSkip', () => {
+  if (!resumePendingDuel()) screens.setMode('menu');
+});
+on('btnDuelSignIn', () => session.signIn('google'));
+// Un lien d'invitation : le fragment porte le salon, et il en sort ici. Sans
+// compte, `joinDuel` le met de côté et propose de se connecter ; au retour, le
+// salon est reprise juste après l'écran du pseudo.
 {
   const hash = window.location.hash;
   const room = hash.startsWith('#') ? new URLSearchParams(hash.slice(1)).get(DUEL_LINK) : null;
   if (room && /^[0-9a-f]{16}$/.test(room)) {
     history.replaceState(history.state, '', window.location.pathname + window.location.search);
-    if (session.signedIn) void joinDuel(room);
-    else {
-      screens.setMode('duel');
-      sayDuel(DUEL_WHY['sign-in']);
-    }
+    void joinDuel(room);
+  } else if (screens.mode !== 'name') {
+    resumePendingDuel();
   }
 }
 // Le retour du système remonte d'un écran plutôt que de quitter le jeu, et
@@ -1067,6 +1340,10 @@ settings.syncAll();
 // est demandé une fois au démarrage — sans jeton, il ne demande rien.
 session.onChange = () => {
   settings.paintAccount();
+  // Et le menu avec eux : une connexion ouvre le tableau et le duel, une
+  // sortie les referme.
+  screens.setMenuGates({ account: session.signedIn });
+  paintAccountRow();
   // Le pseudo proposé au retour de chez le fournisseur : le nom du compte, à changer ou garder.
   const input = document.getElementById('nameInput') as HTMLInputElement | null;
   if (input && screens.mode === 'name' && session.account && !input.value)

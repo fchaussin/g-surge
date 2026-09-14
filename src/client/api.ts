@@ -38,6 +38,8 @@ export interface Seat {
   member: string;
   difficulty: Difficulty;
   seats: number;
+  /** Les pilotes déjà assis quand on arrive : au plus un, celui qui invite. */
+  rivals?: { name: string; face?: string }[];
   chunk: WireChunk;
 }
 
@@ -97,14 +99,59 @@ export interface Account {
   name: string;
   /** La clé publique du joueur, un ULID. */
   ulid: string;
+  /**
+   * La graine de son visage : le condensé de son identifiant chez le
+   * fournisseur. Facultative — le Worker et les pages se déploient séparément,
+   * donc un client neuf peut parler à un serveur qui ne la donne pas encore.
+   */
+  face?: string;
   /** Le compteur de duels — absent tant qu'aucun n'a été joué. */
   duels?: { wins: number; losses: number; played: number };
+}
+
+/** Un pilote de la liste d'amis : ce qu'il faut pour l'afficher et le défier. */
+export interface Friend {
+  name: string;
+  face: string;
+  code: string;
+}
+
+/** Ce qu'un pilote montre à l'autre dans un salon. */
+export interface Pilot {
+  name: string;
+  face?: string;
+  /** Sa photo chez le fournisseur, le temps du salon. Jamais stockée. */
+  pic?: string;
+}
+
+/** Un défi reçu : qui, quel salon. */
+export interface Invite {
+  id: number;
+  from: Friend;
+  room: string;
+  difficulty: Difficulty;
+}
+
+/** Tout l'écran des amis en une réponse : un écran, une requête. */
+export interface FriendList {
+  /** Mon code, celui que je donne. */
+  code: string;
+  friends: Friend[];
+  /** Les demandes reçues, à accepter ou à refuser. */
+  requests: Friend[];
+  invites: Invite[];
 }
 
 export interface BoardEntry {
   /** La ligne en base : c'est par elle que sa trace se demande, `api.trace`. */
   id: number;
   name: string;
+  /**
+   * La graine du visage, quand la partie vient d'un compte : le condensé de
+   * son identifiant chez le fournisseur, stable d'une semaine à l'autre et
+   * insensible à un changement de pseudo. Absente d'une partie sans compte.
+   */
+  face?: string;
   score: number;
   dist: number;
   time: number;
@@ -150,11 +197,22 @@ export const api = {
   setName: (name: string): Promise<{ ok: true }> => post('/me/name', { name }),
   deleteAccount: (): Promise<{ ok: true }> => post('/me/delete', {}),
   /** Un salon de duel : l'ouvrir, le rejoindre par son identifiant, tirer sa piste. */
-  openRoom: (difficulty: Difficulty): Promise<Seat> => post('/room', { difficulty }),
-  joinRoom: (room: string): Promise<Seat> =>
-    post(`/room/${room}/join`, {}).then((seat) => ({ ...(seat as Omit<Seat, 'room'>), room })),
+  openRoom: (difficulty: Difficulty, pic: string | null): Promise<Seat> =>
+    post('/room', { difficulty, pic }),
+  joinRoom: (room: string, pic: string | null): Promise<Seat> =>
+    post(`/room/${room}/join`, { pic }).then((seat) => ({
+      ...(seat as Omit<Seat, 'room'>),
+      room,
+    })),
   roomChunk: (room: string, from: number): Promise<WireChunk> =>
     call(`/room/${room}/track/${from}`),
+  /** Les amis : la liste entière en un appel, et les quatre gestes. */
+  friends: (): Promise<FriendList> => call('/friends'),
+  addFriend: (code: string): Promise<{ ok: true }> => post('/friends/add', { code }),
+  acceptFriend: (code: string): Promise<{ ok: true }> => post('/friends/accept', { code }),
+  removeFriend: (code: string): Promise<{ ok: true }> => post('/friends/remove', { code }),
+  challengeFriend: (code: string, difficulty: Difficulty, pic: string | null): Promise<Seat> =>
+    post('/friends/challenge', { code, difficulty, pic }),
   /** Ce que le serveur sait faire : les fournisseurs de connexion configurés. */
   health: (): Promise<{ ok: boolean; ranked: boolean; providers: string[] }> => call('/health'),
   board: (difficulty: Difficulty, category: BoardCategory = 'score'): Promise<Board> =>

@@ -8,7 +8,7 @@
  * ici avec le noyau et empaquetée comme le serveur l'empaquette, donc ce que
  * le navigateur rejoue est bien ce qu'un serveur rendrait.
  */
-import { expect, test } from './fixtures.js';
+import { expect, signIn, test } from './fixtures.js';
 import { DT, packTrace, Sim, type Trace } from '../../src/sim/index.js';
 
 const SEED = 'watched-run';
@@ -50,6 +50,7 @@ test.describe('watching a board entry', () => {
       route.fulfill({ contentType: 'application/json', body: JSON.stringify({ trace: packed }) }),
     );
 
+    await signIn(page);
     await game.boot();
     await page.locator('#btnBoardMenu').click();
     await expect(page.locator('#wboardBody .nm')).toHaveText('WATCHED');
@@ -99,6 +100,7 @@ test.describe('watching a board entry', () => {
       route.fulfill({ contentType: 'application/json', body: JSON.stringify({ trace: packed }) }),
     );
 
+    await signIn(page);
     await game.boot();
     await page.locator('#btnBoardMenu').click();
     await page.locator('#wboardBody button[data-watch="7"]').click();
@@ -133,6 +135,7 @@ test.describe('watching a board entry', () => {
       route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"trace"}' }),
     );
 
+    await signIn(page);
     await game.boot();
     await page.locator('#btnBoardMenu').click();
     await page.locator('#wboardBody button[data-watch="7"]').click();

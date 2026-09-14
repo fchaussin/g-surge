@@ -254,6 +254,61 @@ month. Pages serves the client free at any traffic. Replaying a run costs
 0.04 GB-s: the ranked boards never approach the duration limit, and stored
 traces at ~50 KB compressed leave room for ~100 000 ghosts in the free 5 GB.
 
+### Web3, evaluated and declined
+
+Asked on 13 September 2026: could a decentralised architecture take load off
+the Cloudflare server? Recorded here rather than in a roadmap because the
+answer follows entirely from *what the server can and cannot prove*, above.
+
+**The server exists for two things, and web3 replaces neither.**
+
+*Authority.* Everything the server does that matters is replaying a trace and
+believing the result rather than the client. A chain cannot do that: the
+replay is 130 000 steps of double-precision physics — 0.45 µs a step, sixty
+milliseconds a run — and no contract executes that for a fraction of a cent.
+The technique that would apply is a zero-knowledge proof of the run: *I ran
+this trace on this seed and scored this*, verified without replaying. The
+core is unusually well shaped for it — deterministic, seeded, no clock, no
+ambient randomness, already proven bit-identical across three engines — and
+that is exactly why the idea is tempting. It fails on two counts today. The
+simulation is in `float64`, and floating point in a circuit costs orders of
+magnitude more than integers: making it provable means converting the core to
+fixed point, which moves every frozen fixture and re-tunes the game
+(`TECH-DEBT.md` §17 is the smaller version of that same problem). And the
+step count is the wrong order: proving systems handle millions of
+constraints, one physics step is thousands, and a run is 130 000 steps.
+Revisit if a proving stack ever makes a 10⁸-constraint circuit routine; the
+seed, the trace and the digest are already the right primitives to feed it.
+
+*Relay.* A duel is two players exchanging state ten times a second through an
+object that also arbitrates. No chain relays anything at 10 Hz, and none is
+meant to.
+
+**What a chain would actually cost.** A score on-chain is a signature and gas
+per run, on a game that ends a run every two to four minutes — money and a
+wallet prompt per race. A wallet as identity replaces a Google account
+everyone already has with one most players do not, on a 160 KB browser game
+whose whole install story is *tap the link and play*. And the current
+identity is already two fields; there is no privacy left to buy.
+
+**Decentralised storage buys nothing here either.** Traces are ~50 KB
+compressed and the free 5 GB holds about 100 000 of them; storage is not a
+bottleneck, and IPFS or Arweave would add pinning and latency to something
+that is currently free and instant.
+
+**The one real lever is not web3.** If duels ever need to cost less, the
+answer is WebRTC: the two players exchange state directly, and the server
+keeps only signalling — a handful of messages instead of 3 552 requests a
+player-hour. The price is naming the trade-off honestly: the room is what
+replays both traces and ejects a liar, so a peer-to-peer duel is a duel
+between people who trust each other. Since a duel enters no board, that may
+be an acceptable trade the day it matters.
+
+**And it does not matter yet.** The table above is the measurement: the free
+plan carries ~1 500 ranked players a day and ~563 player-races, and $5 a
+month carries about 1 200 daily multiplayer players. Lightening a server that
+is not yet loaded would be paying complexity for a problem nobody has.
+
 ## Order of work
 
 `MULTIPLAYER-ROADMAP.md`: nine milestones, M0 to M8, what each delivers,

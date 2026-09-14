@@ -42,6 +42,19 @@ export class Tips {
     this.hide();
   }
 
+  /**
+   * Une bulle qui n'est pas un conseil : ce qui vient d'arriver dans la course
+   * — le rival sorti, le rival parti. Elle passe outre le réglage, qui ne
+   * concerne que l'aide, et repousse la bulle suivante plutôt que de lutter
+   * avec elle.
+   */
+  say(html: string, seconds = SHOW_FOR): void {
+    if (!this.toast) return;
+    this.toast.innerHTML = html;
+    this.toast.classList.add('on');
+    this.hideAt = this.elapsed + seconds;
+  }
+
   /** À appeler une fois par frame pendant une partie. */
   update(frameDt: number): void {
     this.elapsed += frameDt;

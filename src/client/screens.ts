@@ -35,6 +35,7 @@ export type Mode =
   | 'help'
   | 'board'
   | 'duel'
+  | 'grid'
   | 'quit';
 
 /**
@@ -47,11 +48,13 @@ export type Mode =
  */
 export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   menu: [
+    'btnAccount',
     'segDiff',
     'btnStart',
-    'btnHelp',
-    'btnSettingsMenu',
     'btnBoardMenu',
+    'btnDuel',
+    'btnSettingsMenu',
+    'btnHelp',
     'btnFullMenu',
     'btnInstall',
     'btnInstallLater',
@@ -63,7 +66,17 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   quit: ['btnStay', 'btnLeave'],
   signin: ['btnGateSignIn', 'btnGateOffline'],
   name: ['nameInput', 'btnNameSave', 'btnNameSkip'],
-  duel: ['btnCopyInvite', 'btnCancelDuel'],
+  duel: [
+    'btnDuelSignIn',
+    'friendCode',
+    'btnAddFriend',
+    'inviteInput',
+    'btnJoinInvite',
+    'btnMakeLink',
+    'btnCopyInvite',
+    'btnCancelDuel',
+  ],
+  grid: ['btnLeaveGrid'],
 };
 
 /** L'élément présélectionné à l'ouverture d'un écran. */
@@ -76,7 +89,27 @@ export const NAV_DEFAULT: Partial<Record<Mode, string>> = {
   quit: 'btnStay',
   signin: 'btnGateSignIn',
   name: 'btnNameSave',
-  duel: 'btnCopyInvite',
+  duel: 'btnCancelDuel',
+  grid: 'btnLeaveGrid',
+};
+
+/**
+ * Ce qu'une entrée de menu exige pour être montrée. Une entrée absente de la
+ * table est toujours là.
+ *
+ * `account` : sans compte, le duel n'ouvre qu'un écran qui dit « sign in to
+ * duel », et le tableau de la semaine est la fenêtre d'une partie qu'on ne
+ * peut pas jouer — le classé demande un compte. Une entrée de menu qui ne mène
+ * qu'à un refus n'est pas une entrée de menu.
+ *
+ * Le retour existe : la porte annonce les deux au démarrage, et le bouton de
+ * connexion vit dans l'onglet Profil des réglages.
+ */
+export type MenuNeed = 'account';
+
+export const MENU_NEEDS: Readonly<Record<string, MenuNeed>> = {
+  btnBoardMenu: 'account',
+  btnDuel: 'account',
 };
 
 /** Les écrans qui sont aussi des identifiants. `run` n'en est pas un : il montre le HUD. */
@@ -89,6 +122,7 @@ export const LAYERS: readonly Mode[] = [
   'board',
   'quit',
   'duel',
+  'grid',
   'signin',
   'name',
 ];
@@ -155,6 +189,7 @@ export class Screens {
         mode === 'help' ||
         mode === 'board' ||
         mode === 'duel' ||
+        mode === 'grid' ||
         mode === 'signin' ||
         mode === 'name',
     );
@@ -162,6 +197,18 @@ export class Screens {
 
     this.buildNav();
     this.options.onChange?.(mode, previous);
+  }
+
+  /**
+   * Applique `MENU_NEEDS` à l'état courant : ce qui n'est pas permis est
+   * masqué. Rien d'autre à faire pour le clavier — `buildNav` écarte déjà ce
+   * qui n'est pas affiché, donc la liste suit d'elle-même.
+   */
+  setMenuGates(has: Readonly<Record<MenuNeed, boolean>>): void {
+    for (const [id, need] of Object.entries(MENU_NEEDS)) {
+      document.getElementById(id)?.toggleAttribute('hidden', !has[need]);
+    }
+    if (this.current === 'menu') this.buildNav();
   }
 
   openSettings(): void {
@@ -327,6 +374,7 @@ export class Screens {
       case 'over':
       case 'quit':
       case 'duel':
+      case 'grid':
       case 'name':
         this.setMode('menu');
         return true;

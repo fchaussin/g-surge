@@ -75,7 +75,21 @@
   .brand b{font-weight:600;color:var(--neon)}
   .brand .ver{font-size:9px;font-weight:400;letter-spacing:.2em;white-space:nowrap;
     color:var(--dim2);text-shadow:none}
-  .tag{margin:9px 0 20px;font-size:12px;line-height:1.5;color:var(--dim)}
+  .tag{margin:9px 0 14px;font-size:12px;line-height:1.5;color:var(--dim)}
+  /* La ligne de compte du menu : discrète, mais toujours là. */
+  /* Le verdict d'un duel : un visage, puis la ligne. */
+  .duelend{display:flex;align-items:center;justify-content:center;gap:8px}
+  .duelend .face:empty{display:none}
+  .duelend .face .av,.duelend .face .photo{width:20px;height:20px;padding:1px}
+  .acctrow{display:flex;align-items:center;gap:9px;width:100%;margin:0 0 16px;padding:8px 10px;
+    border-radius:10px;border:1px solid var(--line);background:rgba(8,12,20,.5);
+    color:var(--text);font-size:12px;text-align:left;cursor:pointer}
+  .acctrow .face{display:flex;flex:none}
+  .acctrow .face .av{width:22px;height:22px;padding:2px}
+  .acctrow .who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .acctrow .act{flex:none;font-size:10px;letter-spacing:.14em;color:var(--neon)}
+  .acctrow.out .act{color:var(--hot)}
+  .acctrow.nav-sel,.acctrow:focus-visible{outline:none;border-color:var(--neon)}
 
   .btn{display:block;width:100%;padding:13px;border-radius:11px;border:1px solid var(--neon);
     background:rgba(37,226,255,.14);color:var(--text);font-size:14px;font-weight:600}
@@ -84,6 +98,12 @@
   .btn.ghost:active{color:var(--text);background:rgba(37,226,255,.1)}
   .btn.danger{border-color:rgba(255,47,154,.4);color:var(--hot);background:transparent}
   .btn + .btn{margin-top:9px}
+  /* Deux boutons sur une ligne. La marge est portée par les boutons et non par
+     la ligne : masqués tous les deux — sans compte — la ligne ne laisse alors
+     aucun blanc derrière elle. */
+  .btnrow{display:flex;gap:9px}
+  .btnrow .btn{margin-top:9px}
+  .btnrow .btn + .btn{margin-top:9px}
 
   .diffrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
   .diffrow.catrow{flex-wrap:wrap;row-gap:8px}
@@ -136,6 +156,35 @@
   .wboard li:last-child{border-bottom:0}
   .wboard .rk{width:20px;color:var(--dim2);font-size:11px;font-variant-numeric:tabular-nums}
   .wboard .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* La liste d'amis : les mêmes lignes que le tableau, avec un visage et un
+     bouton par pilote. */
+  #duelFriends h4{margin:14px 0 4px;font-size:10px;letter-spacing:.18em;color:var(--dim2);
+    font-weight:600}
+  #duelFriends h4:first-child{margin-top:0}
+  #duelFriends ul{list-style:none;margin:0;padding:0;max-width:520px}
+  #duelFriends li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;
+    border-bottom:1px solid rgba(223,242,248,.06)}
+  #duelFriends li:last-child{border-bottom:0}
+  #duelFriends .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #duelFriends .wbtn.hot{color:var(--hot);border-color:rgba(255,47,154,.4)}
+  #duelFriends .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
+  .mycode{margin:12px 0 0;font-size:11px;letter-spacing:.06em;color:var(--dim2)}
+  .mycode b{color:var(--neon);font-family:ui-monospace,Menlo,monospace;font-size:14px;
+    letter-spacing:.18em;user-select:all;-webkit-user-select:all}
+  .addfriend{display:flex;gap:8px;margin-top:12px}
+  .addfriend input{flex:1;min-width:0;margin:0;padding:10px 12px;border-radius:10px;
+    border:1px solid var(--line);background:rgba(8,12,20,.6);color:var(--text);
+    font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.18em;
+    text-transform:uppercase}
+  .addfriend .btn{width:auto;flex:none;margin:0;padding:10px 16px}
+  /* Le visage du pseudo : aligné sur le milieu de la ligne et non sur sa base,
+     et jamais comprimé par un nom long. */
+  .av{flex:none;align-self:center;border-radius:4px;background:rgba(223,242,248,.05);
+    padding:2px}
+  /* La photo du fournisseur, quand elle charge : même boîte que les pixels. */
+  .photo{flex:none;align-self:center;border-radius:4px;object-fit:cover;
+    background:rgba(223,242,248,.05)}
+  .face{margin:0 0 8px}
   .wboard .dv{font-variant-numeric:tabular-nums;font-weight:600}
   .wboard li:first-child .dv{color:var(--neon)}
   .wboard .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
@@ -552,6 +601,17 @@
     .kb{right:64px}
   }
 
+  /* La grille de départ. Le décompte tient la hauteur qu'il occupera, pour que
+     rien ne saute quand il apparaît. */
+  .modal.grid{text-align:center}
+  .modal.grid .pausedist{margin-bottom:14px}
+  .gridface{min-height:56px;margin-bottom:10px}
+  .gridface .av{width:56px;height:56px;padding:3px}
+  .gridcount{height:74px;line-height:74px;font-size:58px;font-weight:200;letter-spacing:.06em;
+    color:var(--neon);font-variant-numeric:tabular-nums;
+    text-shadow:0 0 26px rgba(37,226,255,.55)}
+  .gridcount[hidden]{display:none}
+  .gridcount.go{color:var(--hot);text-shadow:0 0 26px rgba(255,47,154,.55)}
   .pausehead{font-size:20px;font-weight:300;letter-spacing:.1em}
   .pausedist{margin:6px 0 20px;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
   .pausedist b{color:var(--text);font-weight:600;font-size:15px}
@@ -712,6 +772,14 @@
       <span class="ver"><!-- build:stamp -->DEV</span>
     </div>
     <p class="tag">Endless track, banked corners, corkscrews and jumps. Trash your ship and the run is over.</p>
+    <!-- Qui vole. C'était introuvable hors de l'onglet Profil, et depuis que le
+         tableau et le duel disparaissent sans compte, le menu raccourcissait
+         sans rien dire. Connecté, la ligne mène au profil ; sinon, à la porte. -->
+    <button class="acctrow" id="btnAccount">
+      <span class="face" id="menuFace"></span>
+      <span class="who" id="menuWho">Not signed in</span>
+      <span class="act" id="menuAct">SIGN IN</span>
+    </button>
     <div class="diffrow">
       <span>DIFFICULTY</span>
       <div class="seg navgroup" role="radiogroup" aria-label="Difficulty" id="segDiff" tabindex="0">
@@ -722,11 +790,18 @@
     </div>
     <p class="diffnote" id="diffNote"></p>
     <button class="btn" id="btnStart">START</button>
-    <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
+    <!-- Ce qui va par deux tient sur une ligne : le classé d'un côté — le
+         tableau et le duel, qui vont ensemble et disparaissent ensemble sans
+         compte — et de quoi régler l'écran de l'autre, tout en bas. -->
+    <div class="btnrow">
+      <button class="btn ghost" id="btnBoardMenu">WEEKLY BOARD</button>
+      <button class="btn ghost" id="btnDuel">DUEL</button>
+    </div>
     <button class="btn ghost" id="btnSettingsMenu">SETTINGS</button>
-    <button class="btn ghost" id="btnBoardMenu">WEEKLY BOARD</button>
-    <button class="btn ghost" id="btnDuel">DUEL</button>
-    <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
+    <div class="btnrow">
+      <button class="btn ghost" id="btnHelp">HOW TO PLAY</button>
+      <button class="btn ghost" id="btnFullMenu">FULLSCREEN</button>
+    </div>
     <div class="install" id="installCard" hidden>
       <p id="installText">Install G-SURGE: full screen, works offline, and it keeps itself up to date.</p>
       <button class="btn" id="btnInstall">INSTALL APP</button>
@@ -767,7 +842,10 @@
     </div>
     <div class="overtag" id="overTag"></div>
     <div class="overtag ghosttag" id="overGhost"></div>
-    <div class="overtag ghosttag" id="overNote"></div>
+    <!-- Le visage du rival à côté du verdict d'un duel : sa photo si elle
+         charge, ses pixels sinon. Vide hors duel. -->
+    <div class="duelend"><span class="face" id="overFace"></span>
+      <span class="overtag ghosttag" id="overNote"></span></div>
     <button class="btn" id="btnAgain">RUN AGAIN</button>
     <button class="btn ghost" id="btnOverMenu">MAIN MENU</button>
   </div>
@@ -884,16 +962,12 @@
           <button class="toggle" id="tglRanked" aria-pressed="false"></button>
         </div>
       </div>
-      <div class="grp">
-        <h3>Data</h3>
-        <p>The local leaderboard and your ghost runs are stored on this device only. A ranked run also reaches the server that keeps the weekly board.</p>
-        <button class="btn danger" id="btnClear">CLEAR LEADERBOARD</button>
-      </div>
       </div>
 
       <div class="page" id="pageProfile">
         <div class="grp">
           <h3>Account</h3>
+          <div class="face" id="accountFace" hidden></div>
           <p class="acct" id="accountLine">Not signed in.</p>
           <button class="btn" id="btnSignIn">SIGN IN WITH GOOGLE</button>
           <div id="profileEdit" hidden>
@@ -918,6 +992,11 @@
           <div id="slidersAdv"></div>
           <button class="btn ghost" id="btnDefault">RESET EVERYTHING TO DEFAULTS</button>
         </div>
+        <div class="grp">
+          <h3>Data</h3>
+          <p>Your local top scores and your ghost runs are stored on this device only. A ranked run also reaches the server that keeps the weekly board.</p>
+          <button class="btn danger" id="btnClear">CLEAR TOP SCORES</button>
+        </div>
       </div>
     </div>
   </div>
@@ -937,7 +1016,8 @@
   <div class="scrim"></div>
   <div class="modal">
     <div class="pausehead">WHO'S FLYING?</div>
-    <div class="pausedist">Sign in to race ranked and to duel. Or play offline — the game is the same.</div>
+    <div class="pausedist">An account adds two things: the weekly ranked board, and duels against another pilot.
+      Offline the game is the same, and your top scores stay on this device.</div>
     <button class="btn" id="btnGateSignIn">SIGN IN WITH GOOGLE</button>
     <button class="btn ghost" id="btnGateOffline">PLAY OFFLINE</button>
   </div>
@@ -962,20 +1042,61 @@
     <div class="body">
       <div class="grp">
         <p class="acct" id="duelLine">Opening a room…</p>
-        <input type="text" id="inviteLink" readonly aria-label="Invite link">
-        <button class="btn" id="btnShareInvite">SHARE LINK</button>
-        <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
-        <canvas id="inviteQr" width="232" height="232" aria-label="Invite QR code"></canvas>
+        <!-- L'invité qui n'a pas de compte : se connecter d'ici, et retomber
+             dans le salon au retour. Le fragment du lien ne survit pas à
+             l'aller-retour, le salon mis de côté si. -->
+        <button class="btn" id="btnDuelSignIn" hidden>SIGN IN WITH GOOGLE</button>
+      </div>
+      <!-- Les gens d'abord, le lien ensuite : défier un ami ne demande aucun
+           échange, c'est le lien qui est le cas particulier. -->
+      <div class="grp">
+        <h3>Race a friend</h3>
+        <div id="duelFriends"></div>
+        <div class="addfriend">
+          <input type="text" id="friendCode" maxlength="6" placeholder="THEIR CODE"
+            aria-label="Friend code">
+          <button class="btn ghost" id="btnAddFriend">ADD</button>
+        </div>
+        <p class="acct" id="friendsNote"></p>
       </div>
       <div class="grp">
         <h3>Got a link?</h3>
         <input type="text" id="inviteInput" placeholder="Paste an invite link or its code" aria-label="Invite link to join">
         <button class="btn ghost" id="btnJoinInvite">JOIN</button>
       </div>
+      <!-- Le lien est le cas particulier : celui qui n'est pas encore un ami.
+           Le salon ne s'ouvre qu'ici — regarder l'écran n'en ouvre plus un. -->
+      <div class="grp">
+        <h3>Nobody in the list?</h3>
+        <button class="btn ghost" id="btnMakeLink">INVITE BY LINK</button>
+        <!-- Ce qui se partage n'appartient qu'à celui qui ouvre le salon : celui
+             qui arrive par le lien n'a rien à partager, et voyait un champ vide,
+             deux boutons inertes et le trou d'un QR jamais dessiné. -->
+        <div id="duelShare" hidden>
+          <input type="text" id="inviteLink" readonly aria-label="Invite link">
+          <button class="btn" id="btnShareInvite">SHARE LINK</button>
+          <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
+          <canvas id="inviteQr" width="232" height="232" aria-label="Invite QR code" hidden></canvas>
+        </div>
+      </div>
       <div class="grp">
         <p>Same track for both, on the server. The other pilot's ship rides beside yours as a ghost; there are no collisions. The race starts as soon as they arrive.</p>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- La grille de départ : qui invite, l'attente, puis le décompte. Elle sert aux
+     deux pilotes — celui qui a ouvert le salon y arrive quand l'autre entre,
+     celui qui suit le lien y arrive tout de suite. -->
+<div class="layer" id="grid">
+  <div class="scrim"></div>
+  <div class="modal grid">
+    <div class="gridface" id="gridFace"></div>
+    <div class="pausehead" id="gridWho">DUEL</div>
+    <div class="pausedist" id="gridLine">Joining…</div>
+    <div class="gridcount" id="gridCount" hidden></div>
+    <button class="btn ghost" id="btnLeaveGrid">LEAVE</button>
   </div>
 </div>
 
