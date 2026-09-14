@@ -10,3 +10,9 @@ server/dist/
 test-results/
 playwright-report/
 blob-report/
+
+# Claude Code : la configuration de projet est suivie — les règles, le garde
+# des secrets, les réglages qui les câblent. Ce qui est propre à une machine
+# va dans `settings.local.json`, et n'a rien à faire ici.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
