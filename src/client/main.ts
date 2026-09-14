@@ -1457,4 +1457,4 @@ function freeze(seed: string, steps: number): void {
   viewport.render(scene);
 }
 
-installDebugSurface({ sim, loop, viewport, screens, sky, ghost, freeze, startRanked });
+installDebugSurface({ sim, loop, viewport, screens, sky, ghost, ship, freeze, startRanked });

@@ -26,6 +26,7 @@ import {
 } from '../sim/index.js';
 import { CORE_DIGEST } from './core.js';
 import type { Ghost } from './ghost.js';
+import type { Ship } from './ship.js';
 import type { Loop } from './loop.js';
 import type { Screens } from './screens.js';
 import type { Sky } from './sky.js';
@@ -57,6 +58,8 @@ export interface DebugSurface {
   record(): Trace;
   /** Le fantôme : en course, dessiné, son écart et son score. */
   ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
+  /** L'épave posée après l'explosion. Elle doit partir avec la partie suivante. */
+  wreck(): boolean;
   /** Démarre une partie classée ; résout la raison si elle ne l'est pas. L'interrupteur du menu vient en M3. */
   startRanked(): Promise<string | null>;
 }
@@ -69,6 +72,7 @@ declare global {
 
 export interface DebugDeps {
   readonly sim: Sim;
+  readonly ship: Ship;
   readonly loop: Loop;
   readonly viewport: Viewport;
   readonly screens: Screens;
@@ -149,5 +153,6 @@ export function installDebugSurface(deps: DebugDeps): void {
       gap: deps.ghost.gap,
       score: deps.ghost.score,
     }),
+    wreck: () => deps.ship.wrecked,
   };
 }

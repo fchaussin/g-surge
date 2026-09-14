@@ -169,6 +169,15 @@ export class Ship {
   private exploding = false;
   /** Vrai dès l'explosion et jusqu'à `resetExplosion` : la coque reste cachée. */
   private destroyed = false;
+  /**
+   * L'épave, montrée quand l'onde s'est dissipée.
+   *
+   * La coque disparaissait pour de bon et laissait du vide à l'endroit exact
+   * où le joueur regardait — pendant la tenue d'après-explosion, puis derrière
+   * la carte de score, et pour l'autre pilote d'un duel. Une carcasse éteinte
+   * et couchée dit ce qui s'est passé ; du vide ne dit rien.
+   */
+  private readonly wreck: Group;
   private explodeAge = 0;
 
   /* Couleurs de travail, pour que les interpolations par frame n'allouent rien. */
@@ -178,6 +187,15 @@ export class Ship {
   constructor() {
     this.group.add(this.body);
     this.buildHull();
+    // Une seconde coque, éteinte : même géométrie, matériau mat. Elle est
+    // bâtie une fois et cachée, comme tout le reste ici — rien ne s'alloue
+    // au moment où la partie se perd.
+    // Une braise plutôt qu'une silhouette noire : sur une route sombre, un
+    // matériau seulement mat se confondait avec les marquages — vu sur une
+    // capture. L'émissif est faible, elle n'éclaire rien autour d'elle.
+    this.wreck = hullBody(new MeshLambertMaterial({ color: 0x2f343d, emissive: 0x3a1206 }));
+    this.wreck.visible = false;
+    this.group.add(this.wreck);
     ({ outer: this.flameOuter, core: this.flameCore } = this.buildPlumes());
 
     this.haloMaterial = new MeshBasicMaterial({
@@ -392,15 +410,27 @@ export class Ship {
       this.exploding = false;
       this.shockwave.visible = false;
       this.flash.visible = false;
+      // L'onde s'est dissipée : l'épave prend la place de la coque. Couchée sur
+      // le flanc et posée plus bas, pour qu'on la lise comme une carcasse et
+      // non comme un vaisseau à l'arrêt.
+      this.wreck.visible = true;
+      this.wreck.rotation.set(0.18, 0.42, 1.05, 'YXZ');
+      this.wreck.position.set(0.3, -0.25, -0.6);
     }
   }
 
   /** Reforme le vaisseau pour une nouvelle partie : l'inverse de `explode`. */
+  /** Vrai quand l'épave est posée sur la piste : lu par la surface de mise au point. */
+  get wrecked(): boolean {
+    return this.wreck.visible;
+  }
+
   resetExplosion(): void {
     this.destroyed = false;
     this.exploding = false;
     this.explodeAge = 0;
     this.body.visible = true;
+    this.wreck.visible = false;
     this.shockwave.visible = false;
     this.flash.visible = false;
   }

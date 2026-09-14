@@ -32,6 +32,8 @@ import { hullBody } from './ship.js';
 /** Le cyan du drift, vu à travers : la teinte du jeu pour « la même chose, en écho ». */
 const GHOST_COLOUR = 0x7fe7ff;
 const GHOST_OPACITY = 0.42;
+/** La teinte d'une épave : la même silhouette, éteinte. */
+const GHOST_WRECKED = 0x39414d;
 /** La caméra est 19 m derrière le vaisseau ; le fantôme s'efface sur les 8 m qui la précèdent. */
 const CAMERA_BEHIND = 19;
 const FADE_SPAN = 8;
@@ -207,7 +209,11 @@ export class Ghost {
     this.body.rotation.z = -g.yaw * 0.9;
     // il s'efface en approchant la caméra, et pâlit quand il n'a plus de poussée
     const near = Math.min(1, (d + CAMERA_BEHIND) / FADE_SPAN);
-    const lit = g.wrecked ? 0.5 : 0.85 + g.tier * 0.05;
+    // Épave : elle s'éteint au lieu de s'effacer. Un fantôme déjà à demi
+    // transparent qu'on pâlissait encore de moitié disparaissait — or c'est
+    // justement ce qu'on veut voir, l'endroit où l'autre s'est arrêté.
+    const lit = g.wrecked ? 1 : 0.85 + g.tier * 0.05;
     this.material.opacity = GHOST_OPACITY * near * lit;
+    this.material.color.set(g.wrecked ? GHOST_WRECKED : GHOST_COLOUR);
   }
 }

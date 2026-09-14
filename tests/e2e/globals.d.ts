@@ -30,6 +30,8 @@ interface GsNextDebug {
   }): unknown;
   record(): unknown;
   ghost(): { armed: boolean; visible: boolean; gap: number; score: number };
+  /** L'épave posée après l'explosion. */
+  wreck(): boolean;
   startRanked(): Promise<string | null>;
 }
 
