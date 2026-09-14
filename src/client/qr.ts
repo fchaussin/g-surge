@@ -10,9 +10,10 @@
  *
  * Écrit d'après ISO/IEC 18004 : la génération de galois sur x^8+x^4+x^3+x^2+1,
  * les huit masques, la pénalité d'évaluation des masques, les motifs de
- * repérage et d'alignement, les bits de format. Le test qui compte est la
- * lecture par l'appareil photo d'un téléphone ; le test automatique ne
- * vérifie que la forme — taille, motifs de repérage, zone calme.
+ * repérage et d'alignement, les bits de format. `tests/qr.test.ts` relit ce
+ * qu'il écrit : un décodeur indépendant y refait le chemin inverse et rend la
+ * chaîne. C'est là qu'on a vu que la réservation des zones de format éteignait
+ * deux modules de synchronisation.
  */
 
 /* ---------------------------------------------------- galois GF(256) -- */
@@ -159,10 +160,15 @@ function encode(text: string): { size: number; modules: Uint8Array } {
           set(cx + dx, cy + dy, r === 1 ? 0 : 1);
         }
     }
-  // les zones de format, réservées maintenant, écrites après le masque
+  // les zones de format, réservées maintenant, écrites après le masque. La
+  // ligne et la colonne 6 en sont exclues : ce sont les motifs de
+  // synchronisation, que la norme saute ici et que cette boucle éteignait —
+  // deux modules clairs au beau milieu des deux pistes, posés après elles.
   for (let i = 0; i < 9; i++) {
-    set(i, 8, 0);
-    set(8, i, 0);
+    if (i !== 6) {
+      set(i, 8, 0);
+      set(8, i, 0);
+    }
     if (i < 8) {
       set(size - 1 - i, 8, 0);
       set(8, size - 1 - i, 0);
