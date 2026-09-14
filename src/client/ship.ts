@@ -86,6 +86,62 @@ const FLASH_RADIUS = 5;
 /** Combien l'anneau est serré : plus haut, plus fin. Réglé à l'œil. */
 const SHOCKWAVE_RIM = 2.6;
 
+/**
+ * Éclipses par seconde de la coque pendant la grâce, et part du cycle passée
+ * éteinte. Voir `setGrace`.
+ *
+ * Un tiers, pas la moitié : la position latérale du vaisseau est la seule chose
+ * que le joueur pilote, et la grâce tombe précisément au moment où il essaie de
+ * se replacer. Une coque absente un temps sur deux lui retirerait sa référence
+ * juste là. Un tiers se lit comme un clignotement et laisse la silhouette
+ * suivable.
+ */
+const GRACE_BLINK_HZ = 8;
+const GRACE_BLINK_OFF = 1 / 3;
+
+/**
+ * Le battement des plumes : deux sinusoïdes par tuyère, en Hz, et l'amplitude
+ * du battement en fraction de la longueur de base.
+ *
+ * **Pourquoi pas `Math.random`, qui était là.** Un tirage par frame n'a pas de
+ * fréquence propre : il change aussi souvent que la machine affiche, donc le
+ * même code bat quatre fois plus vite à 240 fps qu'à 60. Une horloge en
+ * secondes bat pareil partout, ce qui est la seule façon d'accorder l'effet une
+ * fois. C'est le raisonnement de `WAKE_*` juste en dessous, pour la traînée,
+ * et il vaut ici mot pour mot.
+ *
+ * **Deux sinusoïdes et non une** : une seule se lit comme une pulsation
+ * régulière, donc comme une animation. Deux fréquences sans rapport simple
+ * battent l'une contre l'autre et ne se répètent qu'au bout de plusieurs
+ * secondes, ce qui se lit comme de l'instabilité.
+ *
+ * **Des fréquences différentes d'une tuyère à l'autre, et non un déphasage** :
+ * toutes les sinusoïdes partent donc de zéro, le battement vaut exactement 1
+ * à l'horloge zéro, et `snapThrust` retrouve un état reproductible sans avoir
+ * à connaître les phases. Les deux tuyères divergent dès la frame suivante.
+ */
+const PLUME_RATES: readonly (readonly [number, number])[] = [
+  [7.3, 11.9],
+  [8.7, 13.1],
+];
+const PLUME_WOBBLE = 0.16;
+
+/**
+ * Secondes après lesquelles l'horloge du battement revient à zéro.
+ *
+ * **Les quatre fréquences sont des multiples de 0,1 Hz, donc à dix secondes
+ * chacune a bouclé un nombre entier de tours** : le repli est exact, aucune des
+ * sinusoïdes ne saute. Toute fréquence ajoutée ici doit garder cette propriété.
+ *
+ * Sans le repli, l'horloge grandissait indéfiniment. Mesuré : à un million de
+ * frames l'argument passé à `Math.sin` dépasse le million de radians, la
+ * réduction d'argument devient le coût dominant, et la mise à jour des plumes
+ * monte de 34 ns à 570 ns par frame. Replié, l'argument reste sous 830 rad.
+ */
+const PLUME_PERIOD = 10;
+
+const TAU = Math.PI * 2;
+
 /* Pas de `precision` déclarée : three.js pose `highp`, et le ciel a déjà payé
    ce qu'un `mediump` coûte ici. */
 const SHOCKWAVE_VERT = `
@@ -161,6 +217,17 @@ export class Ship {
   private wake = 0;
   private wakeClock = 0;
 
+  /**
+   * L'horloge du battement des plumes, en secondes, et la géométrie de base
+   * vers laquelle le barreau de poussée les amène.
+   *
+   * La base est ce qui s'amortit ; le battement se multiplie dessus, entier.
+   * Voir `updateThrust` pour ce que l'inverse coûtait.
+   */
+  private plumeClock = 0;
+  private plumeLen = 0;
+  private plumeRad = 0;
+
   /** La coque d'onde qui enfle et le cœur bref qu'elle entoure. Voir `explode`. */
   private readonly shockwave: Mesh;
   private readonly shockwaveMaterial: ShaderMaterial;
@@ -179,6 +246,10 @@ export class Ship {
    */
   private readonly wreck: Group;
   private explodeAge = 0;
+
+  /** `prefers-reduced-motion` : lu une fois, comme dans `overlay.ts`. */
+  private readonly damped =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* Couleurs de travail, pour que les interpolations par frame n'allouent rien. */
   private readonly tmpA = new Color();
@@ -254,6 +325,36 @@ export class Ship {
     this.group.rotation.z = bank;
   }
 
+  /**
+   * L'invulnérabilité brève, telle qu'elle se voit : la coque s'éclipse et
+   * revient tant que la grâce court.
+   *
+   * La phase se lit sur le compteur de la simulation plutôt que sur une horloge
+   * d'affichage, et c'est ce qui la rend sans entretien : il descend au pas
+   * fixe, donc le clignotement bat pareil à toutes les cadences, il n'y a rien
+   * à amortir ni à remettre à zéro avant une capture, et il finit forcément
+   * coque visible puisqu'à zéro la branche ne s'ouvre pas.
+   *
+   * La bulle d'invincibilité, elle, n'est pas touchée : son propre clignotement
+   * annonce une fin prochaine, celui-ci dit qu'on est encore intouchable, et
+   * les deux ne doivent pas se prononcer sur le même objet. Voir `shield.ts`.
+   *
+   * `prefers-reduced-motion` l'éteint, comme il éteint le battement du voile de
+   * dégâts dans `damage.ts` : une coque qui s'éclipse huit fois par seconde est
+   * exactement ce que ce réglage existe pour éviter. Le joueur garde la grâce,
+   * il ne la voit pas — la mécanique ne dépend pas de son affichage.
+   *
+   * @param graceT secondes d'invulnérabilité restantes, `state.graceT`.
+   */
+  setGrace(graceT: number): void {
+    if (this.destroyed) return;
+    if (graceT <= 0 || this.damped) {
+      this.body.visible = true;
+      return;
+    }
+    this.body.visible = (graceT * GRACE_BLINK_HZ) % 1 > GRACE_BLINK_OFF;
+  }
+
   /** Attitude visuelle : roulis dans le virage, lacet avec la dérive. */
   setAttitude(lean: number, yaw: number, pitch: number): void {
     this.body.rotation.z = lean;
@@ -267,19 +368,41 @@ export class Ship {
    */
   updateThrust(frameDt: number, level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
-    // Délibérément encore sur Math.random : du bruit visuel par frame, hors
-    // simulation, et le semer couplerait la présentation au noyau.
-    const flicker = 0.86 + Math.random() * 0.28;
+    this.plumeClock += frameDt;
+    if (this.plumeClock >= PLUME_PERIOD) this.plumeClock -= PLUME_PERIOD;
 
-    for (let i = 0; i < this.flames.length; i++) {
-      const m = this.flames[i]!;
-      const isCore = i % 2 === 1;
-      const targetLen = lv.len * (isCore ? 0.62 : 1) * flicker;
-      const targetRad = lv.rad * (isCore ? 0.5 : 1);
-      const k = Math.min(1, frameDt * 12);
-      m.scale.x += (targetRad - m.scale.x) * k;
-      m.scale.y = m.scale.x;
-      m.scale.z += (targetLen - m.scale.z) * k;
+    // C'est le barreau qu'on amortit, plus le battement.
+    //
+    // L'inverse était écrit ici, et c'est ce qui rendait les réacteurs figés :
+    // un tirage aléatoire par frame passait par ce même amortissement à
+    // `frameDt * 12`, soit un cinquième du chemin à 60 fps. La cible se
+    // retirant au hasard autour de sa moyenne à chaque frame, l'amortissement
+    // se comportait en filtre passe-bas et il ne restait presque rien des
+    // ±14 % annoncés. Le scintillement était donc bien là, et invisible.
+    //
+    // La base — celle que le barreau déplace — garde l'amortissement, qui est
+    // ce à quoi il sert : une montée en boost ne doit pas être un saut. Le
+    // battement, lui, s'applique entier.
+    const k = Math.min(1, frameDt * 12);
+    this.plumeLen += (lv.len - this.plumeLen) * k;
+    this.plumeRad += (lv.rad - this.plumeRad) * k;
+
+    // Une tuyère à la fois : les deux cônes d'une même tuyère partagent son
+    // battement — c'est un moteur, pas deux — mais les deux tuyères ont chacune
+    // le sien. Elles battaient jusqu'ici sur la même valeur, ce qu'aucun moteur
+    // réel ne fait et ce que l'œil relève même sans savoir pourquoi.
+    const nozzles = this.flames.length >> 1;
+    for (let n = 0; n < nozzles; n++) {
+      const [a, b] = PLUME_RATES[n % PLUME_RATES.length]!;
+      const t = this.plumeClock;
+      const beat = 1 + PLUME_WOBBLE * 0.5 * (Math.sin(TAU * a * t) + Math.sin(TAU * b * t));
+      for (let s = 0; s < 2; s++) {
+        const m = this.flames[n * 2 + s]!;
+        const isCore = s === 1;
+        m.scale.z = this.plumeLen * (isCore ? 0.62 : 1) * beat;
+        m.scale.x = this.plumeRad * (isCore ? 0.5 : 1);
+        m.scale.y = m.scale.x;
+      }
     }
 
     const ko = Math.min(1, frameDt * 8);
@@ -297,9 +420,16 @@ export class Ship {
    * vers leur cible sur beaucoup de frames, donc une frame prise après un nombre
    * arbitraire d'entre elles n'est pas reproductible — ce qui s'est vu comme
    * 7 000 pixels de différence entre deux captures du même état figé.
+   *
+   * La base amortie et l'horloge du battement sont remises avec le reste : sans
+   * elles, la frame suivante repartirait de l'état que la partie précédente a
+   * laissé et déferait le calage d'un coup.
    */
   snapThrust(level: ThrustTier): void {
     const lv = THRUST_LEVELS[level];
+    this.plumeClock = 0;
+    this.plumeLen = lv.len;
+    this.plumeRad = lv.rad;
     for (let i = 0; i < this.flames.length; i++) {
       const m = this.flames[i]!;
       const isCore = i % 2 === 1;

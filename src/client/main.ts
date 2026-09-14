@@ -1010,13 +1010,24 @@ function renderFrame(frameDt: number): void {
   // Gîte et lacet sont montrés, pas simulés : ils traînent derrière l'état pour
   // que la coque se lise comme une masse au lieu de sauter d'une attitude à
   // l'autre.
-  const wantLean = -state.yaw * 0.9 - MathUtils.clamp(state.latVel * 0.01, -0.2, 0.2);
+  //
+  // Le wall riding fait exception. La physique y annule déjà la vitesse
+  // latérale — `step()`, `latVel = riding ? 0 : …` — donc le vaisseau épouse la
+  // bordure ; seul le dessin la contredisait, le nez restant braqué dans le mur
+  // parce que le manche continue d'y pousser et que `slip` explose. On ramène
+  // l'attitude dans l'axe du rail tant que le contact tient : le mur capture le
+  // vaisseau, et ça se voit. L'amorti des deux lignes suivantes fait la
+  // transition, il n'y a rien à lisser de plus.
+  const railed = state.rideT > 0 && state.contact && !state.air;
+  const wantLean = railed ? 0 : -state.yaw * 0.9 - MathUtils.clamp(state.latVel * 0.01, -0.2, 0.2);
   lean += (wantLean - lean) * Math.min(1, frameDt * 7);
-  const wantYaw =
-    state.yaw * sim.tuning.yawVisual +
-    MathUtils.clamp(state.slip * sim.tuning.driftYaw, -0.42, 0.42);
+  const wantYaw = railed
+    ? 0
+    : state.yaw * sim.tuning.yawVisual +
+      MathUtils.clamp(state.slip * sim.tuning.driftYaw, -0.42, 0.42);
   yawVisual += (wantYaw - yawVisual) * Math.min(1, frameDt * 9);
   ship.setAttitude(lean, yawVisual, MathUtils.clamp(-state.vyRel * 0.018, -0.32, 0.32));
+  ship.setGrace(state.graceT);
   ship.updateThrust(frameDt, thrust);
   ship.updateSmoke(frameDt, state.speed, thrust, driftIntensity(state) * driftSide(state));
   ship.updateExplosion(frameDt);

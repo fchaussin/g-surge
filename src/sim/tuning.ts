@@ -134,6 +134,14 @@ export interface Tuning {
   badLandingHull: number;
   damageSpeed: number;
   damageSteer: number;
+  /**
+   * Secondes d'invulnérabilité offertes par un dégât encaissé : le temps de se
+   * remettre en piste sans que les dégâts s'empilent. Voir `graceT` dans
+   * `state.ts` pour ce que la grâce couvre, et ce qu'elle ne couvre pas.
+   */
+  graceHit: number;
+  /** Secondes d'invulnérabilité offertes par la fin de l'invincibilité. */
+  graceRide: number;
 
   /* Objets et score */
   coinChance: number;
@@ -316,6 +324,15 @@ export const DEFAULTS: Readonly<Tuning> = {
   badLandingHull: 12,
   damageSpeed: 0.22,
   damageSteer: 0.2,
+  /* La grâce ne dépend pas de la difficulté : ce qu'elle achète est le temps de
+   * reprendre la main, et une main ne reprend pas plus vite en difficile. Ce
+   * sont `hullImpact` et `hullScrape` qui portent la difficulté, et ils la
+   * portent toujours — la grâce suspend la perte de coque, elle ne l'adoucit
+   * pas. La sortie d'invincibilité est un peu plus longue que le choc : on en
+   * sort n'importe où sur la piste, souvent le long d'un mur qu'on chevauchait,
+   * alors qu'un choc laisse déjà le vaisseau sur ses appuis. */
+  graceHit: 1.5,
+  graceRide: 2,
   coinChance: 0.015,
   fixChance: 0.003,
   fixAmount: 50,

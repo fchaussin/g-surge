@@ -159,3 +159,92 @@ describe('invincibility', () => {
     expect(ev.some((e) => e.type === 'wallImpact')).toBe(true);
   });
 });
+
+/**
+ * La grâce : l'invulnérabilité brève.
+ *
+ * La coque part de 50 dans presque tout ce qui suit, jamais de 100 : à plein
+ * elle est plafonnée, donc « rien perdu » et « rien gagné » s'y confondent et
+ * un test passerait même si la régénération était la seule chose qui marche.
+ * À 50, la régénération pousse vers le haut pendant que les dégâts tirent vers
+ * le bas, et le sens du mouvement départage les deux.
+ */
+describe('the grace', () => {
+  it('follows the end of invincibility, and the wall costs nothing while it lasts', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.hull = 50;
+    sim.state.rideT = DT; // elle finit au prochain pas
+    sim.step(NEUTRAL, DT, false);
+    expect(sim.events.some((e) => e.type === 'rideEnd')).toBe(true);
+    expect(sim.state.graceT).toBeCloseTo(sim.tuning.graceRide, 5);
+
+    grind(sim, 360, ev); // une demi-seconde contre le mur, choc franc compris
+    expect(ev.some((e) => e.type === 'wallImpact')).toBe(true);
+    expect(sim.state.hull).toBeGreaterThan(50);
+  });
+
+  it('spares the hull and nothing else: the wall still bounces, and still cuts climb and combo', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.graceT = 2;
+    sim.tuning.climbDecay = 0; // comme plus haut : ici on ne mesure que le mur
+    sim.state.climb = 200;
+    sim.state.combo = 4;
+    sim.state.comboLeft = 1;
+    sim.state.hull = 50;
+    grind(sim, 2, ev);
+    expect(sim.state.hull).toBeGreaterThan(50);
+    // Le retour, la montée et le combo encaissent comme sans grâce.
+    expect(sim.state.latVel).toBeLessThan(0);
+    expect(sim.state.climb).toBe(0);
+    expect(sim.state.combo).toBe(0);
+    // Et le vaisseau racle bel et bien : l'événement part, il n'y a que la
+    // coque qui ne paie pas.
+    expect(ev.some((e) => e.type === 'wallImpact')).toBe(true);
+    expect(ev.some((e) => e.type === 'scrape')).toBe(true);
+  });
+
+  it('covers a bad landing too', () => {
+    const sim = fresh();
+    sim.state.graceT = 2;
+    sim.state.hull = 50;
+    sim.state.air = true;
+    sim.state.hop = 0.001;
+    sim.state.vyRel = -10;
+    sim.state.lat = sim.tuning.half; // hors piste, donc réception manquée
+    sim.step(NEUTRAL, DT, false);
+    expect(sim.events.some((e) => e.type === 'badLanding')).toBe(true);
+    expect(sim.state.hull).toBeGreaterThan(50);
+  });
+
+  it('is not re-armed by what it absorbs: the wall is no shelter', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.hull = 50;
+    grind(sim, 1, ev); // le choc franc qui l'arme
+    expect(ev.some((e) => e.type === 'wallImpact')).toBe(true);
+    expect(sim.state.graceT).toBeCloseTo(sim.tuning.graceHit, 5);
+
+    grind(sim, 360, ev); // une demi-seconde collée au mur
+    // Elle a descendu de la demi-seconde et de rien d'autre : rester contre la
+    // paroi ne la recharge pas, sinon on la tiendrait indéfiniment.
+    expect(sim.state.graceT).toBeCloseTo(sim.tuning.graceHit - 0.5, 2);
+  });
+
+  it('runs out, and the wall bites again', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    sim.state.hull = 50;
+    grind(sim, 1, ev); // le choc qui arme, et que la coque paie
+    const hit = sim.state.hull;
+    expect(hit).toBeLessThan(50);
+
+    grind(sim, Math.round(sim.tuning.graceHit * 720) + 10, ev); // toute la grâce
+    expect(sim.state.graceT).toBe(0);
+    expect(sim.state.hull).toBeGreaterThan(hit); // rien perdu, la régénération a joué
+
+    grind(sim, 360, ev); // une demi-seconde de plus, sans grâce
+    expect(sim.state.hull).toBeLessThan(hit); // le frottement remord
+  });
+});

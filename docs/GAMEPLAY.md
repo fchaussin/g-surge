@@ -65,7 +65,11 @@ wall then *pushes*: each second of contact adds `rideGain` of the speed, and the
 ship hugs the edge instead of bouncing off it, so the contact is a line you can
 hold. The target speed pulls back at `speedGain` per second, so the push settles
 at `rideGain / (speedGain − rideGain)` above the target on its own — a quarter,
-at the defaults. The pickups live in
+at the defaults. While the contact holds, the hull also squares up with the
+rail: the physics already kills the lateral velocity, and the drawn attitude now
+says so instead of leaving the nose pushed into the wall by the stick.
+Invincibility does not drop the player back at full price — it hands over to
+`graceRide` seconds of grace, below. The pickups live in
 a second list, `extras`, drawn from their own stream and never before
 `extrasFrom` metres: the frozen track references record the original list as it
 was, and the physics traces end before any extra can exist.
@@ -281,6 +285,26 @@ none, which is why the pickup read as missing rather than rare. Measured over
 six seeds a difficulty, the scripted pilot survives exactly as long as before
 — it does not aim for objects, so the figures above are unchanged for it. What
 moved is what a player who does aim can go and fetch.
+
+**The grace.** Damage taken opens `graceHit` seconds — 1.5 — in which the hull
+cannot lose another point, and the end of invincibility opens `graceRide`
+seconds — 2. The hull blinks while it runs. It exists because damage used to
+stack faster than a player could answer: a hit throws the ship along the wall,
+and the scrape that follows was charged from the same instant, so one mistake
+read as several. The grace is time to get back on the track, not a discount.
+
+It covers **the hull and nothing else**. The wall still bounces, still cuts the
+speed, the climb and the combo, and the shake still fires — the punishment
+becomes kinetic instead of medical, which is what stops the wall from becoming a
+shelter: two free seconds against the wall buy nothing, because a ship pinned
+to the edge is not making distance. And a hit the grace absorbs does **not**
+re-arm it, or it could be held forever by staying on the wall; re-arming costs a
+hit that the hull actually pays.
+
+It does not scale with difficulty. What it buys is the time to take back
+control, and control does not come back faster on Hard; `hullImpact` and
+`hullScrape` carry the difficulty, and they still do, since the grace suspends
+the loss rather than softening it.
 
 <!-- generated:damage -->
 | Event | Cost |

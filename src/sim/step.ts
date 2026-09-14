@@ -103,11 +103,21 @@ export function step(
     // donc les références figées ne bougent pas d'un chiffre
     if (state.superT === 0) out.push({ type: 'supEnd' });
   }
+  // La grâce descend avant que l'invincibilité puisse en armer une : sans cet
+  // ordre, la grâce de sortie perdrait son premier pas.
+  if (state.graceT > 0) state.graceT = Math.max(0, state.graceT - dt);
   if (state.rideT > 0) {
     state.rideT = Math.max(0, state.rideT - dt);
-    if (state.rideT === 0) out.push({ type: 'rideEnd' });
+    if (state.rideT === 0) {
+      // On ne retombe pas de l'invincibilité au plein tarif : deux secondes
+      // pour se remettre en piste, souvent le long du mur qu'on chevauchait.
+      state.graceT = T.graceRide;
+      out.push({ type: 'rideEnd' });
+    }
   }
   const riding = state.rideT > 0 && !attract;
+  /** L'invulnérabilité brève. Voir `graceT` : elle ne couvre que la coque. */
+  const immune = state.graceT > 0 && !attract;
   const superOn = state.superT > 0 && !attract;
   const surgeOn = state.surgeT > 0 && !attract;
   // Le G-SURGE roule à la vitesse d'un super boost, pas au-delà : il ne reste
@@ -224,7 +234,10 @@ export function step(
         // réception hors piste
         state.speed *= 1 - T.badLanding;
         state.energy = Math.max(0, state.energy - 40);
-        state.hull = Math.max(0, state.hull - T.badLandingHull);
+        if (!immune) {
+          state.hull = Math.max(0, state.hull - T.badLandingHull);
+          state.graceT = T.graceHit;
+        }
         state.shake = 0.8;
         state.scrape = 0.4;
         state.mult = 1 + (state.mult - 1) * T.multWallCut;
@@ -368,7 +381,12 @@ export function step(
         if (!state.contact) {
           // choc franc, une seule fois par contact
           const hit = clamp(impact * T.hullImpact, 2, T.hullImpactMax);
-          state.hull = Math.max(0, state.hull - hit);
+          if (!immune) {
+            state.hull = Math.max(0, state.hull - hit);
+            state.graceT = T.graceHit;
+          }
+          // Le retour reste entier, grâce ou pas : la secousse dit le choc, et
+          // le choc a bien eu lieu.
           state.shake = Math.min(1, hit / 26);
           state.mult = 1 + (state.mult - 1) * T.multWallCut;
           state.speed *= 1 - Math.min(0.3, hit / 140);
@@ -385,7 +403,9 @@ export function step(
         state.speed += state.speed * T.rideGain * dt;
         out.push({ type: 'ride' });
       } else {
-        state.hull = Math.max(0, state.hull - T.hullScrape * dt);
+        // Le frottement est suspendu par la grâce, pas éteint : l'événement
+        // part quand même, le vaisseau racle bel et bien et s'entend racler.
+        if (!immune) state.hull = Math.max(0, state.hull - T.hullScrape * dt);
         out.push({ type: 'scrape' });
       }
     }

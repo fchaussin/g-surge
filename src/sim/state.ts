@@ -70,6 +70,21 @@ export interface SimState {
 
   /* Intégrité */
   hull: number;
+  /**
+   * Secondes d'invulnérabilité restantes, la grâce.
+   *
+   * Tant qu'elle court, **aucune perte de coque** : ni le choc franc, ni le
+   * frottement, ni la réception hors piste. Et rien d'autre : le mur renvoie
+   * toujours, coupe toujours la vitesse, la montée et le combo. La punition
+   * devient cinétique au lieu d'être sanitaire, ce qui est ce qui empêche la
+   * grâce de faire du mur un abri — s'y coller pendant deux secondes gratuites
+   * ne rapporte rien, puisqu'on n'avance plus.
+   *
+   * Deux causes l'arment : un dégât réellement encaissé (`graceHit`) et la fin
+   * de l'invincibilité (`graceRide`). Un dégât reçu *pendant* la grâce ne la
+   * réarme pas — sans quoi on la tiendrait indéfiniment en raclant le mur.
+   */
+  graceT: number;
   contact: boolean;
   shake: number;
   scrape: number;
@@ -174,6 +189,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.airTime = 0;
 
   state.hull = 100;
+  state.graceT = 0;
   state.contact = false;
   state.shake = 0;
   state.scrape = 0;
