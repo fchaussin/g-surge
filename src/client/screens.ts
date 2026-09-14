@@ -61,7 +61,7 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
   ],
   help: ['btnCloseHelp'],
   pause: ['btnResume', 'btnRestart', 'btnSettingsPause', 'btnQuit'],
-  over: ['btnAgain', 'btnOverMenu'],
+  over: ['btnAddRivalOver', 'btnAgain', 'btnOverMenu'],
   board: ['segBoardDiff', 'btnCloseBoard'],
   quit: ['btnStay', 'btnLeave'],
   signin: ['btnGateSignIn', 'btnGateOffline'],
@@ -70,13 +70,14 @@ export const NAV_IDS: Partial<Record<Mode, readonly string[]>> = {
     'btnDuelSignIn',
     'friendCode',
     'btnAddFriend',
+    'btnShareCode',
     'inviteInput',
     'btnJoinInvite',
     'btnMakeLink',
     'btnCopyInvite',
     'btnCancelDuel',
   ],
-  grid: ['btnLeaveGrid'],
+  grid: ['btnAddRival', 'btnLeaveGrid'],
 };
 
 /** L'élément présélectionné à l'ouverture d'un écran. */

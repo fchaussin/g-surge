@@ -14,15 +14,21 @@
  * demander.
  */
 import { api, API_URL, ApiError, setAuthToken, type Account } from './api.js';
+import { photoFor, rememberPhoto } from './photos.js';
 
 const KEY = 'gsurge.session.v1';
 /**
- * La photo du fournisseur, gardée sur l'appareil et nulle part ailleurs.
+ * La photo du fournisseur, en transit.
  *
  * Elle arrive dans le fragment du retour de connexion, comme le jeton et pour
- * la même raison. Le serveur ne la garde pas : c'est le client qui la porte, et
- * le salon d'un duel qui la relaie à l'autre pilote, le temps de la course.
- * Elle s'en va avec la session.
+ * la même raison. Mais elle ne reste pas ici : dès que `/me` dit qui l'on est,
+ * elle passe dans `photos.ts`, **rangée sous la graine de visage du compte**
+ * comme celle de n'importe quel pilote croisé, et cette clé-ci est effacée.
+ *
+ * C'est ce transfert qui répare le changement de compte : une clé unique sans
+ * identité gardait la photo du compte précédent, et le menu la montrait encore
+ * pendant que les réglages montraient les pixels du nouveau. Un seul magasin,
+ * une seule clé par compte, un seul getter — `faceHtml` et `paintFace`.
  */
 const PIC = 'gsurge.picture.v1';
 /**
@@ -66,9 +72,13 @@ export class Session {
     return this.token() !== null;
   }
 
-  /** La photo du fournisseur, si elle est venue au retour de connexion. */
+  /**
+   * La photo du fournisseur en attente d'un compte, s'il y en a une. Lue par le
+   * duel, qui l'envoie au salon ; le reste du client la lit dans `photos.ts`,
+   * où elle est rangée dès que `/me` répond.
+   */
   get picture(): string | null {
-    return storage()?.getItem(PIC) ?? null;
+    return storage()?.getItem(PIC) ?? photoFor(this.account?.face ?? this.account?.name);
   }
 
   /** L'adresse chez le serveur qui ouvre la connexion : une navigation, pas un `fetch`. */
@@ -95,6 +105,12 @@ export class Session {
       if (e instanceof ApiError && e.status === 401) this.forget();
       // un serveur muet ne déconnecte pas : le jeton vaut encore
       return;
+    }
+    // Le compte connu, la photo en transit trouve sa clé et quitte la sienne.
+    const pending = storage()?.getItem(PIC);
+    if (pending) {
+      rememberPhoto(this.account.face ?? this.account.name, pending);
+      storage()?.removeItem(PIC);
     }
     this.onChange?.();
   }

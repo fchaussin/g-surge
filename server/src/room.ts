@@ -91,7 +91,7 @@ interface Stored {
   /** Jeton de membre → compte. L'ordre d'insertion est l'ordre d'arrivée. */
   members: Record<
     string,
-    { account: number; name: string; ulid: string; face?: string; pic?: string }
+    { account: number; name: string; ulid: string; face?: string; pic?: string; code?: string }
   >;
   /** La ligne d'arrivée de ce salon. `RACE_M`, sauf sous `DEBUG` où un test la rapproche. */
   race: number;
@@ -111,12 +111,20 @@ export interface Pilot {
    * avec l'objet. Le visage en pixels reste le repli, et l'identité ailleurs.
    */
   pic?: string;
+  /**
+   * Son code d'ami. Se battre contre quelqu'un sans pouvoir se relier ensuite
+   * obligeait à se dicter un code alors qu'on vient de passer trois minutes
+   * ensemble ; avec lui, l'écran de fin propose de l'ajouter. Un code ne lie
+   * rien à lui seul — l'autre accepte, ou pas.
+   */
+  code?: string;
 }
 
-const pilotOf = (m: { name: string; face?: string; pic?: string }): Pilot => {
+const pilotOf = (m: { name: string; face?: string; pic?: string; code?: string }): Pilot => {
   const out: Pilot = { name: m.name };
   if (m.face) out.face = m.face;
   if (m.pic) out.pic = m.pic;
+  if (m.code) out.code = m.code;
   return out;
 };
 
@@ -226,11 +234,12 @@ export class Room extends DurableObject<Env> {
     const face = req.headers.get('x-gs-face') ?? '';
     // Filtrée par le Worker, jamais par le client : voir `photoUrl`.
     const pic = req.headers.get('x-gs-pic') ?? '';
+    const code = req.headers.get('x-gs-code') ?? '';
     // Qui est déjà là, avant de s'ajouter : c'est ce que l'écran de départ
     // montre à celui qui arrive par un lien — « untel vous invite ».
     const rivals = Object.values(stored.members).map((m) => pilotOf(m));
     const member = randomHex();
-    stored.members[member] = { account, name, ulid, face, pic };
+    stored.members[member] = { account, name, ulid, face, pic, code };
     await this.ctx.storage.put('room', stored);
     return json({
       member,

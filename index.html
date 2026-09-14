@@ -170,6 +170,9 @@
   #duelFriends .wbtn.hot{color:var(--hot);border-color:rgba(255,47,154,.4)}
   #duelFriends .empty{font-size:12px;line-height:1.5;color:var(--dim2);margin:0}
   .mycode{margin:12px 0 0;font-size:11px;letter-spacing:.06em;color:var(--dim2)}
+  #friendQr{display:block;margin:10px auto 4px;width:min(180px,46vw);height:auto;
+    border-radius:10px;image-rendering:pixelated}
+  #friendQr[hidden]{display:none}
   .mycode b{color:var(--neon);font-family:ui-monospace,Menlo,monospace;font-size:14px;
     letter-spacing:.18em;user-select:all;-webkit-user-select:all}
   .addfriend{display:flex;gap:8px;margin-top:12px}
@@ -847,6 +850,7 @@
          charge, ses pixels sinon. Vide hors duel. -->
     <div class="duelend"><span class="face" id="overFace"></span>
       <span class="overtag ghosttag" id="overNote"></span></div>
+    <button class="btn ghost" id="btnAddRivalOver" hidden>ADD AS FRIEND</button>
     <button class="btn" id="btnAgain">RUN AGAIN</button>
     <button class="btn ghost" id="btnOverMenu">MAIN MENU</button>
   </div>
@@ -1058,11 +1062,15 @@
             aria-label="Friend code">
           <button class="btn ghost" id="btnAddFriend">ADD</button>
         </div>
+        <!-- Le code se dicte, le QR se montre : l'autre le scanne et la demande
+             part sans qu'il tape rien. L'acceptation reste de son côté. -->
+        <canvas id="friendQr" width="180" height="180" aria-label="Friend code QR" hidden></canvas>
+        <button class="btn ghost" id="btnShareCode" hidden>SHARE MY CODE</button>
         <p class="acct" id="friendsNote"></p>
       </div>
       <div class="grp">
         <h3>Got a link?</h3>
-        <input type="text" id="inviteInput" placeholder="Paste an invite link or its code" aria-label="Invite link to join">
+        <input type="text" id="inviteInput" placeholder="ROOM CODE, or an invite link" aria-label="Room code or invite link">
         <button class="btn ghost" id="btnJoinInvite">JOIN</button>
       </div>
       <!-- Le lien est le cas particulier : celui qui n'est pas encore un ami.
@@ -1074,6 +1082,7 @@
              qui arrive par le lien n'a rien à partager, et voyait un champ vide,
              deux boutons inertes et le trou d'un QR jamais dessiné. -->
         <div id="duelShare" hidden>
+          <p class="mycode" id="roomCode"></p>
           <input type="text" id="inviteLink" readonly aria-label="Invite link">
           <button class="btn" id="btnShareInvite">SHARE LINK</button>
           <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
@@ -1097,6 +1106,9 @@
     <div class="pausehead" id="gridWho">DUEL</div>
     <div class="pausedist" id="gridLine">Joining…</div>
     <div class="gridcount" id="gridCount" hidden></div>
+    <!-- Se battre contre quelqu'un sans pouvoir se relier ensuite obligeait à
+         se dicter un code après coup. Le salon porte celui d'en face. -->
+    <button class="btn ghost" id="btnAddRival" hidden>ADD AS FRIEND</button>
     <button class="btn ghost" id="btnLeaveGrid">LEAVE</button>
   </div>
 </div>

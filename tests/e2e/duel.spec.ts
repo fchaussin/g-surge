@@ -10,7 +10,7 @@ import { unpackTrace } from '../../src/sim/index.js';
 import { chunk } from '../../server/src/track.js';
 
 const TOKEN = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const ROOM = '0123456789abcdef';
+const ROOM = 'K7M2PQ';
 const SEED = 'duel-seed';
 
 test.describe('a duel', () => {
@@ -202,20 +202,24 @@ test.describe('a duel', () => {
     await page.locator('#btnDuel').click();
     await page.locator('#btnMakeLink').click();
     await expect(page.locator('#inviteLink')).toHaveValue(new RegExp(`#duel=${ROOM}$`));
-    // le QR : dessiné, un module noir au cœur du repère haut-gauche, après la zone calme
+    // le QR : dessiné, mesuré à sa part de noir — elle ne dépend pas de la
+    // version du code, alors qu'un pixel précis en dépend, et le code de salon
+    // vient de raccourcir
     const dark = await page.locator('#inviteQr').evaluate((c) => {
       const canvas = c as HTMLCanvasElement;
       const ctx = canvas.getContext('2d')!;
-      const px = canvas.width / (21 + 8); // au moins la version 1, plus la zone calme
-      const p = ctx.getImageData(Math.round(px * 7.5), Math.round(px * 7.5), 1, 1).data;
-      return p[0]! < 128;
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let black = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i]! < 128) black++;
+      return black / (data.length / 4);
     });
-    expect(dark).toBe(true);
+    expect(dark).toBeGreaterThan(0.15);
+    expect(dark).toBeLessThan(0.7);
 
     // coller le code seul suffit
-    await page.locator('#inviteInput').fill('fedcba9876543210');
+    await page.locator('#inviteInput').fill('W8ZK3N');
     await page.locator('#btnJoinInvite').click();
-    await expect.poll(() => joined).toContain('/room/fedcba9876543210/join');
+    await expect.poll(() => joined).toContain('/room/W8ZK3N/join');
     expect(game.errors()).toEqual([]);
   });
 
@@ -242,6 +246,7 @@ test.describe('a duel', () => {
             {
               name: 'Ada L',
               face: '0123456789abcdef',
+              code: 'ADA234',
               pic: 'https://lh3.googleusercontent.com/a/ACg8ocKtest=s96-c',
             },
           ],
@@ -269,6 +274,17 @@ test.describe('a duel', () => {
     // la photo du fournisseur remplace les pixels une fois chargée, et rien
     // n'est demandé à Google : le test la sert lui-même
     await expect(page.locator('#gridFace img.photo')).toBeVisible();
+    // Et de quoi le garder : on vient de se rencontrer, le salon porte son code
+    let asked = '';
+    await page.route('**/friends/add', (route) => {
+      asked = route.request().postData() ?? '';
+      return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+    });
+    await expect(page.locator('#btnAddRival')).toBeVisible();
+    await page.locator('#btnAddRival').click();
+    await expect.poll(() => asked).toContain('ADA234');
+    await expect(page.locator('#gridLine')).toContainText('Friend request sent to Ada L');
+    await expect(page.locator('#btnAddRival')).toBeHidden();
     expect(new URL(page.url()).hash).toBe('');
     expect(game.errors()).toEqual([]);
   });
@@ -286,7 +302,7 @@ test.describe('a duel', () => {
         {
           id: 1,
           from: { name: 'Cid F', face: 'fedcba9876543210', code: 'CID234' },
-          room: 'aaaabbbbccccdddd',
+          room: 'R4TV9X',
           difficulty: 'easy',
         },
       ],
@@ -313,13 +329,54 @@ test.describe('a duel', () => {
     await expect(page.locator('#duelFriends')).toContainText('CHALLENGING YOU');
     await expect(page.locator('#duelFriends')).toContainText('Cid F');
     await expect(page.locator('#duelFriends')).toContainText('Bob F');
-    await expect(page.locator('.mycode')).toContainText('ABC234');
+    await expect(page.locator('#duelFriends .mycode')).toContainText('ABC234');
 
     await page.locator('button[data-race="BOB234"]').click();
     await expect.poll(() => challenged).toContain('BOB234');
     // la grille de départ, avec le nom de celui qu'on vient de défier
     await expect.poll(() => game.mode()).toBe('grid');
     await expect(page.locator('#gridWho')).toHaveText('Bob F');
+    expect(game.errors()).toEqual([]);
+  });
+
+  /**
+   * Le QR d'amitié. Six caractères se dictent mais ne se tapent pas : le lien
+   * porte le code, l'autre le scanne, la demande part sans qu'il saisisse quoi
+   * que ce soit. L'acceptation reste de son côté — c'est elle qui protège.
+   */
+  test('offers the friend code as a QR, and adds from a scanned link', async ({ game, page }) => {
+    await signIn(page);
+    await mockFriends(page, { code: 'ABC234' });
+    let asked = '';
+    await page.route('**/friends/add', (route) => {
+      asked = route.request().postData() ?? '';
+      return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
+    });
+
+    // Mon code, et son QR : un module noir au cœur du repère haut-gauche
+    await game.boot();
+    await page.locator('#btnDuel').click();
+    await expect(page.locator('#duelFriends .mycode')).toContainText('ABC234');
+    await expect(page.locator('#friendQr')).toBeVisible();
+    // La part de noir plutôt qu'un pixel précis : elle ne dépend pas de la
+    // version du code, donc le test ne casse pas si l'adresse s'allonge.
+    const dark = await page.locator('#friendQr').evaluate((c) => {
+      const canvas = c as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d')!;
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let black = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i]! < 128) black++;
+      return black / (data.length / 4);
+    });
+    expect(dark).toBeGreaterThan(0.15);
+    expect(dark).toBeLessThan(0.7);
+
+    // Le lien scanné sur l'écran d'en face : la demande part, sans saisie
+    await page.goto('about:blank');
+    await game.boot('/#friend=XYZ789');
+    await expect.poll(() => asked).toContain('XYZ789');
+    expect(await game.mode()).toBe('duel');
+    expect(new URL(page.url()).hash).toBe('');
     expect(game.errors()).toEqual([]);
   });
 

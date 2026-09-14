@@ -39,6 +39,8 @@ export interface Pilot {
    * `session.ts` et `server/src/auth.ts`. Les pixels restent le repli.
    */
   pic?: string;
+  /** Son code d'ami : de quoi le garder après la course, s'il accepte. */
+  code?: string;
 }
 
 /** Ce que le salon relaie de l'autre vaisseau : les six nombres du noyau, et le pas où ils valent. */

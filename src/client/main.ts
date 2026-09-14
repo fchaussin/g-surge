@@ -24,19 +24,18 @@ import {
 } from '../sim/index.js';
 import { Audio } from './audio.js';
 import { api, type BoardCategory, type BoardEntry } from './api.js';
-import { avatarSvg } from './avatar.js';
-import { photoFor, rememberPhoto } from './photos.js';
+import { paintFace } from './photos.js';
 import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
 import { ChaseCamera, COMPACT_BELOW } from './camera.js';
 import { DamageOverlay } from './damage.js';
-import { Duel, DUEL_LINK, type DuelEnd, type Pilot, type Standing } from './duel.js';
+import { Duel, DUEL_LINK, type DuelEnd, type Standing } from './duel.js';
 import { drawQr } from './qr.js';
 import { installDebugSurface } from './debug.js';
 import { driftIntensity, driftSide } from './drift.js';
 import { DriftSpray } from './drift-spray.js';
 import { Feedback } from './feedback.js';
-import { Friends } from './friends.js';
+import { FRIEND_LINK, Friends } from './friends.js';
 import { Fullscreen } from './fullscreen.js';
 import { Ghost } from './ghost.js';
 import { GhostStore } from './ghosts.js';
@@ -608,6 +607,10 @@ async function makeLink(): Promise<void> {
   showShare(true);
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (link) link.value = duel.inviteLink();
+  // Le code en clair : l'appairage doit pouvoir se faire à la voix autant
+  // qu'au scan, et c'est pour ça qu'un salon porte six caractères.
+  const code = document.getElementById('roomCode');
+  if (code) code.innerHTML = `Room code <b>${duel.room ?? ''}</b>`;
   // Le lien en QR aussi : d'un téléphone à l'autre, sans clavier.
   const qr = document.getElementById('inviteQr') as HTMLCanvasElement | null;
   if (qr) {
@@ -655,9 +658,6 @@ async function joinDuel(room: string): Promise<void> {
  */
 function showGrid(line: string): void {
   const rival = duel.rival;
-  // Le salon est le seul endroit où la photo d'un pilote circule ; l'appareil
-  // s'en souvient pour la liste d'amis, que le serveur ne peut pas fournir.
-  rememberPhoto(rival?.face, rival?.pic);
   const face = document.getElementById('gridFace');
   if (face) paintFace(face, rival, 56);
   const who = document.getElementById('gridWho');
@@ -668,7 +668,31 @@ function showGrid(line: string): void {
     count.classList.remove('go');
   }
   sayGrid(line);
+  offerRival(true);
   if (screens.mode !== 'grid') screens.setMode('grid');
+}
+
+/**
+ * Proposer de garder le pilote d'en face. Montré dès qu'on connaît son code —
+ * le salon le porte — et retiré une fois la demande partie : elle ne se répète
+ * pas, et c'est lui qui accepte.
+ */
+function offerRival(on: boolean): void {
+  const has = on && !!duel.rival?.code;
+  for (const id of ['btnAddRival', 'btnAddRivalOver']) {
+    document.getElementById(id)?.toggleAttribute('hidden', !has);
+  }
+  screens.buildNav();
+}
+
+async function addRival(): Promise<void> {
+  const code = duel.rival?.code;
+  if (!code) return;
+  offerRival(false);
+  await friends.addByCode(code);
+  const name = duel.rival?.name ?? 'the other pilot';
+  if (screens.mode === 'grid') sayGrid(`Friend request sent to ${name}.`);
+  else noteCard(`friend request sent to ${name}`);
 }
 
 function sayGrid(text: string): void {
@@ -735,6 +759,7 @@ function showResult(ranking: Standing[]): void {
     `duel \u00b7 ${won ? 'YOU WON' : 'YOU LOST'}` +
     (other ? ` \u00b7 ${other.name} ${how(other)}` : '');
   noteCard(verdict);
+  offerRival(true);
   const face = document.getElementById('overFace');
   if (face) paintFace(face, other ? { name: other.name, ...(duel.rival ?? {}) } : null, 20);
   // Le résultat peut arriver alors que la carte n'est pas là : quitté vers le
@@ -767,31 +792,6 @@ function leaveDuel(): void {
 function sayDuel(text: string): void {
   const line = document.getElementById('duelLine');
   if (line) line.textContent = text;
-}
-
-/**
- * Le visage d'un pilote dans un élément : ses pixels d'abord, sa photo par
- * dessus si elle charge.
- *
- * Dans cet ordre et pas l'inverse : rien ne garantit qu'une adresse donnée à
- * la connexion vaille encore trente jours plus tard — Google les fait tourner
- * — et l'échange se fait au chargement, donc une photo absente ne laisse
- * jamais de trou, elle ne remplace simplement rien. `no-referrer` par-dessus
- * la politique du site : le fournisseur n'apprend même pas d'où on regarde.
- */
-function paintFace(el: HTMLElement, pilot: Pilot | null, size: number): void {
-  el.innerHTML = pilot ? avatarSvg(pilot.face ?? pilot.name, size) : '';
-  // Celle qu'il envoie, ou celle qu'on a retenue de lui la dernière fois.
-  const url = pilot?.pic ?? photoFor(pilot?.face);
-  if (!pilot || !url) return;
-  const img = new Image(size, size);
-  img.className = 'photo';
-  img.alt = '';
-  img.referrerPolicy = 'no-referrer';
-  img.onload = () => {
-    el.replaceChildren(img);
-  };
-  img.src = url;
 }
 
 /** Vrai une fois que la sortie du rival a été annoncée, pour ne le dire qu'une fois. */
@@ -885,8 +885,10 @@ function endRun(note?: string, delayMs = WRECK_HOLD_MS): void {
   // arrivée n'explose pas, donc elle n'attend pas.
   if (delayMs > 0) screens.setMode('wreck');
   // Le visage du duel précédent n'a rien à faire sur la carte d'une partie
-  // seule : il n'est posé que par un verdict, et retiré à chaque fin.
+  // seule : il n'est posé que par un verdict, et retiré à chaque fin. Le
+  // bouton d'ami non plus.
   document.getElementById('overFace')?.replaceChildren();
+  offerRival(false);
   const card: ScoreBreakdown = {
     distance: sim.state.dist,
     seconds: sim.state.time,
@@ -1150,6 +1152,15 @@ on('btnBoardMenu', () => screens.setMode('board'));
 on('btnStay', () => screens.setMode('menu'));
 on('btnDuel', () => openDuel());
 on('btnMakeLink', () => void makeLink());
+on('btnShareCode', () => {
+  const url = friends.link;
+  if (!url) return;
+  const nav = navigator as Navigator & {
+    share?: (d: { url: string; title?: string }) => Promise<void>;
+  };
+  if (nav.share) void nav.share({ url, title: 'G-SURGE' }).catch(() => undefined);
+  else void navigator.clipboard?.writeText(url).catch(() => undefined);
+});
 on('btnShareInvite', () => {
   const link = document.getElementById('inviteLink') as HTMLInputElement | null;
   if (!link || !link.value) return;
@@ -1174,9 +1185,13 @@ on('btnJoinInvite', () => {
 /** L'identifiant d'un salon dans ce qu'on colle : un lien entier, ou juste son code. */
 function roomOf(text: string): string | null {
   const t = text.trim();
-  const m = t.match(/(?:#|[?&])duel=([0-9a-f]{16})\b/) ?? t.match(/^([0-9a-f]{16})$/);
-  return m ? m[1]! : null;
+  const m = t.match(/(?:#|[?&])duel=([A-Z2-9]{6})\b/i) ?? t.match(/^([A-Z2-9]{6})$/i);
+  // En capitales : c'est ainsi que le serveur nomme un salon, et un code se
+  // dicte sans casse.
+  return m ? m[1]!.toUpperCase() : null;
 }
+on('btnAddRival', () => void addRival());
+on('btnAddRivalOver', () => void addRival());
 on('btnLeaveGrid', () => screens.setMode('menu'));
 on('btnCancelDuel', () => {
   // Quitter l'écran, c'est renoncer à l'invitation : elle ne doit pas se
@@ -1284,11 +1299,7 @@ function paintAccountRow(): void {
   // Sa propre photo ici aussi, à la demande de l'auteur : c'est une requête
   // vers le fournisseur sur l'écran qu'on voit le plus, mais c'est son écran
   // et sa tête. Les pixels restent le repli.
-  paintFace(
-    face,
-    account ? { name: account.name, face: account.face, pic: session.picture ?? undefined } : null,
-    22,
-  );
+  paintFace(face, account ? { name: account.name, face: account.face } : null, 22);
   who.textContent = account
     ? account.name
     : signedIn
@@ -1321,25 +1332,78 @@ on('btnNameSave', () => {
   const note = document.getElementById('nameNote');
   if (!input) return;
   void session.rename(input.value.trim()).then((ok) => {
-    if (ok && !resumePendingDuel()) screens.setMode('menu');
+    if (ok && !resumePendingDuel() && !resumePendingFriend()) screens.setMode('menu');
     else if (!ok && note) note.textContent = 'Two to sixteen letters, digits, space, - or _.';
   });
 });
 on('btnNameSkip', () => {
-  if (!resumePendingDuel()) screens.setMode('menu');
+  if (!resumePendingDuel() && !resumePendingFriend()) screens.setMode('menu');
 });
 on('btnDuelSignIn', () => session.signIn('google'));
+/**
+ * Un lien d'amitié : le fragment porte le code, scanné sur l'écran d'un autre.
+ * Six caractères se dictent mais ne se tapent pas — c'est la raison d'être du
+ * QR. La demande part, l'autre accepte : c'est l'acceptation qui protège, pas
+ * la saisie.
+ */
+async function addFriendByLink(code: string): Promise<void> {
+  screens.setMode('duel');
+  showShare(false);
+  if (!session.signedIn) {
+    askSignIn(null);
+    rememberFriend(code);
+    return;
+  }
+  sayDuel('Adding a friend…');
+  await friends.addByCode(code);
+  friends.load();
+}
+
+/** Le code mis de côté le temps d'une connexion, comme le salon d'un duel. */
+const PENDING_FRIEND = 'gsurge.friend.pending';
+
+function rememberFriend(code: string | null): void {
+  try {
+    if (code) sessionStorage.setItem(PENDING_FRIEND, code);
+    else sessionStorage.removeItem(PENDING_FRIEND);
+  } catch {
+    // sans stockage d'onglet, la demande se perd à la connexion ; le lien peut
+    // être rouvert
+  }
+}
+
+function resumePendingFriend(): boolean {
+  let code: string | null = null;
+  try {
+    code = sessionStorage.getItem(PENDING_FRIEND);
+  } catch {
+    return false;
+  }
+  if (!code || !session.signedIn) return false;
+  rememberFriend(null);
+  void addFriendByLink(code);
+  return true;
+}
+
 // Un lien d'invitation : le fragment porte le salon, et il en sort ici. Sans
 // compte, `joinDuel` le met de côté et propose de se connecter ; au retour, le
 // salon est reprise juste après l'écran du pseudo.
 {
   const hash = window.location.hash;
   const room = hash.startsWith('#') ? new URLSearchParams(hash.slice(1)).get(DUEL_LINK) : null;
-  if (room && /^[0-9a-f]{16}$/.test(room)) {
+  const friendCode = hash.startsWith('#')
+    ? new URLSearchParams(hash.slice(1)).get(FRIEND_LINK)
+    : null;
+  if (room && /^[A-Z2-9]{6}$/i.test(room)) {
     history.replaceState(history.state, '', window.location.pathname + window.location.search);
-    void joinDuel(room);
+    void joinDuel(room.toUpperCase());
+  } else if (friendCode && /^[A-Z2-9]{6}$/i.test(friendCode)) {
+    history.replaceState(history.state, '', window.location.pathname + window.location.search);
+    void addFriendByLink(friendCode.toUpperCase());
   } else if (screens.mode !== 'name') {
-    resumePendingDuel();
+    // L'un ou l'autre : un onglet ne peut pas avoir mis les deux de côté, et
+    // si ça arrivait le salon passe d'abord — il expire, pas la demande.
+    if (!resumePendingDuel()) resumePendingFriend();
   }
 }
 // Le retour du système remonte d'un écran plutôt que de quitter le jeu, et

@@ -414,7 +414,7 @@ describe('the server in workerd', () => {
     );
     expect(opened.status).toBe(200);
     const seat = (await opened.json()) as { room: string; member: string };
-    expect(seat.room).toMatch(/^[0-9a-f]{16}$/);
+    expect(seat.room).toMatch(/^[A-Z2-9]{6}$/);
     const invited = (await (await get('/friends', bob)).json()) as {
       invites: { room: string; from: { name: string } }[];
     };
@@ -982,7 +982,8 @@ describe('the server in workerd', () => {
       seats: number;
       chunk: WireChunk;
     };
-    expect(room.room).toMatch(/^[0-9a-f]{16}$/);
+    // Six caractères dictables : l'appairage se fait au QR ou à la voix.
+    expect(room.room).toMatch(/^[A-Z2-9]{6}$/);
     expect(room.seats).toBe(1);
     // Le lien revenu à son émetteur : un salon refuse deux fois le même compte.
     // Sans cette garde l'ouvreur prend la seconde place, et l'invité arrive sur
@@ -995,7 +996,7 @@ describe('the server in workerd', () => {
     const seatB = (await joined.json()) as {
       member: string;
       seats: number;
-      rivals: { name: string; face: string }[];
+      rivals: { name: string; face: string; code: string }[];
       chunk: WireChunk;
     };
     expect(seatB.seats).toBe(2);
@@ -1004,6 +1005,9 @@ describe('the server in workerd', () => {
     expect(seatB.rivals).toHaveLength(1);
     expect(seatB.rivals[0]!.name).toBe('Ada L');
     expect(seatB.rivals[0]!.face).toMatch(/^[0-9a-f]{16}$/);
+    // Et son code d'ami : de quoi se relier après s'être battus, sans se
+    // dicter quoi que ce soit. Il ne lie rien seul, l'autre accepte.
+    expect(seatB.rivals[0]!.code).toMatch(/^[A-Z2-9]{6}$/);
     // deux places, pas trois ; et sans compte, pas de salon du tout
     expect((await post(`/room/${room.room}/join`, {}, c)).status).toBe(409);
     expect((await post('/room', { difficulty: 'easy' })).status).toBe(401);

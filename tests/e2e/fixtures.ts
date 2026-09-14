@@ -56,10 +56,16 @@ async function readMode(page: Page): Promise<string> {
  * le duel.
  */
 export async function signIn(page: Page, name = 'Ada L'): Promise<void> {
-  await page.addInitScript(
-    (t) => localStorage.setItem('gsurge.session.v1', t),
-    'abcdefghijklmnopqrstuvwxyz0123456789',
-  );
+  // Gardé : ce script tourne sur chaque document, `about:blank` compris — où
+  // le stockage jette, et où l'exception compterait comme une erreur de page
+  // pour le test qui passe par là pour simuler un aller-retour hors du site.
+  await page.addInitScript((t) => {
+    try {
+      localStorage.setItem('gsurge.session.v1', t);
+    } catch {
+      /* about:blank */
+    }
+  }, 'abcdefghijklmnopqrstuvwxyz0123456789');
   await page.route('**/me', (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 3, name }) }),
   );

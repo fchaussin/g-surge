@@ -26,11 +26,21 @@ import { faceOf } from './auth.js';
 /** Durée d'un défi, en millisecondes. Dix minutes : le temps d'ouvrir le jeu. */
 export const CHALLENGE_MS = 10 * 60 * 1000;
 
-/** L'alphabet du code : ni O ni 0, ni I ni 1 — il se dicte à voix haute. */
+/** L'alphabet des codes : ni O ni 0, ni I ni 1 — ils se dictent à voix haute. */
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const CODE_LEN = 6;
 
-export function friendCode(): string {
+/**
+ * Un code court, tiré au hasard. Il nomme un compte — le code d'ami — et
+ * aussi un salon, depuis que l'appairage d'un duel doit pouvoir se faire au
+ * QR **ou** à la voix : seize hexadécimaux ne se dictent pas.
+ *
+ * Trente bits au lieu de soixante-quatre pour un salon, et c'est le prix
+ * assumé : un salon vit le temps d'une course, tient deux places et refuse le
+ * même compte deux fois, donc deviner un code au hasard parmi un milliard ne
+ * mène qu'à gâcher une course qui se rouvre d'un geste.
+ */
+export function shortCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LEN));
   return [...bytes].map((b) => ALPHABET[b % ALPHABET.length]!).join('');
 }
@@ -75,7 +85,7 @@ export async function codeOf(env: Env, accountId: number): Promise<string> {
     .first<{ code: string | null }>();
   if (row?.code) return row.code;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = friendCode();
+    const code = shortCode();
     try {
       await env.DB.prepare('UPDATE accounts SET code = ? WHERE id = ?').bind(code, accountId).run();
       return code;

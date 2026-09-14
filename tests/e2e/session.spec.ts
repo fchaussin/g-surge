@@ -163,6 +163,58 @@ test.describe('the session', () => {
   });
 
   /** Un 401 sur `/me` — session close, compte supprimé — oublie le jeton. */
+  /**
+   * Le visage suit le compte, et les deux écrans disent la même chose.
+   *
+   * La photo était rangée sous une clé unique, sans identité : après un
+   * changement de compte le menu montrait encore celle du précédent, pendant
+   * que les réglages montraient les pixels du nouveau. Tout passe maintenant
+   * par `photos.ts`, keyé sur la graine de visage du compte.
+   */
+  test('shows the account’s own face, and changes it with the account', async ({ game, page }) => {
+    const PIC = 'https://lh3.googleusercontent.com/a/ACg8ocKtest=s96-c';
+    await page.route('**/lh3.googleusercontent.com/**', (route) =>
+      route.fulfill({
+        contentType: 'image/gif',
+        body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'),
+      }),
+    );
+    // Gardée : ce script tourne aussi sur `about:blank`, où le stockage de
+    // session jette — et l'exception compterait comme une erreur de page.
+    const started = () => {
+      try {
+        sessionStorage.setItem('gsurge.signin', '1');
+      } catch {
+        /* about:blank */
+      }
+    };
+    await page.addInitScript(started);
+    let who = { id: 1, name: 'Ada L', face: 'aaaaaaaaaaaaaaaa' };
+    await page.route('**/me', (route) =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify(who) }),
+    );
+
+    // Compte A, avec photo : le menu la montre une fois chargée
+    await game.boot(`/#session=${TOKEN}&pic=${encodeURIComponent(PIC)}`);
+    await page.locator('#btnNameSkip').click();
+    await expect(page.locator('#menuFace img.photo')).toBeVisible();
+    // et les réglages disent la même chose, ce qui n'était pas le cas
+    await page.locator('#btnAccount').click();
+    await expect(page.locator('#accountFace img.photo')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Compte B, sans photo : ses pixels, et surtout pas ceux d'à côté
+    who = { id: 2, name: 'Bob B', face: 'bbbbbbbbbbbbbbbb' };
+    await page.goto('about:blank');
+    await game.boot(`/#session=${TOKEN}2`);
+    await page.locator('#btnNameSkip').click();
+    await expect(page.locator('#menuFace svg')).toBeVisible();
+    await expect(page.locator('#menuFace img.photo')).toHaveCount(0);
+    await page.locator('#btnAccount').click();
+    await expect(page.locator('#accountFace img.photo')).toHaveCount(0);
+    expect(game.errors()).toEqual([]);
+  });
+
   test('forgets the token when the server says 401', async ({ page }) => {
     await page.addInitScript(() => sessionStorage.setItem('gsurge.signin', '1'));
     await page.route('**/me', (route) =>

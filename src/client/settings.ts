@@ -13,7 +13,7 @@
  */
 import { DEFAULTS, type Difficulty, type Tuning } from '../sim/index.js';
 import type { Account } from './api.js';
-import { avatarSvg } from './avatar.js';
+import { paintFace } from './photos.js';
 import type { Preferences } from './preferences.js';
 import { SLIDERS } from './sliders.js';
 
@@ -325,12 +325,13 @@ export class Settings {
           ? 'Signed in — checking with the server…'
           : 'Not signed in. Ranked runs need an account; the board shows its name.';
     }
-    // Le visage du compte, le même que celui du tableau : il tient à
-    // l'identifiant du fournisseur, pas au pseudo, donc se renommer ne le
-    // change pas. Rien à échapper, `avatarSvg` ne rend que des nombres.
+    // Le visage du compte, par le même chemin que partout ailleurs : la photo
+    // du fournisseur si l'appareil en connaît une pour ce compte, les pixels
+    // sinon. Ici il ne montrait que les pixels, et le menu la photo — deux
+    // écrans qui se contredisaient sur la même question.
     const face = byId('accountFace');
     if (face) {
-      face.innerHTML = account ? avatarSvg(account.face ?? account.name, 28) : '';
+      paintFace(face, account ? { name: account.name, face: account.face } : null, 28);
       face.toggleAttribute('hidden', !account);
     }
     byId('btnSignIn')?.toggleAttribute('hidden', signedIn);

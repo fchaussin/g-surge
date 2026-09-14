@@ -6,7 +6,7 @@
  * donc revérifié à la lecture et pas seulement à l'écriture.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { photoFor, rememberPhoto } from '../src/client/photos.js';
+import { faceHtml, photoFor, rememberPhoto } from '../src/client/photos.js';
 
 const KEY = 'gsurge.photos.v1';
 const REAL = 'https://lh3.googleusercontent.com/a/ACg8ocKphoto=s96-c';
@@ -51,6 +51,30 @@ describe('les photos vues', () => {
     rememberPhoto('face3', REAL);
     rememberPhoto('face3', undefined);
     expect(photoFor('face3')).toBeNull();
+  });
+
+  /**
+   * Le getter unique. Deux écrans lisaient la même question par deux chemins —
+   * le menu une clé unique sans identité de compte, les réglages les pixels
+   * seuls — et se contredisaient après un changement de compte.
+   */
+  it('rend la photo du compte, ou ses pixels, jamais celle d’un autre', () => {
+    rememberPhoto('faceA', REAL);
+    const a = faceHtml({ name: 'Ada', face: 'faceA' });
+    expect(a).toContain('<img');
+    expect(a).toContain(REAL);
+    expect(a).toContain('referrerpolicy="no-referrer"');
+
+    // un autre compte : ses pixels, pas la photo du premier
+    const b = faceHtml({ name: 'Bob', face: 'faceB' });
+    expect(b).toContain('<svg');
+    expect(b).not.toContain(REAL);
+
+    // une photo qu'on vient de recevoir l'emporte sur le magasin
+    const fresh = `${REAL}2`;
+    expect(faceHtml({ name: 'Ada', face: 'faceA', pic: fresh })).toContain(fresh);
+
+    expect(faceHtml(null)).toBe('');
   });
 
   it('reste borné, les plus anciens partant les premiers', () => {

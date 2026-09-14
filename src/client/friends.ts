@@ -12,9 +12,9 @@
  * salon ouvert ou rejoint appartient à `main.ts`, qui le lui passe.
  */
 import type { Difficulty } from '../sim/index.js';
+import { drawQr } from './qr.js';
 import { api, ApiError, online, type Friend, type FriendList, type Seat } from './api.js';
-import { avatarSvg } from './avatar.js';
-import { photoFor } from './photos.js';
+import { faceHtml } from './photos.js';
 
 export interface FriendsOptions {
   /** La difficulté d'un défi lancé : celle que le menu montre. */
@@ -28,6 +28,20 @@ export interface FriendsOptions {
   /** La liste a changé de taille : la navigation clavier est à rebâtir. */
   onRebuild: () => void;
 }
+
+/**
+ * Le fragment d'un lien d'amitié, comme `duel` l'est d'un salon.
+ *
+ * Six caractères se dictent au téléphone, mais ne se tapent pas : un QR passe
+ * d'un écran à l'autre sans un mot. Le lien porte donc le code, et celui qui
+ * le suit envoie la demande sans rien saisir — l'acceptation reste de l'autre
+ * côté, c'est elle qui protège, pas la difficulté de la saisie.
+ */
+export const FRIEND_LINK = 'friend';
+
+/** L'adresse qui demande une amitié : le jeu, avec le code en fragment. */
+export const friendLink = (code: string): string =>
+  `${window.location.origin}${window.location.pathname}#${FRIEND_LINK}=${code}`;
 
 /** Le mot de chaque refus du serveur, en interface. */
 const WHY: Record<string, string> = {
@@ -88,15 +102,11 @@ export class Friends {
   private paint(): void {
     const list = this.list;
     if (!this.host || !list) return;
-    // Le visage en pixels dans le balisage, la photo par-dessus si l'appareil
-    // en a gardé une d'un duel passé : le serveur, lui, n'en a aucune.
-    const row = (f: { name: string; face: string; code: string }, buttons: string): string => {
-      const pic = photoFor(f.face);
-      const face = pic
-        ? `<img class="photo" width="22" height="22" alt="" referrerpolicy="no-referrer" src="${esc(pic)}">`
-        : avatarSvg(f.face || f.name);
-      return `<li>${face}<span class="nm">${esc(f.name)}</span>${buttons}</li>`;
-    };
+    // Le même visage que partout ailleurs : `faceHtml` décide, ici en chaîne
+    // parce que la ligne est bâtie en HTML. Le serveur ne connaît aucune photo,
+    // donc celles qu'on voit viennent des duels déjà joués.
+    const row = (f: { name: string; face: string; code: string }, buttons: string): string =>
+      `<li>${faceHtml(f)}<span class="nm">${esc(f.name)}</span>${buttons}</li>`;
 
     const invites = list.invites
       .map((i) => row(i.from, `<button class="wbtn hot" data-join="${esc(i.room)}">RACE</button>`))
@@ -121,7 +131,32 @@ export class Friends {
         ? `<h4>FRIENDS</h4><ul>${friends}</ul>`
         : `<p class="empty">No friends yet. Give your code, or enter theirs.</p>`) +
       `<p class="mycode">Your code <b>${esc(list.code)}</b></p>`;
+    this.paintCode(list.code);
     this.options.onRebuild();
+  }
+
+  /**
+   * Mon code en QR, et le bouton qui le partage. Dessiné à chaque lecture de
+   * la liste : le code ne change pas, mais l'écran peut avoir été ouvert avant
+   * qu'il soit connu.
+   */
+  private paintCode(code: string): void {
+    const share = document.getElementById('btnShareCode');
+    share?.toggleAttribute('hidden', !code);
+    const qr = document.getElementById('friendQr') as HTMLCanvasElement | null;
+    if (!qr) return;
+    try {
+      if (!code) throw new Error('no code');
+      drawQr(qr, friendLink(code));
+      qr.hidden = false;
+    } catch {
+      qr.hidden = true;
+    }
+  }
+
+  /** L'adresse à partager, pour qui veut la feuille de partage de l'appareil. */
+  get link(): string {
+    return this.list?.code ? friendLink(this.list.code) : '';
   }
 
   /** Un clic dans la liste : les boutons portent ce qu'ils font. */
@@ -154,6 +189,14 @@ export class Friends {
     if (drop) await this.act(() => api.removeFriend(drop));
   }
 
+  /**
+   * Demande une amitié par code, d'où qu'il vienne — le champ, ou un lien
+   * scanné. Le résultat se lit sous la liste.
+   */
+  async addByCode(code: string): Promise<void> {
+    await this.act(() => api.addFriend(code.toUpperCase()), 'Request sent.');
+  }
+
   private async add(): Promise<void> {
     const input = document.getElementById('friendCode') as HTMLInputElement | null;
     const code = input?.value.trim().toUpperCase() ?? '';
@@ -161,7 +204,7 @@ export class Friends {
       this.say('A code is six characters.');
       return;
     }
-    await this.act(() => api.addFriend(code), 'Request sent.');
+    await this.addByCode(code);
     if (input) input.value = '';
   }
 

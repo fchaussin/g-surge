@@ -118,12 +118,16 @@ const accountHeaders = (a: {
   name: string;
   ulid: string;
   face: string;
+  code?: string;
 }): Record<string, string> => ({
   'x-gs-account': String(a.id),
   'x-gs-ulid': a.ulid,
   // le visage voyage avec le nom : le salon le relaie à l'autre pilote, qui
   // n'a aucun autre moyen de savoir à quoi ressemble celui qui l'invite
   'x-gs-face': a.face,
+  // Le code d'ami : c'est ce qui permet de se relier après s'être battus,
+  // sans rien se dicter. Il ne dit rien de plus qu'un code déjà public.
+  ...(a.code ? { 'x-gs-code': a.code } : {}),
   // encodé : un en-tête ne porte que de l'ASCII, un nom non
   'x-gs-name': encodeURIComponent(a.name),
 });
@@ -136,13 +140,12 @@ const accountHeaders = (a: {
 async function openRoom(
   env: Env,
   req: Request,
-  account: { id: number; name: string; ulid: string; face: string },
+  account: { id: number; name: string; ulid: string; face: string; code?: string },
   body: string,
   pic: string | null,
 ): Promise<Response> {
-  const fresh = [...crypto.getRandomValues(new Uint8Array(8))]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  // Un code court, dictable : l'appairage d'un duel se fait au QR ou à la voix.
+  const fresh = friends.shortCode();
   const res = await env.ROOM.get(env.ROOM.idFromName(fresh)).fetch('https://room/open', {
     method: 'POST',
     body,
@@ -279,7 +282,7 @@ async function route(req: Request, env: Env): Promise<Response> {
       const opened = await openRoom(
         env,
         req,
-        account,
+        { ...account, code: await friends.codeOf(env, account.id) },
         JSON.stringify({ difficulty, race }),
         picOf(body),
       );
@@ -294,7 +297,7 @@ async function route(req: Request, env: Env): Promise<Response> {
   // Les salons. Un identifiant tiré ici nomme l'objet ; tout le reste est
   // à lui. Chaque entrée demande un compte : un salon est une partie
   // classée à deux, et le classé se joue connecté.
-  const room = url.pathname.match(/^\/room(?:\/([0-9a-f]{16}))?(?:\/(join|ws|track\/\d+))?$/);
+  const room = url.pathname.match(/^\/room(?:\/([A-Z2-9]{6}))?(?:\/(join|ws|track\/\d+))?$/);
   if (room) {
     const [, id, action] = room;
     if (!id && req.method === 'POST' && !action) {
@@ -308,7 +311,8 @@ async function route(req: Request, env: Env): Promise<Response> {
       } catch {
         return refuse(400, 'json');
       }
-      return openRoom(env, req, account, body, picOf(parsed));
+      const code = await friends.codeOf(env, account.id);
+      return openRoom(env, req, { ...account, code }, body, picOf(parsed));
     }
     if (!id) return refuse(404, 'not-found');
     const stub = env.ROOM.get(env.ROOM.idFromName(id));
@@ -319,9 +323,14 @@ async function route(req: Request, env: Env): Promise<Response> {
       const body = await req.text();
       if (body.length > 512) return refuse(413, 'size');
       const pic = picOf(body ? ((JSON.parse(body) as unknown) ?? null) : null);
+      const code = await friends.codeOf(env, account.id);
       return stub.fetch('https://room/join', {
         method: 'POST',
-        headers: { ...ipHeaders(req, env), ...accountHeaders(account), ...picHeader(pic) },
+        headers: {
+          ...ipHeaders(req, env),
+          ...accountHeaders({ ...account, code }),
+          ...picHeader(pic),
+        },
       });
     }
     if (action?.startsWith('track/')) {
