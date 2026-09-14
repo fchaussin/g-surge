@@ -182,9 +182,15 @@
     text-transform:uppercase}
   .addfriend .btn{width:auto;flex:none;margin:0;padding:10px 16px}
   /* Le visage du pseudo : aligné sur le milieu de la ligne et non sur sa base,
-     et jamais comprimé par un nom long. */
-  .av{flex:none;align-self:center;border-radius:4px;background:rgba(223,242,248,.05);
-    padding:2px}
+     et jamais comprimé par un nom long.
+
+     Sans fond : la plaque pâle qui était là se lisait comme un carré clair
+     derrière les pixels au lieu de disparaître sous eux, et l'avatar est déjà
+     un dessin sur fond transparent — il n'a pas besoin qu'on lui en pose un.
+     Le `border-radius` partait avec, il n'arrondissait que cette plaque. La
+     `photo` garde le sien : là il est visible le temps du chargement, et
+     l'image le recouvre ensuite. */
+  .av{flex:none;align-self:center;padding:2px}
   /* La photo du fournisseur, quand elle charge : même boîte que les pixels. */
   .photo{flex:none;align-self:center;border-radius:4px;object-fit:cover;
     background:rgba(223,242,248,.05)}
