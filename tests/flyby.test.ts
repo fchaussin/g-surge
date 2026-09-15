@@ -8,7 +8,7 @@
  * est fausse.
  */
 import { describe, expect, it } from 'vitest';
-import { flybyDetune, flybyGain, flybyPan } from '../src/client/flyby.js';
+import { flybyDetune, flybyGain, flybyPan, flybySpeedGain } from '../src/client/flyby.js';
 
 describe('le panoramique d’un passage', () => {
   it('reste presque au centre tant que l’objet est loin devant', () => {
@@ -76,5 +76,52 @@ describe('le désaccord d’un passage', () => {
     const ceiling = flybyDetune(60, 5, 10_000);
     expect(Number.isFinite(ceiling)).toBe(true);
     expect(ceiling).toBeCloseTo(flybyDetune(60, 5, 409), 6);
+  });
+});
+
+describe('le niveau d’un passage selon la vitesse', () => {
+  it('reste discret en croisière et se lève au-delà de 500 km/h', () => {
+    // 70 m/s font 252 km/h, 140 m/s en font 504, 300 m/s 1 080.
+    const cruise = flybySpeedGain(70);
+    const seuil = flybySpeedGain(140);
+    const vite = flybySpeedGain(220);
+    const plafond = flybySpeedGain(300);
+    expect(cruise).toBeCloseTo(seuil, 10); // rien ne bouge en dessous du seuil
+    expect(vite).toBeGreaterThan(seuil);
+    expect(plafond).toBeGreaterThan(vite);
+    // Un rapport qui s'entend : le passage vaut plusieurs fois plus au plafond.
+    expect(plafond / cruise).toBeGreaterThan(4);
+  });
+
+  it('ne se tait jamais tout à fait, et ne monte pas sans fin', () => {
+    // En croisière un passage reste un repère de position ; il cesse seulement
+    // d'être un événement.
+    expect(flybySpeedGain(0)).toBeGreaterThan(0.1);
+    // Et au-delà du plafond du super boost, plus rien ne monte.
+    expect(flybySpeedGain(409)).toBeCloseTo(flybySpeedGain(300), 10);
+    expect(flybySpeedGain(10_000)).toBeCloseTo(flybySpeedGain(300), 10);
+  });
+});
+
+describe('l’écoutant, qui est la caméra', () => {
+  it('fait sonner au centre un objet posé sur la trajectoire', () => {
+    // Un objet au même écart latéral que l'écoutant lui passe dessus : il n'a
+    // pas de côté. C'est l'écart **relatif** qui compte, et c'est ce que la
+    // première version avait faux — elle passait la latérale absolue, donc un
+    // objet suivi de près sonnait sur le bord.
+    expect(flybyPan(6, 0)).toBeCloseTo(0, 10);
+  });
+
+  it('place le passage là où l’oreille est, pas où la coque est', () => {
+    // La caméra est 19 m en arrière : un objet au niveau du vaisseau est encore
+    // à 19 m devant elle, donc loin du basculement. Le panoramique ne part à
+    // fond que 19 m plus tard, quand il atteint vraiment le point d'écoute.
+    const surLaCoque = Math.abs(flybyPan(19, 9));
+    const surLOreille = Math.abs(flybyPan(0, 9));
+    expect(surLOreille).toBeGreaterThan(surLaCoque);
+    expect(surLOreille).toBeCloseTo(1, 6);
+    // Et le Doppler s'annule au même endroit, pas avant.
+    expect(flybyDetune(19, 9, 200)).toBeGreaterThan(0);
+    expect(flybyDetune(0, 9, 200)).toBeCloseTo(0, 10);
   });
 });

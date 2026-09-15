@@ -350,10 +350,26 @@ export class Audio {
    * vaisseau, celui-là une scène extérieure qui a ses propres positions. Les
    * mélanger aurait demandé de passer la piste à une fonction qui n'en a que
    * faire, et qui prend déjà huit paramètres.
+   *
+   * @param listenerLat écart latéral de l'écoutant, en mètres d'espace piste.
+   * @param back mètres dont l'écoutant est en arrière du vaisseau.
+   *
+   * **L'écoutant est la caméra, pas la coque.** C'est le point de vue du joueur,
+   * et il est `camDist` en arrière : un objet au niveau du vaisseau n'est donc
+   * pas encore passé, il lui reste dix-neuf mètres. Placer l'oreille sur la
+   * coque faisait basculer le panoramique et le Doppler une demi-seconde trop
+   * tôt à vitesse de croisière.
    */
-  passing(playing: boolean, track: Track, cursor: number, speed: number): void {
+  passing(
+    playing: boolean,
+    track: Track,
+    cursor: number,
+    speed: number,
+    listenerLat: number,
+    back: number,
+  ): void {
     if (!this.ctx || this.muted) return;
-    this.flybys?.update(playing, track, cursor, speed);
+    this.flybys?.update(playing, track, cursor, speed, listenerLat, back);
   }
 
   /**

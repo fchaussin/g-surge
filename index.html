@@ -216,6 +216,18 @@
     .grp,.t-row{break-inside:avoid}
   }
   @media (min-width:1300px){ .page.on{column-count:3} }
+  /* La feuille de duel en deux colonnes, et dès 620 px plutôt qu'à partir des
+     820 des pages à onglets.
+
+     C'est en paysage sur un téléphone qu'elle est le plus pénible : cinq blocs
+     à faire défiler dans 390 px de haut, alors qu'il y a 844 px de large dont
+     personne ne fait rien. Le seuil est donc celui où deux colonnes restent
+     lisibles — 282 px chacune à 620 px de large, et le plus gros contenu, le QR
+     d'invitation, en fait 232 — et non celui où l'écran devient un ordinateur. */
+  @media (min-width:620px){
+    #duel .cols{column-count:2;column-gap:38px}
+    #duel .grp{break-inside:avoid}
+  }
   .rst{margin-left:8px;padding:0 6px;border-radius:5px;border:1px solid var(--line);
     background:transparent;color:var(--dim2);font-size:11px;line-height:16px}
   .rst:active{color:var(--neon);border-color:var(--neon)}
@@ -1091,6 +1103,11 @@
     <header><h2>DUEL</h2>
       <button class="close" id="btnCancelDuel">✕</button></header>
     <div class="body">
+      <!-- Deux colonnes dès qu'il y a la largeur : voir `.cols`. Le conteneur
+           est ici et non sur `.body`, qui est l'élément qui défile — des
+           colonnes posées dessus prendraient sa hauteur et déborderaient sur le
+           côté au lieu de s'empiler. C'est pourquoi les réglages ont `.page`. -->
+      <div class="cols">
       <div class="grp">
         <p class="acct" id="duelLine">Opening a room…</p>
         <!-- L'invité qui n'a pas de compte : se connecter d'ici, et retomber
@@ -1137,6 +1154,7 @@
       </div>
       <div class="grp">
         <p>Same track for both, on the server. The other pilot's ship rides beside yours as a ghost; there are no collisions. The race starts as soon as they arrive.</p>
+      </div>
       </div>
     </div>
   </div>

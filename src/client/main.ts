@@ -28,7 +28,7 @@ import { api, type BoardCategory, type BoardEntry } from './api.js';
 import { paintFace } from './photos.js';
 import { fromBase64 } from './base64.js';
 import { BoardScreen } from './board.js';
-import { ChaseCamera, COMPACT_BELOW } from './camera.js';
+import { ChaseCamera, COMPACT_BELOW, OFFSET_BEHIND } from './camera.js';
 import { DamageOverlay } from './damage.js';
 import { Duel, DUEL_LINK, type DuelEnd, type Standing } from './duel.js';
 import { drawQr } from './qr.js';
@@ -1086,9 +1086,19 @@ function renderFrame(frameDt: number): void {
     // Position latérale en espace monde, normalisée par la demi-largeur utile :
     // ±1 contre un bord. L'inversion vers la gauche de l'écran appartient à
     // `audio.ts`, qui la fait une fois et l'explique — voir `panOf`.
-    state.lat / Math.max(1, sim.tuning.half - SHIP),
+    // L'écoutant est la caméra : elle est décalée d'une fraction de l'écart du
+    // vaisseau, pas de la totalité. C'est elle qui voit, donc c'est elle qui
+    // entend.
+    (state.lat * OFFSET_BEHIND) / Math.max(1, sim.tuning.half - SHIP),
   );
-  audio.passing(screens.isLive, sim.track, state.cursor, state.speed);
+  audio.passing(
+    screens.isLive,
+    sim.track,
+    state.cursor,
+    state.speed,
+    state.lat * OFFSET_BEHIND,
+    sim.tuning.camDist,
+  );
 
   if (screens.isLive) {
     hud.update(state, sim.tuning, frameDt);

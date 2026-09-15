@@ -100,8 +100,25 @@ const GANTRY_FREQ = 96;
 /** Portée propre : plus courte, sinon deux portiques se chevauchent toujours. */
 const GANTRY_RANGE = 90;
 
-/** Constante de temps du suivi. Courte, mais pas nulle : voir `assign`. */
+/** Constante de temps du suivi. Courte, mais pas nulle : voir `scan`. */
 const EASE = 0.05;
+
+/**
+ * Où le passage cesse d'être un détail et devient un effet, en m/s.
+ *
+ * Doubler un objet à 250 km/h n'est pas un événement : on le voit venir, on le
+ * dépasse, il n'y a rien à dire. À 1 400, il est là et il n'y est plus. **Le
+ * niveau suit donc la vitesse au lieu d'être constant** : presque muet en bas,
+ * pleinement présent en haut, et la bascule commence autour des 500 km/h que
+ * l'oreille reconnaît comme le moment où la piste se met à défiler.
+ *
+ * 140 m/s font 504 km/h, 300 m/s en font 1 080 ; le plafond du super boost est
+ * à 409 m/s, donc il reste au-dessus du seuil haut et s'entend comme tel.
+ */
+const SPEED_QUIET = 140;
+const SPEED_LOUD = 300;
+const QUIET_FACTOR = 0.25;
+const LOUD_FACTOR = 1.6;
 
 /**
  * Le panoramique d'un objet à `ahead` mètres devant et `lat` mètres de côté.
@@ -146,6 +163,19 @@ export function gantryGain(ahead: number): number {
   if (r >= GANTRY_RANGE) return 0;
   const near = 1 / (1 + (r / REF) * (r / REF));
   return near * (1 - r / GANTRY_RANGE);
+}
+
+/**
+ * Ce que la vitesse fait au niveau d'un passage : un facteur, de `QUIET_FACTOR`
+ * sous `SPEED_QUIET` à `LOUD_FACTOR` au-delà de `SPEED_LOUD`.
+ *
+ * Il ne descend pas à zéro : en croisière le passage reste un repère de
+ * position, il cesse seulement d'être un événement.
+ */
+export function flybySpeedGain(speed: number): number {
+  const t = (speed - SPEED_QUIET) / (SPEED_LOUD - SPEED_QUIET);
+  const k = t < 0 ? 0 : t > 1 ? 1 : t;
+  return QUIET_FACTOR + (LOUD_FACTOR - QUIET_FACTOR) * k;
 }
 
 export function flybyDetune(ahead: number, lat: number, speed: number): number {
@@ -205,14 +235,22 @@ export class Flybys {
    * suivi absorbe le saut, ce qui est tout ce qu'on lui demande — à trois voix
    * pour zéro ou un objet en portée, le cas est rare et bref.
    */
-  update(playing: boolean, track: Track, cursor: number, speed: number): void {
+  update(
+    playing: boolean,
+    track: Track,
+    cursor: number,
+    speed: number,
+    listenerLat: number,
+    back: number,
+  ): void {
     let used = 0;
     let arches = 0;
     if (playing) {
       const base = track.nid[0]!;
-      used = this.scan(track.items, base, cursor, speed, used);
-      used = this.scan(track.extras, base, cursor, speed, used);
-      arches = this.scanGantries(track, cursor, speed);
+      const pace = flybySpeedGain(speed);
+      used = this.scan(track.items, base, cursor, speed, listenerLat, back, pace, used);
+      used = this.scan(track.extras, base, cursor, speed, listenerLat, back, pace, used);
+      arches = this.scanGantries(track, cursor, speed, back, pace);
     }
     for (let i = used; i < this.voices.length; i++) {
       this.voices[i]!.gain.gain.setTargetAtTime(0, this.now(this.voices, i), EASE);
@@ -229,17 +267,25 @@ export class Flybys {
    * ne sont pas des objets de la simulation, ils sont posés tous les
    * `GANTRY_EVERY` segments par la façon dont la piste est habillée.
    */
-  private scanGantries(track: Track, cursor: number, speed: number): number {
+  private scanGantries(
+    track: Track,
+    cursor: number,
+    speed: number,
+    back: number,
+    pace: number,
+  ): number {
     let n = 0;
     for (let i = 0; i < track.nid.length && n < this.gantries.length; i++) {
       if (track.nid[i]! % GANTRY_EVERY !== 0) continue;
-      const ahead = (i - BACK) * SEG - cursor;
+      // Une arche traverse toute la piste : elle n'a pas d'écart latéral, et le
+      // seul décalage qui compte est celui de l'écoutant vers l'arrière.
+      const ahead = (i - BACK) * SEG - cursor + back;
       const gain = gantryGain(ahead);
       if (gain <= 0) continue;
       const v = this.gantries[n++]!;
       const t = this.now(this.gantries, n - 1);
       v.osc.detune.setTargetAtTime(flybyDetune(ahead, 0, speed), t, EASE);
-      v.gain.gain.setTargetAtTime(gain * GANTRY_GAIN, t, EASE);
+      v.gain.gain.setTargetAtTime(gain * GANTRY_GAIN * pace, t, EASE);
     }
     return n;
   }
@@ -249,20 +295,28 @@ export class Flybys {
     base: number,
     cursor: number,
     speed: number,
+    listenerLat: number,
+    back: number,
+    pace: number,
     used: number,
   ): number {
     for (const item of list) {
       if (used >= this.voices.length) return used;
       if (item.taken) continue;
-      const ahead = (item.id - base - BACK) * SEG - cursor;
-      const gain = flybyGain(ahead, item.lat);
+      // Tout est mesuré depuis l'écoutant, pas depuis le vaisseau : `back`
+      // mètres plus loin devant, et l'écart latéral compté depuis sa position à
+      // lui. Sans ce second terme, un objet qui passe exactement sur la
+      // trajectoire sonnerait sur le côté au lieu de traverser.
+      const ahead = (item.id - base - BACK) * SEG - cursor + back;
+      const dx = item.lat - listenerLat;
+      const gain = flybyGain(ahead, dx);
       if (gain <= 0) continue;
       const v = this.voices[used++]!;
       const t = this.now(this.voices, used - 1);
       v.osc.frequency.setTargetAtTime(FREQ_BY_TYPE[item.type] ?? FREQ_BY_TYPE[ITEM_COIN]!, t, EASE);
-      v.osc.detune.setTargetAtTime(flybyDetune(ahead, item.lat, speed), t, EASE);
-      v.pan!.pan.setTargetAtTime(flybyPan(ahead, item.lat), t, EASE);
-      v.gain.gain.setTargetAtTime(gain * ITEM_GAIN, t, EASE);
+      v.osc.detune.setTargetAtTime(flybyDetune(ahead, dx, speed), t, EASE);
+      v.pan!.pan.setTargetAtTime(flybyPan(ahead, dx), t, EASE);
+      v.gain.gain.setTargetAtTime(gain * ITEM_GAIN * pace, t, EASE);
     }
     return used;
   }

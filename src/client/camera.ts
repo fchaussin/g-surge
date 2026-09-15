@@ -26,8 +26,15 @@ import {
 } from '../sim/index.js';
 import { driftIntensity, driftSide } from './drift.js';
 
-/** Fraction du décalage latéral du vaisseau appliquée derrière et devant. */
-const OFFSET_BEHIND = 0.55;
+/**
+ * Fraction du décalage latéral du vaisseau appliquée derrière et devant.
+ *
+ * `OFFSET_BEHIND` est exporté parce que la caméra n'est pas seulement ce qui
+ * voit : c'est aussi ce qui **écoute**. Le son spatial place son écoutant ici,
+ * `camDist` en arrière et à cette fraction de l'écart du vaisseau, et non sur
+ * la coque. Voir `flyby.ts`.
+ */
+export const OFFSET_BEHIND = 0.55;
 const OFFSET_AHEAD = 0.25;
 
 /** Dévers sous lequel la caméra ne suit qu'en partie, et largeur du mélange. */
