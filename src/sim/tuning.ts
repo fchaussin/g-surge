@@ -53,6 +53,13 @@ export interface Tuning {
   /** Part de montée supplémentaire par niveau de combo, plafonnée à `comboClimbMax`. */
   comboClimb: number;
   comboClimbMax: number;
+  /**
+   * Ce que vaut l'encaissement d'un combo, en drifts de la chaîne.
+   *
+   * Rouler propre pour encaisser doit rapporter plus qu'un drift de plus, sinon
+   * c'est un mauvais calcul et personne ne le fera.
+   */
+  comboCash: number;
 
   /* Near Miss : frôler le mur sans le toucher */
   /** Largeur, en mètres depuis le mur, de la bande où l'on frôle. */
@@ -228,6 +235,7 @@ export const DEFAULTS: Readonly<Tuning> = {
   comboScore: 0.5,
   comboClimb: 0.25,
   comboClimbMax: 1.0,
+  comboCash: 3,
   /* La bande fait un peu plus d'une demi-largeur de vaisseau (SHIP = 1,9) :
    * assez pour qu'on la sente, trop étroite pour qu'un passage ordinaire y
    * tombe. Récompense proportionnelle à la vitesse, comme la spécification le
@@ -250,7 +258,17 @@ export const DEFAULTS: Readonly<Tuning> = {
    * cible la ramène à speedGain par seconde, donc l'excès se fixe à
    * rideGain / (speedGain − rideGain), 0,235 ici. À rejuger en jouant. */
   extrasFrom: 1500,
-  rideChance: 0.0025,
+  /* 0,0025 donnait un premier prisme à 4,6 km de médiane et jusqu'à 22 km sur
+   * la pire graine, alors qu'une partie humaine finit à trois ou quatre —
+   * mesuré sur soixante graines. Une partie sur deux se terminait donc avant
+   * que le premier prisme existe, et avec elle le wall riding, son grind et son
+   * accélération : la mécanique se lisait comme absente parce qu'elle l'était.
+   * C'est le défaut que `fixChance` a connu le 12 septembre, au même endroit du
+   * raisonnement. À 0,016 la médiane tombe à 2,08 km et surtout **le pire cas
+   * passe de 22 à 4,2 km** — c'est cette colonne-là qui décide : une mécanique
+   * absente d'une graine sur dix se lit comme cassée. Elle reste une récompense
+   * de milieu de course, pas un cadeau de départ. */
+  rideChance: 0.016,
   rideTime: 8,
   rideGain: 0.08,
   /* Facile : la croisière ne consomme rien, un boost une réserve pleine

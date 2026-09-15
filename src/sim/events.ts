@@ -76,6 +76,22 @@ export type SimEvent =
   /** Fin du G-SURGE, au pas où le compteur atteint zéro. */
   | { readonly type: 'surgeEnd' }
   /**
+   * L'enchaînement encaissé : la fenêtre a expiré sur un combo armé sans qu'un
+   * mur ait été touché, donc il se paie au lieu de s'effriter.
+   *
+   * C'est la seule fin heureuse d'un combo. Avant, il n'en avait aucune : il
+   * payait pendant les drifts puis redescendait barreau par barreau jusqu'à
+   * `comboEnd`, si bien que le seul message que le mécanisme envoyait jamais
+   * était celui de la perte. `chain` porte les frôlements enchaînés qui l'ont
+   * démultiplié.
+   */
+  | {
+      readonly type: 'comboCashed';
+      readonly count: number;
+      readonly bonus: number;
+      readonly chain: number;
+    }
+  /**
    * Un drift propre de plus dans l'enchaînement. `count` est le combo atteint ;
    * `bonus` les points versés, zéro tant que le combo n'est pas armé. Émis à la
    * sortie du drift, qui est le moment où sa durée est connue.

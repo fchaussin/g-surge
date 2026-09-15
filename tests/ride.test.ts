@@ -8,7 +8,7 @@
  * cette séparation tient.
  */
 import { describe, expect, it } from 'vitest';
-import { BACK, ITEM_FUEL, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
+import { BACK, DEFAULTS, ITEM_FUEL, ITEM_RIDE, SEG, Sim, type SimEvent } from '../src/sim/index.js';
 
 const DT = 1 / 720;
 const NEUTRAL = { steer: 0, brake: false, boost: false };
@@ -86,9 +86,12 @@ describe('the extras list', () => {
       segments += sim.track.nid[sim.track.nid.length - 1]!;
       rides += seen.size;
     }
+    // Bornes relatives au réglage, et non des chiffres à réécrire à chaque
+    // fois qu'on le change : c'est le tirage qu'on vérifie, pas la valeur.
     const rate = rides / segments;
-    expect(rate).toBeGreaterThan(0.001);
-    expect(rate).toBeLessThan(0.005);
+    const want = DEFAULTS.rideChance;
+    expect(rate).toBeGreaterThan(want * 0.5);
+    expect(rate).toBeLessThan(want * 1.6);
   });
 });
 

@@ -88,35 +88,73 @@ describe('the perfect drift combo', () => {
    * laisse pas produire un drift qualifiant toutes les 1,5 s. Ce qui l'annule
    * d'un coup est le mur, et il a son propre test.
    */
-  it('loses one rung per expired window, and says so on crossing the armed level', () => {
+  it('cashes an armed chain when the window runs out, and only erodes below the threshold', () => {
     const sim = fresh();
     const ev: SimEvent[] = [];
+    const cashed = (): Extract<SimEvent, { type: 'comboCashed' }>[] =>
+      ev.filter((e): e is Extract<SimEvent, { type: 'comboCashed' }> => e.type === 'comboCashed');
+
+    // Sous le seuil il n'y a rien à encaisser : l'amorce s'effrite, comme avant.
     drift(sim, 0.4, ev);
     straight(sim, sim.tuning.comboWindow + 0.1, ev);
     expect(sim.state.combo).toBe(0);
-    expect(ends(ev)).toHaveLength(0); // perdre un combo de un n'est pas un événement
+    expect(cashed()).toHaveLength(0);
+    expect(ends(ev)).toHaveLength(0);
 
     for (let n = 0; n < 4; n++) {
       drift(sim, 0.4, ev);
       straight(sim, 0.3, ev);
     }
     expect(sim.state.combo).toBe(4);
+    const before = sim.state.score;
 
-    // une fenêtre, un barreau : 4 → 3, et rien à annoncer, on reste armé
+    // **La fenêtre expire sur un combo armé : il se paie et se referme.** Il
+    // n'y a plus d'effritement à ce niveau — le combo n'avait aucune fin
+    // heureuse, il redescendait barreau par barreau jusqu'à `comboEnd`, si bien
+    // que le seul message du mécanisme était celui de la perte.
     straight(sim, sim.tuning.comboWindow, ev);
-    expect(sim.state.combo).toBe(3);
-    expect(ends(ev)).toHaveLength(0);
-
-    // la suivante repasse sous le seuil : c'est là que l'enchaînement finit
-    straight(sim, sim.tuning.comboWindow, ev);
-    expect(sim.state.combo).toBe(2);
-    expect(ends(ev).map((e) => e.count)).toEqual([3]);
-
-    // et il descend jusqu'à zéro sans rien annoncer de plus
-    straight(sim, sim.tuning.comboWindow * 3, ev);
     expect(sim.state.combo).toBe(0);
     expect(sim.state.comboLeft).toBe(0);
-    expect(ends(ev)).toHaveLength(1);
+    expect(sim.state.score).toBeGreaterThan(before);
+    expect(cashed().map((e) => e.count)).toEqual([4]);
+    expect(cashed()[0]!.bonus).toBeGreaterThan(0);
+    // Encaisser n'est pas perdre : `comboEnd` reste l'annulation par un mur.
+    expect(ends(ev)).toHaveLength(0);
+
+    // Et il ne se paie qu'une fois : rien ne reste à encaisser après.
+    straight(sim, sim.tuning.comboWindow * 3, ev);
+    expect(cashed()).toHaveLength(1);
+  });
+
+  it('vaut plus qu’un drift de plus, sinon rouler propre serait un mauvais calcul', () => {
+    const sim = fresh();
+    const ev: SimEvent[] = [];
+    for (let n = 0; n < 4; n++) {
+      drift(sim, 0.4, ev);
+      straight(sim, 0.3, ev);
+    }
+    const ups = ev.filter((e) => e.type === 'comboUp' && e.bonus > 0);
+    const dernierDrift = (ups.at(-1) as { bonus: number }).bonus;
+    straight(sim, sim.tuning.comboWindow, ev);
+    const gain = (ev.find((e) => e.type === 'comboCashed') as { bonus: number }).bonus;
+    expect(gain).toBeGreaterThan(dernierDrift * 2);
+  });
+
+  it('est démultiplié par les frôlements enchaînés pendant l’enchaînement', () => {
+    const run = (chain: number): number => {
+      const sim = fresh();
+      const ev: SimEvent[] = [];
+      for (let n = 0; n < 4; n++) {
+        drift(sim, 0.4, ev);
+        straight(sim, 0.3, ev);
+      }
+      // Posé plutôt que joué : produire des frôlements propres demande de raser
+      // le mur sans le toucher, ce que ce fichier ne sait pas piloter.
+      sim.state.nearChain = chain;
+      straight(sim, sim.tuning.comboWindow, ev);
+      return (ev.find((e) => e.type === 'comboCashed') as { bonus: number }).bonus;
+    };
+    expect(run(3)).toBeGreaterThan(run(0));
   });
 
   it('tightens the window as the combo grows', () => {

@@ -240,7 +240,7 @@ and the table is generated from it.
 | Coin | ring, coloured by the thrust rung | multiplier up, by the rung | in runs, see Scoring | same | same |
 | Repair | green octahedron | hull +50 | every 4.5 km | every 5.6 km | every 6.7 km |
 | Super boost | magenta cone | 5 s at ×1.22, reserve pinned full | every 5.6 km | every 5.6 km | every 7.4 km |
-| Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 4.8 km | every 4.8 km | every 4.8 km |
+| Invincibility | rainbow prism | 8 s of harmless walls that push, on the SHIELD bar | every 750 m | every 750 m | every 750 m |
 | Fuel can | red cylinder | fuel +35 | every 1.5 km | every 2.4 km | every 4.0 km |
 
 Every pickup is taken within `pickRadius`, 3.6 m. The last two are extras: none

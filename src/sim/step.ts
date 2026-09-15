@@ -301,12 +301,33 @@ export function step(
     state.comboLeft -= dt;
     if (state.comboLeft <= 0) {
       const was = state.combo;
-      state.combo--;
-      state.comboLeft = state.combo > 0 ? comboWindow(state.combo, T) : 0;
-      // L'enchaînement n'est « fini » qu'en repassant sous le seuil d'armement.
-      if (was >= T.comboArm && state.combo < T.comboArm) {
-        out.push({ type: 'comboEnd', count: was });
+      if (was >= T.comboArm) {
+        // **L'enchaînement s'encaisse.** La fenêtre expirée sur un combo armé
+        // veut dire qu'on a cessé de drifter et qu'on roule ; et s'il est
+        // encore debout, c'est qu'aucun mur n'a été touché depuis, puisqu'un
+        // mur le met à zéro sur-le-champ. Il se paie donc, et se referme.
+        //
+        // Il n'avait aucune fin heureuse jusqu'ici : il payait pendant les
+        // drifts puis redescendait barreau par barreau jusqu'à `comboEnd`, si
+        // bien que le seul message que le mécanisme envoyait jamais était celui
+        // de la perte. On n'apprend pas une règle dont on ne voit que les
+        // échecs.
+        //
+        // Les frôlements enchaînés le démultiplient, sur l'échelle qui
+        // démultiplie déjà chacun d'eux : prendre le risque de raser le mur
+        // pendant l'enchaînement vaut autant à l'encaissement qu'au passage.
+        const chain = Math.min(T.nearChainMax, T.nearChain * state.nearChain);
+        const bonus = state.speed * was * T.comboScore * T.comboCash * (1 + chain) * diffMul;
+        state.score += bonus;
+        state.combo = 0;
+        state.comboLeft = 0;
+        out.push({ type: 'comboCashed', count: was, bonus, chain: state.nearChain });
         state.nearChain = 0;
+      } else {
+        // Sous le seuil il n'y a rien à encaisser : l'amorce s'effrite, un
+        // barreau à la fois, comme avant.
+        state.combo--;
+        state.comboLeft = state.combo > 0 ? comboWindow(state.combo, T) : 0;
       }
     }
   }
@@ -350,7 +371,25 @@ export function step(
   let grip = state.drift ? T.gripDrift : T.gripHold;
   if (state.air) grip *= T.airSteer;
   state.latVel += dv * Math.min(1, dt * grip);
-  if (!state.air) {
+  /**
+   * Le rail retient.
+   *
+   * Sous invincibilité, en contact, et tant que le manche pousse dans la paroi,
+   * ce qui écarte ne s'applique plus. C'est la différence entre être **posé sur
+   * le rail** et être seulement immunisé contre lui.
+   *
+   * Annuler la vitesse latérale ne suffisait pas : la centrifuge continuait de
+   * pousser vers le centre à chaque virage, d'autant plus fort qu'on va vite, et
+   * décollait le vaisseau. Mesuré à 800 km/h, manche à fond dans le mur : le
+   * contact se rompait à la quatrième puis à la sixième seconde, et la vitesse
+   * reculait à la sixième — le gain de wall riding s'interrompt avec le contact.
+   *
+   * Relâcher le manche, ou le tourner vers l'intérieur, rend la main aussitôt :
+   * c'est le produit des signes qui ouvre la retenue, donc on quitte le rail
+   * quand on le décide.
+   */
+  const railed = riding && state.contact && !state.air && steer * state.lat > 0;
+  if (!state.air && !railed) {
     state.latVel -= kNow * state.speed * state.speed * T.centri * dt;
     state.latVel -= 9.81 * sin(bNow) * T.bankAssist * dt;
   }

@@ -229,6 +229,20 @@ export class Feedback {
         case 'comboEnd':
           hud.showPop(`COMBO LOST ×${e.count}`, '#dff2f8');
           break;
+        case 'comboCashed':
+          // La seule fin heureuse d'un enchaînement, et la seule qui dise un
+          // gain : dans le cyan du drift dont elle est l'aboutissement, avec la
+          // chaîne de frôlements quand elle a compté, puisque c'est là qu'on
+          // apprend que raser le mur pendant un combo vaut double.
+          hud.showPop(
+            e.chain > 1
+              ? `PERFECT CHAIN ×${e.count} · ${e.chain} NEAR  +${Math.round(e.bonus)}`
+              : `PERFECT CHAIN ×${e.count}  +${Math.round(e.bonus)}`,
+            '#25e2ff',
+          );
+          this.flash(0x25e2ff, 0.9);
+          haptics.buzz([18, 30, 18, 30, 26]);
+          break;
         case 'nearMiss':
           // L'orangé d'une brûlure, entre le rouge du mur et l'or de la réserve :
           // c'est un risque payé, pas un choc et pas une pièce. La chaîne se

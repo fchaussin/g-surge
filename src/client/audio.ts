@@ -115,6 +115,26 @@ const DRIFT_AIRFLOW = 0.12;
 const TURB_RATES = [3.3, 5.9] as const;
 
 /**
+ * Le grain du wall riding : ce qui fait qu'il **glisse** au lieu d'être posé.
+ *
+ * La bande y était plate — un gain fixe et une fréquence centrale qui suit la
+ * vitesse — et une bande plate ne se lit pas comme un contact : elle se lit
+ * comme un souffle qui attend. Un patin qui court sur un rail broute, accroche,
+ * relâche, et c'est ce broutement qui dit la glisse.
+ *
+ * Même machine que `TURB_RATES` et pour la même raison — deux cadences sans
+ * rapport simple, sinon l'oreille prédit le battement et entend une sirène —
+ * mais bien plus haut : la turbulence d'air d'un drift ondule, un contact
+ * métallique crépite. En dessous d'une dizaine de hertz on entendrait une
+ * pulsation ; au-delà de la vingtaine, un bourdonnement. Entre les deux, c'est
+ * du frottement.
+ */
+const GRIND_RATES = [11.3, 17.9] as const;
+/** Profondeurs du broutement, en Hz sur la bande et en fraction de son gain. */
+const GRIND_FREQ_DEPTH = 520;
+const GRIND_GAIN_DEPTH = 0.55;
+
+/**
  * Le bouclier : une bobine Tesla, entendue. Deux dents de scie graves qui
  * battent l'une contre l'autre sous un passe-bas serré — le bourdon — hachées
  * par une modulation à quelques dizaines de hertz, qui est le crépitement, et
@@ -201,6 +221,8 @@ export class Audio {
   private scraping = false;
   /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
+  /** Le broutement du wall riding. Voir `GRIND_RATES`. */
+  private grind: { freq: GainNode; amp: GainNode } | null = null;
   private charge: {
     oscA: OscillatorNode;
     oscB: OscillatorNode;
@@ -301,6 +323,9 @@ export class Audio {
           break;
         case 'comboEnd':
           this.comboEnd();
+          break;
+        case 'comboCashed':
+          this.comboCashed(e.count);
           break;
         case 'nearMiss':
           this.nearMiss(e.closeness);
@@ -454,8 +479,17 @@ export class Audio {
     // Amené et non posé, pour la même raison que les gains le sont.
     this.side?.pan.setTargetAtTime(playing ? panOf(lateral) : 0, t, PAN_EASE);
 
-    this.rideBand?.gain.gain.setTargetAtTime(playing && this.riding ? 0.11 : 0, t, 0.06);
+    const grinding = playing && this.riding;
+    const rideGain = grinding ? 0.11 : 0;
+    this.rideBand?.gain.gain.setTargetAtTime(rideGain, t, 0.06);
     this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
+    if (this.grind) {
+      // Le broutement est une fraction du grind lui-même, comme la turbulence
+      // l'est du souffle : deux sinusoïdes somment à 2 au plus, donc la moitié
+      // de la profondeur ne peut jamais pousser la bande sous zéro.
+      this.grind.freq.gain.setTargetAtTime(grinding ? GRIND_FREQ_DEPTH : 0, t, 0.08);
+      this.grind.amp.gain.setTargetAtTime((rideGain * GRIND_GAIN_DEPTH) / 2, t, 0.05);
+    }
     this.riding = false;
 
     // Le raclement, suivi de la même façon. Il s'ouvre un peu avec la vitesse :
@@ -583,6 +617,25 @@ export class Audio {
     turbFreq.connect(this.driftNoise.filter.frequency);
     turbAmp.connect(this.driftNoise.gain.gain);
     this.turb = { freq: turbFreq, amp: turbAmp };
+
+    // Le même montage sur la bande du wall riding, à ses cadences à elle. Les
+    // profondeurs partent de zéro et ne s'ouvrent qu'en contact, donc hors
+    // wall riding la bande reste exactement muette.
+    const grindFreq = ctx.createGain();
+    const grindAmp = ctx.createGain();
+    grindFreq.gain.value = 0;
+    grindAmp.gain.value = 0;
+    for (const rate of GRIND_RATES) {
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = rate;
+      lfo.connect(grindFreq);
+      lfo.connect(grindAmp);
+      lfo.start();
+    }
+    grindFreq.connect(this.rideBand.filter.frequency);
+    grindAmp.connect(this.rideBand.gain.gain);
+    this.grind = { freq: grindFreq, amp: grindAmp };
 
     const chargeOscA = ctx.createOscillator();
     chargeOscA.type = 'sawtooth';
@@ -907,6 +960,21 @@ export class Audio {
   }
 
   /** Le combo tombe : deux notes qui descendent, discrètes — c'est une perte, pas un choc. */
+  /**
+   * L'encaissement : une montée de trois notes, là où `comboEnd` descend.
+   *
+   * Le même intervalle que la voix de recharge monte, pour que l'oreille
+   * reconnaisse un aboutissement et pas une récompense de plus. Le sommet suit
+   * le niveau atteint — un combo haut se referme plus haut — borné pour ne pas
+   * finir dans le sifflement du moteur.
+   */
+  private comboCashed(count: number): void {
+    const top = Math.min(1180, 620 + count * 60);
+    this.blip(top * 0.62, 0.1, 'triangle', 0.05);
+    this.blip(top * 0.8, 0.1, 'triangle', 0.055, 0, 0.07);
+    this.blip(top, 0.22, 'triangle', 0.06, top * 1.25, 0.14);
+  }
+
   private comboEnd(): void {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
