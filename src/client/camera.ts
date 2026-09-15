@@ -105,6 +105,55 @@ const COMPACT_DIST = 0.7;
 const COMPACT_HEIGHT = 0.85;
 const COMPACT_LOOK = 0.85;
 
+/**
+ * La caméra dans le vaisseau, le temps d'un G-SURGE.
+ *
+ * Le quatrième barreau ne va pas plus vite qu'un super boost — il n'y a plus de
+ * place sous le plafond du moteur — donc il ne peut se dire qu'autrement. Passer
+ * dans la coque est le plus fort de ces « autrement » : la piste cesse d'être
+ * regardée et devient traversée, et le même défilement qu'une seconde plus tôt
+ * se lit deux fois plus vite parce que rien n'est plus loin.
+ *
+ * `COCKPIT_DIST` est **négatif** : l'œil se pose devant l'origine, au nez, et
+ * non au centre de masse. Essayé à 0,2 en arrière, il tombait au milieu de la
+ * coque et l'on regardait ses propres ailes de l'intérieur — du clipping, pas
+ * une vue de cockpit. Au nez, rien n'occulte et la silhouette reste hors cadre.
+ * `COCKPIT_HEIGHT` se tient juste au-dessus du vol stationnaire, 1,35, pour
+ * qu'on soit posé dans la machine et non au-dessus. La visée porte plus loin :
+ * de si bas, viser court ne montrerait que du bitume.
+ *
+ * **L'écart latéral passe de `OFFSET_BEHIND` à 1.** En poursuite la caméra
+ * reste en retrait vers le centre, ce qui donne du contexte ; dans la coque il
+ * n'y a plus de retrait possible, on *est* le vaisseau. Le retard aussi
+ * disparaît : une caméra boulonnée ne traîne pas derrière ce qui la porte.
+ */
+const COCKPIT_DIST = -1.8;
+const COCKPIT_HEIGHT = 1.55;
+const COCKPIT_LOOK = 1.45;
+const COCKPIT_LAG = 42;
+
+/**
+ * Durées de la transition, en secondes, et elles sont dissymétriques à dessein.
+ *
+ * 225 ms pour entrer : assez pour que le mouvement se lise comme un plongeon
+ * dans la coque plutôt qu'une coupure. 125 ms pour sortir : l'état est fini, et
+ * traîner dehors ferait porter la fin de l'effet par la caméra alors qu'elle
+ * appartient au moteur et au son.
+ *
+ * Une durée franche, pas une constante de temps : un amortissement exponentiel
+ * n'arrive jamais, et ces deux nombres-là ont été demandés en millisecondes. Le
+ * lissage est donc posé sur la progression — `smoothstep` — et non sur la
+ * cadence, ce qui laisse la durée exacte tout en retirant les deux ruptures de
+ * vitesse aux extrémités.
+ */
+const COCKPIT_IN = 0.225;
+const COCKPIT_OUT = 0.125;
+
+/** 3t² − 2t³ : nulle en pente aux deux bouts, exacte en durée. */
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
 export class ChaseCamera {
   /* Réutilisés à chaque frame. Voir la règle sans allocation de CLAUDE.md. */
   private readonly behind = trackPoint();
@@ -121,6 +170,11 @@ export class ChaseCamera {
   private drift = 0;
   /** Écran bas : la caméra se rapproche. Posé par le client depuis la fenêtre. */
   private compact = false;
+  /**
+   * Progression de l'entrée dans la coque, 0 à 1. Amortie sur plusieurs frames,
+   * donc à remettre à zéro pour une capture — voir `reset`.
+   */
+  private cockpit = 0;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -145,6 +199,7 @@ export class ChaseCamera {
     this.fov = tuning.fovBase;
     this.snap = 0;
     this.drift = 0;
+    this.cockpit = 0;
   }
 
   /** Un écran de moins de `COMPACT_BELOW` pixels de haut rapproche la caméra. */
@@ -166,14 +221,35 @@ export class ChaseCamera {
    */
   update(state: SimState, track: Track, tuning: Tuning, frameDt: number, shake: number): void {
     const tier = thrustTier(state);
-    const dist = tuning.camDist * (this.compact ? COMPACT_DIST : 1);
-    const look = tuning.lookAhead * (this.compact ? COMPACT_LOOK : 1);
+
+    // L'entrée dans la coque, en durée franche et non en constante de temps.
+    const want = state.surgeT > 0 ? 1 : 0;
+    const step = want > this.cockpit ? frameDt / COCKPIT_IN : -(frameDt / COCKPIT_OUT);
+    this.cockpit = MathUtils.clamp(this.cockpit + step, 0, 1);
+    const inside = smoothstep(this.cockpit);
+
+    const dist = MathUtils.lerp(
+      tuning.camDist * (this.compact ? COMPACT_DIST : 1),
+      COCKPIT_DIST,
+      inside,
+    );
+    const look = MathUtils.lerp(
+      tuning.lookAhead * (this.compact ? COMPACT_LOOK : 1),
+      tuning.lookAhead * COCKPIT_LOOK,
+      inside,
+    );
     const behind = track.sample(state.cursor, -dist, this.behind);
     const ahead = track.sample(state.cursor, look, this.ahead);
 
-    const offBehind = state.lat * OFFSET_BEHIND;
+    const offBehind = state.lat * MathUtils.lerp(OFFSET_BEHIND, 1, inside);
     const offAhead = state.lat * OFFSET_AHEAD;
-    const height = tuning.camHeight * (this.compact ? COMPACT_HEIGHT : 1) + state.hop * 0.6;
+    const height =
+      MathUtils.lerp(
+        tuning.camHeight * (this.compact ? COMPACT_HEIGHT : 1),
+        COCKPIT_HEIGHT,
+        inside,
+      ) +
+      state.hop * 0.6;
 
     this.want.set(
       behind.x + behind.rx * offBehind + behind.ux * height,
@@ -185,7 +261,11 @@ export class ChaseCamera {
       this.placed = true;
     }
     if (this.snap > 0) this.snap = Math.max(0, this.snap - frameDt / SNAP_TIME);
-    const lag = tuning.camLag * LAG_SCALE[tier] * (1 + this.snap * (SNAP_GAIN - 1));
+    const lag = MathUtils.lerp(
+      tuning.camLag * LAG_SCALE[tier] * (1 + this.snap * (SNAP_GAIN - 1)),
+      COCKPIT_LAG,
+      inside,
+    );
     this.position.lerp(this.want, Math.min(1, frameDt * lag));
     this.camera.position.copy(this.position);
 
