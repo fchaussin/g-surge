@@ -34,7 +34,24 @@ test.describe('a run counts', () => {
     // Elle prend la place de la coque quand l'onde s'est dissipée, ce qui est
     // un peu après que la carte soit montée : c'est une attente, pas un
     // instant.
-    await expect.poll(() => page.evaluate(() => window.__gsNext.wreck())).toBe(true);
+    //
+    // **Et l'attente se compte en temps d'affichage, pas en temps réel.** Les
+    // 0,85 s de l'onde sont accumulées frame par frame, et `loop.ts` plafonne
+    // chaque delta à `MAX_FRAME`, 0,05 s. En dessous de 20 fps le temps
+    // d'affichage avance donc plus lentement que l'horloge, à dessein : sans ce
+    // plafond, une frame longue ferait rattraper des centaines de pas d'un
+    // coup. Mesuré dans le conteneur, qui rend la scène en logiciel : 5 fps,
+    // donc 0,25 s d'affichage par seconde réelle, donc une épave posée à 6,3 s
+    // quand le défaut de Playwright n'en accorde que 5. D'où deux échecs sur
+    // trois, sur cette ligne et sur elle seule.
+    //
+    // Le délai est donc explicite et large, comme celui du mode juste au-dessus.
+    // Ce n'est pas une rustine sur une machine lente : c'est la seule borne
+    // honnête pour une assertion en temps réel sur une durée qui, elle, n'y est
+    // pas.
+    await expect
+      .poll(() => page.evaluate(() => window.__gsNext.wreck()), { timeout: 15_000 })
+      .toBe(true);
 
     await page.locator('#btnAgain').click();
     await expect.poll(() => game.mode()).toBe('run');

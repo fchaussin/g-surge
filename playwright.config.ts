@@ -62,6 +62,29 @@ export default defineConfig({
       name: 'mobile',
       use: { ...devices['Pixel 7'] },
     },
+    {
+      // **Le paysage, la seule orientation que le jeu demande.** Le manifeste
+      // réclame `landscape` et c'est ainsi qu'on y joue ; `mobile` ci-dessus est
+      // en portrait, 412 × 839, donc aucune référence ne regardait la mise en
+      // page que le joueur a réellement sous les yeux. Ça s'est payé : le
+      // bandeau d'alerte se posait en travers du multiplicateur et de la ligne
+      // distance, et toute la suite passait.
+      //
+      // Ce n'est pas une largeur qui manquait, c'est une **hauteur**. `.hud`
+      // porte `font-size:clamp(11px,1.55dvh,17px)` : en dessous de 710 px de
+      // haut la police touche son plancher et cesse de rétrécir, pendant que
+      // tout ce qui est placé en pourcentage continue de monter. Les deux
+      // cessent de parler de la même échelle, et rien au-dessus de 710 px ne
+      // peut le montrer.
+      //
+      // Cadré sur les références d'interface, comme `retina` l'est sur `boot` :
+      // rejouer toute la suite une troisième fois coûterait dix minutes par
+      // poussée pour des assertions de comportement que la hauteur ne change
+      // pas.
+      name: 'landscape',
+      testMatch: /visual\.spec\.ts/,
+      use: { ...devices['Pixel 7 landscape'] },
+    },
   ],
 
   webServer: {

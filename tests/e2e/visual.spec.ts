@@ -66,6 +66,41 @@ test.describe('rendu des écrans', () => {
     await expect(page).toHaveScreenshot('settings.png');
   });
 
+  /**
+   * Le HUD avec une alerte levée.
+   *
+   * Cette référence existe parce que son absence a coûté un défaut : le bandeau
+   * d'alerte se posait en travers du multiplicateur et de la ligne
+   * distance/record sur un téléphone couché, et les quatre autres captures ne
+   * pouvaient pas le voir — `.warn` est transparent tant que rien ne l'allume,
+   * donc sa position n'était dans aucune image.
+   *
+   * « Réservoir vide » plutôt qu'un mur : c'est l'alerte la plus longue, la
+   * seule qui tienne sans qu'on doive attraper un instant.
+   */
+  test('interface de jeu, alerte levée', async ({ page }) => {
+    await page.locator('#btnStart').click();
+    await expect(page.locator('#hud')).toHaveClass(/on/);
+    await page.evaluate(() => {
+      (window.__gsNext.state() as unknown as { fuel: number }).fuel = 0;
+    });
+    await expect(page.locator('#warn')).toHaveClass(/on/);
+    await expect(page.locator('#warn')).toHaveText('OUT OF FUEL');
+    await expect(page).toHaveScreenshot('hud-warning.png', {
+      mask: [
+        page.locator('#score'),
+        page.locator('#dist'),
+        page.locator('#spd'),
+        page.locator('#mult'),
+        page.locator('#coinCount'),
+        page.locator('#recline'),
+        page.locator('#hullBar'),
+        page.locator('#boostBar'),
+        page.locator('#boostFill'),
+      ],
+    });
+  });
+
   test('interface de jeu', async ({ page }) => {
     await page.locator('#btnStart').click();
     await expect(page.locator('#hud')).toHaveClass(/on/);

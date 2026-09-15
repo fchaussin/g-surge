@@ -28,8 +28,95 @@
  * hachage — donc elle n'a pas à être échappée.
  */
 
-/** Les accents du jeu, et rien d'autre : un avatar doit avoir l'air d'en être. */
-const INK: readonly string[] = ['#25e2ff', '#ff2f9a', '#ffc24a', '#7cf7c4', '#a98cff', '#ff7a59'];
+/**
+ * La bande où vivent les accents du jeu, mesurée sur les six qui la portaient.
+ *
+ * `#25e2ff`, `#ff2f9a`, `#ffc24a`, `#7cf7c4`, `#a98cff`, `#ff7a59` : leurs
+ * teintes vont de 12° à 329° — c'est-à-dire partout — mais leur saturation tient
+ * entre 88 et 100 %, et leur clarté entre 57 et 77 %. **La signature du jeu
+ * n'est donc pas une liste de teintes, c'est « très saturé et clair ».** La
+ * teinte peut se tirer librement sans que l'avatar cesse d'avoir l'air d'en
+ * être ; la saturation et la clarté, non.
+ *
+ * C'est ce qui a permis de remplacer la palette de six par un tirage : elle ne
+ * donnait que trente couples, dont certains voisins se distinguaient mal, et
+ * deux pilotes sur trente partageaient leurs deux couleurs.
+ */
+const SAT_MIN = 88;
+const SAT_SPAN = 13;
+const LIGHT_MIN = 58;
+const LIGHT_SPAN = 10;
+
+/**
+ * Ce qui sépare les deux clartés du dégradé.
+ *
+ * La teinte complémentaire donne déjà l'écart maximal de couleur ; celui-ci
+ * ajoute un écart de luminosité, pour que le dégradé se lise aussi là où la
+ * teinte ne suffit pas — un écran pâle, un œil qui distingue mal les couleurs,
+ * une vignette de vingt-deux pixels. La seconde est toujours la plus claire,
+ * donc tous les visages s'éclairent du même côté : ce n'est pas un hasard qu'on
+ * subit, c'est une lumière commune.
+ */
+const LIGHT_LIFT = 12;
+const LIGHT_MAX = 78;
+
+/**
+ * Le quart de tour par lequel le dégradé passe.
+ *
+ * **Deux complémentaires ne peuvent pas se rejoindre directement.** Un
+ * `linearGradient` SVG interpole en sRGB, composante par composante, et deux
+ * teintes opposées s'y annulent : le milieu du dégradé tombe sur un gris. Vu
+ * sur une planche de contact — une bonne moitié des visages était éclatante
+ * aux angles et boueuse au centre, et cette incohérence-là est pire que l'une
+ * ou l'autre.
+ *
+ * Une étape à mi-chemin sur la roue — un quart de tour, donc perpendiculaire
+ * aux deux — tient la saturation tout du long : le dégradé contourne le gris
+ * au lieu de le traverser. Le sens du contour sort du hachage, ce qui fait une
+ * variation de plus sans rien coûter.
+ */
+const QUARTER = 90;
+
+/**
+ * Un `#rrggbb` minuscule depuis une teinte, une saturation et une clarté.
+ *
+ * Écrit ici plutôt qu'emprunté à three.js : ce module ne dépend de rien, et
+ * c'est ce qui le rend testable en Node comme le reste de l'avatar.
+ */
+function hsl(h: number, s: number, l: number): string {
+  const sat = s / 100;
+  const light = l / 100;
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = light - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) {
+    r = c;
+    g = x;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+  } else if (h < 180) {
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  const byte = (v: number): string =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${byte(r)}${byte(g)}${byte(b)}`;
+}
 
 /** FNV-1a 32 bits. Court, sans dépendance, et suffisant pour répartir des pseudos. */
 function hash(text: string): number {
@@ -49,13 +136,20 @@ function hash(text: string): number {
  */
 export function avatarSvg(seed: string, size = 22): string {
   const h = hash(seed.trim().toLowerCase());
-  // Deux teintes et non une : la seconde est prise à une distance non nulle de
-  // la première dans la palette, donc elles diffèrent toujours. Le dégradé va
-  // en diagonale, ce qui se lit encore à vingt-deux pixels.
-  const first = h % INK.length;
-  const second = (first + 1 + ((h >>> 20) % (INK.length - 1))) % INK.length;
-  const from = INK[first]!;
-  const to = INK[second]!;
+  // Deux teintes et non une, et la seconde est la complémentaire de la
+  // première : un demi-tour sur la roue, donc l'écart de couleur le plus grand
+  // qui existe, sans qu'aucun couple ait à être vérifié à la main. Saturation
+  // et clarté sortent d'autres bits que la teinte, pour qu'elles varient
+  // indépendamment d'elle. Le dégradé va en diagonale, ce qui se lit encore à
+  // vingt-deux pixels.
+  const hue = h % 360;
+  const sat = SAT_MIN + ((h >>> 9) % SAT_SPAN);
+  const light = LIGHT_MIN + ((h >>> 17) % LIGHT_SPAN);
+  const lightTo = Math.min(LIGHT_MAX, light + LIGHT_LIFT);
+  const turn = (h >>> 5) & 1 ? QUARTER : -QUARTER;
+  const from = hsl(hue, sat, light);
+  const via = hsl((hue + turn + 360) % 360, sat, (light + lightTo) / 2);
+  const to = hsl((hue + 180) % 360, sat, lightTo);
   // Une définition par graine : deux lignes du même pilote partagent l'id,
   // avec le même contenu, ce qui est sans conséquence.
   const id = `av${h.toString(16)}`;
@@ -87,7 +181,9 @@ export function avatarSvg(seed: string, size = 22): string {
     // a aucun. Ici il traverse la grille de cinq sur cinq, en diagonale.
     `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" ` +
     `x1="0" y1="0" x2="5" y2="5">` +
-    `<stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>` +
+    `<stop offset="0" stop-color="${from}"/>` +
+    `<stop offset="0.5" stop-color="${via}"/>` +
+    `<stop offset="1" stop-color="${to}"/>` +
     `</linearGradient></defs>${cells}</svg>`
   );
 }

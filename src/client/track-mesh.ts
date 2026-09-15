@@ -32,6 +32,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { BACK, COUNT, HALF, type Track } from '../sim/index.js';
+import { GANTRY_EVERY } from './gantry.js';
 
 const ROAD_A = new Color(0x3d4a61);
 const ROAD_B = new Color(0x333e52);
@@ -61,7 +62,6 @@ const DROP = 3.2;
 
 const GANTRY_COUNT = 14;
 /** Portiques et bandes chaudes de la lèvre tombent tous deux sur ce multiple de l'identifiant. */
-const GANTRY_EVERY = 12;
 
 function setPair(
   a: ArrayLike<number> & { [i: number]: number },

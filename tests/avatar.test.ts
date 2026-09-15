@@ -54,17 +54,96 @@ describe("l'avatar d'une graine", () => {
     expect(svg.endsWith('</svg>')).toBe(true);
   });
 
-  it('a deux teintes, jamais la même deux fois, et couvre la palette', () => {
-    const inks = new Set<string>();
-    for (let i = 0; i < 200; i++) {
-      const stops = [...avatarSvg(`P${i}`).matchAll(/stop-color="(#[0-9a-f]{6})"/g)].map(
-        (m) => m[1]!,
-      );
-      expect(stops).toHaveLength(2);
-      expect(stops[0], `P${i} est monochrome`).not.toBe(stops[1]);
-      for (const ink of stops) inks.add(ink);
+  /** Teinte, saturation et clarté d'un `#rrggbb`, pour juger sur des angles et
+   *  des pourcentages plutôt que sur des chaînes. */
+  function toHsl(hex: string): { h: number; s: number; l: number } {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const l = (mx + mn) / 2;
+    const d = mx - mn;
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (d !== 0) {
+      if (mx === r) h = ((g - b) / d) % 6;
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = (h * 60 + 360) % 360;
     }
-    expect(inks.size).toBe(6);
+    return { h, s: s * 100, l: l * 100 };
+  }
+
+  /** Les deux bouts du dégradé. L'étape du milieu contourne le gris, voir `QUARTER`. */
+  const stopsOf = (seed: string): [string, string] => {
+    const all = [...avatarSvg(seed).matchAll(/stop-color="(#[0-9a-f]{6})"/g)].map((m) => m[1]!);
+    expect(all, seed).toHaveLength(3);
+    return [all[0]!, all[2]!];
+  };
+
+  /** L'étape du milieu, celle qui doit rester saturée. */
+  const viaOf = (seed: string): string =>
+    [...avatarSvg(seed).matchAll(/stop-color="(#[0-9a-f]{6})"/g)].map((m) => m[1]!)[1]!;
+
+  it('tire ses deux couleurs du pseudo, et les prend complémentaires', () => {
+    for (let i = 0; i < 300; i++) {
+      const [from, to] = stopsOf(`P${i}`);
+      expect(from, `P${i} est monochrome`).not.toBe(to);
+      const a = toHsl(from);
+      const b = toHsl(to);
+      // L'écart angulaire absolu, ramené dans [0, 180]. Complémentaire vaut
+      // donc 180, à l'arrondi du passage par les octets près — mesuré, il coûte
+      // moins d'un demi-degré.
+      const apart = Math.abs(((b.h - a.h + 540) % 360) - 180);
+      expect(apart, `P${i} : ${from} et ${to} ne sont pas complémentaires`).toBeGreaterThan(178);
+    }
+  });
+
+  it('garde assez de contraste pour que le dégradé se lise', () => {
+    for (let i = 0; i < 300; i++) {
+      const [from, to] = stopsOf(`C${i}`);
+      // La teinte ne suffit pas seule : un écran pâle ou un œil qui distingue
+      // mal les couleurs ne lit qu'une différence de luminosité.
+      expect(Math.abs(toHsl(to).l - toHsl(from).l), `C${i}`).toBeGreaterThan(8);
+    }
+  });
+
+  it('reste dans la bande des accents du jeu, saturé et clair', () => {
+    for (let i = 0; i < 300; i++) {
+      for (const hex of stopsOf(`B${i}`)) {
+        const { s, l } = toHsl(hex);
+        // Mesurée sur les six accents d'origine : S 88 à 100, L 57 à 77. Hors
+        // de là, l'avatar cesse d'avoir l'air d'appartenir au jeu, et en bas de
+        // la clarté il disparaît dans une carte sombre.
+        expect(s, `B${i} ${hex} : saturation`).toBeGreaterThan(85);
+        expect(l, `B${i} ${hex} : clarté`).toBeGreaterThan(55);
+        expect(l, `B${i} ${hex} : clarté`).toBeLessThan(80);
+      }
+    }
+  });
+
+  it('ne traverse jamais le gris : l’étape du milieu reste saturée', () => {
+    for (let i = 0; i < 300; i++) {
+      const mid = toHsl(viaOf(`M${i}`));
+      // Sans elle, le milieu de deux complémentaires interpolées en sRGB tombe
+      // sur un gris et le visage se délave en son centre. Vu sur planche.
+      expect(mid.s, `M${i} : milieu délavé`).toBeGreaterThan(85);
+      // Et elle est bien perpendiculaire aux deux bouts, pas entre elles.
+      const [from, to] = stopsOf(`M${i}`);
+      for (const end of [from, to]) {
+        const apart = Math.abs(((mid.h - toHsl(end).h + 540) % 360) - 180);
+        expect(Math.abs(apart - 90), `M${i} : le milieu n'est pas au quart`).toBeLessThan(2);
+      }
+    }
+  });
+
+  it('donne bien plus que les trente couples de la palette qu’il remplace', () => {
+    const pairs = new Set<string>();
+    for (let i = 0; i < 400; i++) pairs.add(stopsOf(`U${i}`).join('>'));
+    // Les six accents n'offraient que trente couples ; deux pilotes sur trente
+    // partageaient donc les leurs. Ici on attend quasiment un couple par pilote.
+    expect(pairs.size).toBeGreaterThan(380);
   });
 
   /** Un dégradé se réfère à un `id` : deux avatars sur la même page ne doivent

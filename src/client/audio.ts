@@ -187,6 +187,18 @@ export class Audio {
   private rideBand: Band | null = null;
   /** Un pas de contact est arrivé depuis la dernière frame. */
   private riding = false;
+  /**
+   * Le raclement contre un mur, même forme que `rideBand` et pour la même
+   * raison : `scrape` arrive à chaque pas de contact, donc c'est une bande
+   * tenue et non un coup.
+   *
+   * Elle manquait tout simplement. L'événement existait depuis le découpage,
+   * mais seuls le voile rouge et la vibration le consommaient : on entendait le
+   * choc, puis plus rien pendant qu'on rabotait la paroi. C'était le trou le
+   * plus audible du mix une fois que les bords ont eu un côté.
+   */
+  private scrapeBand: Band | null = null;
+  private scraping = false;
   /** Profondeurs de modulation de la turbulence de la bande de drift, en Hz et en gain. */
   private turb: { freq: GainNode; amp: GainNode } | null = null;
   private charge: {
@@ -297,6 +309,9 @@ export class Audio {
           // Un pas de contact : `update` tient la bande allumée tant qu'il en
           // arrive, et la laisse retomber sinon.
           this.riding = true;
+          break;
+        case 'scrape':
+          this.scraping = true;
           break;
         case 'rideEnd':
           this.rideRelease();
@@ -427,6 +442,12 @@ export class Audio {
     this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
     this.riding = false;
 
+    // Le raclement, suivi de la même façon. Il s'ouvre un peu avec la vitesse :
+    // à l'arrêt on frotte, lancé on arrache.
+    this.scrapeBand?.gain.gain.setTargetAtTime(playing && this.scraping ? 0.085 : 0, t, 0.05);
+    this.scrapeBand?.filter.frequency.setTargetAtTime(300 + r * 260, t, 0.1);
+    this.scraping = false;
+
     // Le bouclier suit son intensité amortie, déjà lissée par le client ; une
     // constante courte suffit à ôter le clic. Le passe-bas s'ouvre un peu avec
     // la vitesse, pour que le bourdon ne se perde pas sous le moteur.
@@ -522,6 +543,10 @@ export class Audio {
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
     // Le wall riding : un grondement métallique médium, à part du souffle du drift.
     this.rideBand = this.band(this.loop(0.7), 'bandpass', 1100, 1.6, true);
+    // Plus grave que le wall riding, et c'est ce qui les distingue à l'oreille
+    // avant toute couleur : celui-ci mord, l'autre pousse. Un raclement de
+    // coque est un grondement, pas un sifflement.
+    this.scrapeBand = this.band(this.loop(0.45), 'bandpass', 360, 1.1, true);
 
     // Turbulence : les deux LFO somment dans deux gains de profondeur, l'un sur
     // la fréquence de la bande, l'autre sur son gain. Les deux partent de zéro
