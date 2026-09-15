@@ -164,9 +164,9 @@ easy.
 | Grip threshold, `gripLimit` | 34 | 34 | 29 |
 | Share of grip that corner demands | 80 % | 104 % | 149 % |
 | Distance to top speed | 9 km | 6 km | 4 km |
-| Impact at 12 m/s closing | 17 pts | 24 pts | 31 pts |
-| Time to repair it | 67 s | 120 s | 208 s |
-| Worst hit, `hullImpactMax` | 24 pts, 3 s of scraping | 34 pts, 2 s of scraping | 42 pts, 2 s of scraping |
+| Impact at 12 m/s closing | 20 pts | 29 pts | 37 pts |
+| Time to repair it | 82 s | 144 s | 248 s |
+| Worst hit, `hullImpactMax` | 24 pts, 2 s of scraping | 34 pts, 2 s of scraping | 42 pts, 2 s of scraping |
 | Score coefficient | ×1.00 | ×1.35 | ×1.80 |
 <!-- /generated:difficulty -->
 
@@ -286,6 +286,27 @@ six seeds a difficulty, the scripted pilot survives exactly as long as before
 — it does not aim for objects, so the figures above are unchanged for it. What
 moved is what a player who does aim can go and fetch.
 
+An eighth, on 15 September 2026, made scraping bite and firmed the hit's slope.
+Scraping cost 8 a second on Easy and was the gentlest damage in the game — yet
+it is the only one taken continuously, which made riding a wall a lukewarm
+strategy and, worse, made the end of an invincibility against a wall feel like
+nothing at all. It is 10 now.
+
+**20 was tried first and judged too radical.** It made scraping the dominant
+damage and inverted the fifth tuning's calibration, which scales the hit to the
+scrape: the worst hit fell to 1.2 seconds of scraping, the frank hit having
+become the soft one. At 10 that scale still holds — the worst hit is worth 2.4
+seconds of scraping against three before — so the hit needed firming rather than
+raising. Its slope gains a fifth and its ceilings stay where playing had put
+them: a hit at 12 m/s of closing speed costs 20 on Easy instead of 17, and the
+extreme is unchanged. Four to five clean hits with no repair still lose a run.
+
+The three difficulties gained the same number of scraping points, not the same
+factor. Measured, a common factor on values that were already high put Hard at a
+full hull in 2.2 seconds, on a track that is already narrower: a difficulty
+should not become another game. A full hull is now 10.3 seconds of continuous
+scraping on Easy, 6.3 on Medium and 5.0 on Hard.
+
 **The grace.** Damage taken opens `graceHit` seconds — 1.5 — in which the hull
 cannot lose another point, and the end of invincibility opens `graceRide`
 seconds — 2. The hull blinks while it runs. It exists because damage used to
@@ -310,7 +331,7 @@ the loss rather than softening it.
 | Event | Cost |
 |---|---|
 | Impact | `hullImpact` × lateral closing speed, 2 to `hullImpactMax` |
-| Scraping | 8 per second |
+| Scraping | 10 per second |
 | Bad landing off track | 12 points, plus 35 % of speed |
 | Passive repair | 0.25 per second |
 | Repair pickup | `fixAmount`, 50 points |

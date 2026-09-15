@@ -122,6 +122,10 @@ export function step(
     }
   }
   const riding = state.rideT > 0 && !attract;
+  // Hors invincibilité la rampe n'a plus de sens ; hors contact elle redescend,
+  // deux fois plus vite qu'elle ne monte. Le contact de ce pas la relèvera.
+  if (!riding) state.rideHeld = 0;
+  else if (!state.contact || state.air) state.rideHeld = Math.max(0, state.rideHeld - dt * 2);
   /** L'invulnérabilité brève. Voir `graceT` : elle ne couvre que la coque. */
   const immune = state.graceT > 0 && !attract;
   const superOn = state.superT > 0 && !attract;
@@ -445,7 +449,14 @@ export function step(
         // vitesse à `speedGain` par seconde, donc l'excès se fixe de lui-même à
         // rideGain / (speedGain − rideGain) au-dessus d'elle. Montée et combo
         // survivent.
-        state.speed += state.speed * T.rideGain * dt;
+        //
+        // **La poussée est progressive, contrairement à un boost.** Elle ne
+        // donne rien au premier pas de contact et tout après `rideRamp` : le
+        // rail se tient, il ne se touche pas. Le plafond, lui, ne bouge pas —
+        // c'est le temps pour l'atteindre qui se gagne.
+        state.rideHeld += dt;
+        const ramp = Math.min(1, state.rideHeld / T.rideRamp);
+        state.speed += state.speed * T.rideGain * ramp * dt;
         out.push({ type: 'ride' });
       } else {
         // Le frottement est suspendu par la grâce, pas éteint : l'événement

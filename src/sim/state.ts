@@ -59,6 +59,15 @@ export interface SimState {
   nearPeak: number;
   /** Temps restant d'invincibilité, en secondes. Les murs accélèrent au lieu de blesser. */
   rideT: number;
+  /**
+   * Secondes de contact continu avec un rail sous invincibilité.
+   *
+   * Ce qui rend la poussée **progressive** : elle ne donne pas tout au premier
+   * pas de contact comme le ferait un boost, elle se gagne en tenant le rail.
+   * Croît en contact, redescend deux fois plus vite hors contact — un décollage
+   * sur une crête coûte un peu, quitter le rail coûte tout.
+   */
+  rideHeld: number;
   /** Carburant, 0 à 100. À zéro, ni boost ni super boost ; la croisière continue. */
   fuel: number;
 
@@ -181,6 +190,7 @@ export function resetState(state: SimState, tuning: Tuning): void {
   state.nearHeld = 0;
   state.nearPeak = 0;
   state.rideT = 0;
+  state.rideHeld = 0;
   state.fuel = 100;
 
   state.air = false;

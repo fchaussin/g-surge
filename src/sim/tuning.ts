@@ -92,6 +92,14 @@ export interface Tuning {
   rideTime: number;
   /** Gain de vitesse par seconde de contact avec un mur, en fraction de la vitesse. */
   rideGain: number;
+  /**
+   * Secondes de contact pour que la poussée du rail donne tout.
+   *
+   * Un boost donne tout d'un coup ; le rail se mérite. Le plafond ne change
+   * pas — il reste `rideGain / (speedGain − rideGain)` au-dessus de la cible —
+   * seul le temps qu'il faut pour l'atteindre.
+   */
+  rideRamp: number;
 
   /* Carburant : une ressource permanente, de 0 à 100 */
   /** Consommation par seconde, en points, à chaque palier de poussée. */
@@ -271,6 +279,9 @@ export const DEFAULTS: Readonly<Tuning> = {
   rideChance: 0.016,
   rideTime: 8,
   rideGain: 0.08,
+  /* Un tiers de `rideTime` : un contact bref ne rapporte presque rien, tenir le
+   * rail un tiers de l'invincibilité le fait donner tout. */
+  rideRamp: 2.5,
   /* Facile : la croisière ne consomme rien, un boost une réserve pleine
    * durant 3,8 s en brûle 11, un super boost de 5 s en brûle 30, le surge est
    * gratuit et remplit. Un bidon tous les 1,5 km environ. Moyen et difficile
@@ -335,9 +346,30 @@ export const DEFAULTS: Readonly<Tuning> = {
    * difficulté, le pilote scripté survit autant qu'avant — il ne vise pas les
    * objets, donc ce réglage ne change rien pour lui ; il change ce qu'un
    * joueur qui les vise peut aller chercher. */
-  hullImpact: 1.4,
+  /* La pente se raffermit d'un cinquième, les plafonds reviennent à ce que le
+   * cinquième réglage leur avait donné.
+   *
+   * Un choc franc restait le dégât le plus mou pour un contact de tous les jours
+   * — dix-sept points à 12 m/s de vitesse de fermeture, quand raboter la paroi
+   * deux secondes en coûtait vingt. C'est la pente qui manquait, pas le plafond :
+   * à 12 m/s un choc vaut désormais vingt points, et l'extrême reste celui qui
+   * avait été accordé en jouant. Ce qui compte dans un choc est la vitesse
+   * latérale de fermeture, pas la vitesse de la course. */
+  hullImpact: 1.7,
   hullImpactMax: 24,
-  hullScrape: 8,
+  /* 10 et non 8. Le raclement était le dégât le plus doux du jeu alors qu'il est
+   * le seul qu'on subit en continu, et la sortie d'invincibilité au mur ne se
+   * lisait pas comme sévère. 20 a été essayé et jugé trop radical : il faisait
+   * du frottement le dégât dominant et renversait la calibration de septembre,
+   * qui met le choc à l'échelle du raclement. À 10, cette échelle tient encore —
+   * un choc maximal vaut 2,4 secondes de frottement contre trois avant, et 1,2
+   * seulement à 20.
+   *
+   * Les trois difficultés montent du même nombre de points, pas du même
+   * facteur : un facteur commun sur des valeurs déjà hautes rendait le difficile
+   * mortel en deux secondes sur une piste qui est déjà plus étroite. L'écart
+   * entre les niveaux reste ce qu'il était. */
+  hullScrape: 10,
   hullRegen: 0.25,
   badLandingHull: 12,
   damageSpeed: 0.22,
@@ -415,10 +447,10 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       half: 12.65,
       curveLoad: 38,
       speedRamp: 6000,
-      hullImpact: 2.0,
+      hullImpact: 2.4,
       hullImpactMax: 34,
       hullRegen: 0.2,
-      hullScrape: 14,
+      hullScrape: 16,
       multDecay: 0.14,
       fixChance: 0.0024,
       rollChance: 0.18,
@@ -435,10 +467,10 @@ export const DIFF: Readonly<Record<Difficulty, DifficultyDef>> = {
       half: 11.5,
       curveLoad: 46,
       speedRamp: 4000,
-      hullImpact: 2.6,
+      hullImpact: 3.1,
       hullImpactMax: 42,
       hullRegen: 0.15,
-      hullScrape: 18,
+      hullScrape: 20,
       multDecay: 0.2,
       fixChance: 0.002,
       supChance: 0.0018,
