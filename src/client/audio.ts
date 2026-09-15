@@ -13,6 +13,9 @@
  * console à chaque chargement est un bruit d'un autre genre.
  */
 import type { SimEvent, ThrustTier } from '../sim/index.js';
+import type { Track } from '../sim/index.js';
+import { Flybys } from './flyby.js';
+import { panOf } from './pan.js';
 
 /** Longueur de l'impulsion de réverbération, en secondes. Bâtie une fois, au premier usage. */
 /* --- L'explosion finale, d'après le modèle décrit dans `crash` --- */
@@ -160,35 +163,6 @@ const CHARGE_FILTER_SPAN = 2200;
  */
 const PAN_EASE = 0.06;
 
-/**
- * Le panoramique d'une position latérale du monde, −1 à 1.
- *
- * **Le signe est inversé, et ce n'est pas une erreur.** Le monde a `+X` à
- * gauche de l'écran — la convention du jeu, celle qui fait que la direction est
- * inversée exprès dans `step()`. Un son posé au signe de `lat` sortirait donc
- * systématiquement du mauvais côté, ce qui est pire que le centre : le centre
- * n'affirme rien, l'inverse ment. La conversion vit ici et nulle part ailleurs,
- * pour que personne n'ait à s'en souvenir deux fois.
- *
- * **Aucune borne, et aucune connaissance du matériel.** On suppose une stéréo
- * équilibrée : un bord de piste sonne au bord du champ. Si un montage restitue
- * ses deux canaux avec des forces différentes — c'est le cas d'un téléphone à
- * écouteur en haut et haut-parleur en bas — ce n'est pas au jeu de le
- * compenser, et il n'a aucun moyen honnête de le savoir. Rabattre le
- * panoramique « au cas où » dégraderait le casque, qui est le seul endroit où
- * l'on sait ce qui sort.
- *
- * Le bornage qui reste est celui de l'intervalle : `lat` dépasse la limite de
- * piste en l'air, `airOverhang` l'y autorise, et `pan` n'accepte que −1 à 1.
- *
- * @param lateral position latérale en espace monde, normalisée par la
- *   demi-largeur utile : −1 à un bord, 1 à l'autre.
- */
-export function panOf(lateral: number): number {
-  const v = lateral < -1 ? -1 : lateral > 1 ? 1 : lateral;
-  return -v;
-}
-
 interface Band {
   filter: BiquadFilterNode;
   gain: GainNode;
@@ -231,6 +205,8 @@ export class Audio {
    * du monde et ne bouge jamais. Les placer quelque part serait un mensonge.
    */
   private side: StereoPannerNode | null = null;
+  /** Les objets qui passent. Voir `flyby.ts` ; ils portent leur propre panoramique. */
+  private flybys: Flybys | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
   /** Aucun graphe n'existe avant un geste ; voir `unlock`. */
@@ -350,6 +326,19 @@ export class Audio {
           break;
       }
     }
+  }
+
+  /**
+   * Les objets de la piste qu'on double, une frame de scène.
+   *
+   * Séparé d'`update` à dessein : celui-ci suit des couches attachées au
+   * vaisseau, celui-là une scène extérieure qui a ses propres positions. Les
+   * mélanger aurait demandé de passer la piste à une fonction qui n'en a que
+   * faire, et qui prend déjà huit paramètres.
+   */
+  passing(playing: boolean, track: Track, cursor: number, speed: number): void {
+    if (!this.ctx || this.muted) return;
+    this.flybys?.update(playing, track, cursor, speed);
   }
 
   /**
@@ -500,6 +489,10 @@ export class Audio {
     // est un gain à puissance constante, deux multiplications par échantillon.
     this.side = ctx.createStereoPanner();
     this.side.connect(this.master);
+
+    // Directement sur le master : chaque voix a déjà le sien, puisqu'elles ne
+    // sont pas au même endroit.
+    this.flybys = new Flybys(ctx, this.master);
 
     // Un seul tampon de bruit blanc, partagé par toutes les couches.
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);

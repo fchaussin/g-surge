@@ -17,7 +17,7 @@ public/            build output, gitignored — what Cloudflare Pages serves
 | Where | Files | Lines |
 |---|---|---|
 | `src/sim/` | 14 | ~3 200 |
-| `src/client/` | 47 | ~11 000 |
+| `src/client/` | 49 | ~11 200 |
 | `server/src/` | 13 | ~2 500 |
 | `index.html` | 1 | ~1 200 |
 <!-- /generated:layout -->
@@ -200,7 +200,9 @@ which is what makes the step runnable outside a page.
 | `hud.ts`, `screens.ts`, `settings.ts`, `sliders.ts` | The interface — the HUD's centre readout is the score, the one number that sums a run up, with the clock and multiplier under it and the distance and record in small type; the end screen breaks the same run into seven |
 | `preferences.ts` | `gsurge.prefs.v1` — validated on read, coalesced on write |
 | `input.ts` | Devices in, `{ steer, brake, boost }` out |
-| `audio.ts`, `haptics.ts` | Feedback, driven by events |
+| `audio.ts`, `haptics.ts` | Feedback, driven by events. The mix is mono except for two things with a place: a lateral bus carrying whatever happens against an edge — the scrape under invincibility, a wall hit, a landing off the track, a near miss — and the fly-bys below. The engine, wind, charge and shield stay centred, because they belong to a ship that sits at the world origin and never moves |
+| `pan.ts` | One function, and the only home of one convention: world `+X` is screen left, so a pan inverts the sign. Inverted, nothing crashes and nothing shows — every edge sound simply comes from the wrong side. `tests/audio-pan.test.ts` pins it |
+| `flyby.ts` | The track's objects heard as they go past: a pooled voice each, panned by the angle they are seen under, detuned up on approach and down behind. Sparse by arithmetic — one pickup every few seconds — which is why objects work as discrete sources where the track's own geometry, 16 segments a second at 200 m/s, would only be a tone |
 | `scores.ts`, `score-screen.ts`, `tips.ts` | Leaderboard and prompts |
 | `performance.ts` | Refresh detection and automatic quality |
 | `fullscreen.ts` | With its prefixed spelling and its iframe refusal |

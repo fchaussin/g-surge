@@ -1088,6 +1088,7 @@ function renderFrame(frameDt: number): void {
     // `audio.ts`, qui la fait une fois et l'explique — voir `panOf`.
     state.lat / Math.max(1, sim.tuning.half - SHIP),
   );
+  audio.passing(screens.isLive, sim.track, state.cursor, state.speed);
 
   if (screens.isLive) {
     hud.update(state, sim.tuning, frameDt);

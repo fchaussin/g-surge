@@ -12,7 +12,7 @@
  * axe, et la seule chose qui puisse la rattraper est une assertion écrite.
  */
 import { describe, expect, it } from 'vitest';
-import { panOf } from '../src/client/audio.js';
+import { panOf } from '../src/client/pan.js';
 
 describe('le panoramique du bus latéral', () => {
   it('envoie le monde +X à gauche, parce que le monde +X est à gauche', () => {
