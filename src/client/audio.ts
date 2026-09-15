@@ -151,6 +151,44 @@ const CHARGE_DETUNE_CENTS = 9;
 const CHARGE_FILTER_BASE = 650;
 const CHARGE_FILTER_SPAN = 2200;
 
+/**
+ * Constante de temps du panoramique latéral.
+ *
+ * `pan` est un `AudioParam` comme les gains : une affectation directe à la
+ * cadence des frames est un saut, donc un clic. Même raison qu'eux, voir
+ * `update`.
+ */
+const PAN_EASE = 0.06;
+
+/**
+ * Le panoramique d'une position latérale du monde, −1 à 1.
+ *
+ * **Le signe est inversé, et ce n'est pas une erreur.** Le monde a `+X` à
+ * gauche de l'écran — la convention du jeu, celle qui fait que la direction est
+ * inversée exprès dans `step()`. Un son posé au signe de `lat` sortirait donc
+ * systématiquement du mauvais côté, ce qui est pire que le centre : le centre
+ * n'affirme rien, l'inverse ment. La conversion vit ici et nulle part ailleurs,
+ * pour que personne n'ait à s'en souvenir deux fois.
+ *
+ * **Aucune borne, et aucune connaissance du matériel.** On suppose une stéréo
+ * équilibrée : un bord de piste sonne au bord du champ. Si un montage restitue
+ * ses deux canaux avec des forces différentes — c'est le cas d'un téléphone à
+ * écouteur en haut et haut-parleur en bas — ce n'est pas au jeu de le
+ * compenser, et il n'a aucun moyen honnête de le savoir. Rabattre le
+ * panoramique « au cas où » dégraderait le casque, qui est le seul endroit où
+ * l'on sait ce qui sort.
+ *
+ * Le bornage qui reste est celui de l'intervalle : `lat` dépasse la limite de
+ * piste en l'air, `airOverhang` l'y autorise, et `pan` n'accepte que −1 à 1.
+ *
+ * @param lateral position latérale en espace monde, normalisée par la
+ *   demi-largeur utile : −1 à un bord, 1 à l'autre.
+ */
+export function panOf(lateral: number): number {
+  const v = lateral < -1 ? -1 : lateral > 1 ? 1 : lateral;
+  return -v;
+}
+
 interface Band {
   filter: BiquadFilterNode;
   gain: GainNode;
@@ -185,6 +223,14 @@ export class Audio {
   } | null = null;
   /** Le bourdon du bouclier et son étincelle, ouverts par une seule intensité. */
   private shield: { gain: GainNode; filter: BiquadFilterNode; spark: Band } | null = null;
+  /**
+   * Le bus latéral : tout ce qui se produit contre un bord y passe.
+   *
+   * Le reste — moteur, vent, recharge, bouclier — reste au centre, et ce n'est
+   * pas un oubli : ces couches appartiennent au vaisseau, qui est à l'origine
+   * du monde et ne bouge jamais. Les placer quelque part serait un mensonge.
+   */
+  private side: StereoPannerNode | null = null;
   private reverbIn: GainNode | null = null;
   private muted = false;
   /** Aucun graphe n'existe avant un geste ; voir `unlock`. */
@@ -246,10 +292,10 @@ export class Audio {
           this.thud(0.16, 700);
           break;
         case 'badLanding':
-          this.thud(0.5, 1400);
+          this.thud(0.5, 1400, true);
           break;
         case 'wallImpact':
-          this.thud(Math.min(0.5, 0.12 + e.force * 0.4), 1400);
+          this.thud(Math.min(0.5, 0.12 + e.force * 0.4), 1400, true);
           break;
         case 'pickup':
           if (e.kind === 'coin') this.coin(1 + e.gain * 3);
@@ -330,6 +376,7 @@ export class Audio {
     drift: number,
     charge: number,
     shield = 0,
+    lateral = 0,
   ): void {
     const ctx = this.ctx;
     const eng = this.engine;
@@ -383,6 +430,10 @@ export class Audio {
     // Le frottement d'invincibilité : visé haut si un pas de contact est arrivé
     // depuis la dernière frame, vers zéro sinon. Les constantes de temps font
     // le reste, sans dépendre de la cadence — `update` n'a pas le delta.
+    // Le bus latéral suit le vaisseau : ce qui touche un bord vient de ce bord.
+    // Amené et non posé, pour la même raison que les gains le sont.
+    this.side?.pan.setTargetAtTime(playing ? panOf(lateral) : 0, t, PAN_EASE);
+
     this.rideBand?.gain.gain.setTargetAtTime(playing && this.riding ? 0.11 : 0, t, 0.06);
     this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
     this.riding = false;
@@ -443,6 +494,13 @@ export class Audio {
     this.master.gain.value = this.muted ? 0 : 0.55;
     this.master.connect(ctx.destination);
 
+    // Le bus latéral, entre les couches de bord et la sortie. `StereoPanner` et
+    // non `Panner` : le second est une convolution HRTF par échantillon et par
+    // voix, pour une scène qui n'a qu'un axe et un jeu qui pèse 160 Ko. Celui-ci
+    // est un gain à puissance constante, deux multiplications par échantillon.
+    this.side = ctx.createStereoPanner();
+    this.side.connect(this.master);
+
     // Un seul tampon de bruit blanc, partagé par toutes les couches.
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -470,7 +528,7 @@ export class Audio {
     this.wind = this.band(this.loop(0.55), 'bandpass', 900, 0.7);
     this.driftNoise = this.band(this.loop(1.3), 'bandpass', 2600, 2.2);
     // Le wall riding : un grondement métallique médium, à part du souffle du drift.
-    this.rideBand = this.band(this.loop(0.7), 'bandpass', 1100, 1.6);
+    this.rideBand = this.band(this.loop(0.7), 'bandpass', 1100, 1.6, true);
 
     // Turbulence : les deux LFO somment dans deux gains de profondeur, l'un sur
     // la fréquence de la bande, l'autre sur son gain. Les deux partent de zéro
@@ -556,7 +614,14 @@ export class Audio {
     return src;
   }
 
-  private band(src: AudioNode, type: BiquadFilterType, freq: number, q: number): Band {
+  /** @param sided vrai pour sortir par le bus latéral plutôt qu'au centre. */
+  private band(
+    src: AudioNode,
+    type: BiquadFilterType,
+    freq: number,
+    q: number,
+    sided = false,
+  ): Band {
     const ctx = this.ctx!;
     const filter = ctx.createBiquadFilter();
     filter.type = type;
@@ -566,7 +631,7 @@ export class Audio {
     gain.gain.value = 0;
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.master!);
+    gain.connect(sided ? this.side! : this.master!);
     return { filter, gain };
   }
 
@@ -596,7 +661,8 @@ export class Audio {
     o.stop(t + dur + 0.03);
   }
 
-  private thud(vol: number, freq: number): void {
+  /** @param sided vrai pour les chocs qui ont un bord : un mur, une réception hors piste. */
+  private thud(vol: number, freq: number, sided = false): void {
     const ctx = this.ctx;
     if (!ctx || this.muted || !this.noise) return;
     const t = ctx.currentTime;
@@ -611,7 +677,7 @@ export class Audio {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
     src.connect(f);
     f.connect(g);
-    g.connect(this.master!);
+    g.connect(sided ? this.side! : this.master!);
     src.start(t);
     src.stop(t + 0.32);
   }
@@ -625,6 +691,7 @@ export class Audio {
     q: number,
     dur: number,
     send: boolean,
+    sided = false,
   ): void {
     const ctx = this.ctx;
     if (!ctx || this.muted || !this.noise) return;
@@ -642,7 +709,7 @@ export class Audio {
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(this.master!);
+    g.connect(sided ? this.side! : this.master!);
     if (send) {
       const rev = this.reverb();
       if (rev) g.connect(rev);
@@ -766,6 +833,7 @@ export class Audio {
       2.4,
       0.11,
       false,
+      true,
     );
   }
 

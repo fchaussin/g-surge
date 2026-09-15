@@ -13,6 +13,7 @@ import {
   DIFF,
   DT,
   driftFill,
+  SHIP,
   Sim,
   thrustTier,
   TraceCursor,
@@ -1082,6 +1083,10 @@ function renderFrame(frameDt: number): void {
     driftIntensity(state),
     driftFill(state, sim.tuning),
     shield.value,
+    // Position latérale en espace monde, normalisée par la demi-largeur utile :
+    // ±1 contre un bord. L'inversion vers la gauche de l'écran appartient à
+    // `audio.ts`, qui la fait une fois et l'explique — voir `panOf`.
+    state.lat / Math.max(1, sim.tuning.half - SHIP),
   );
 
   if (screens.isLive) {
