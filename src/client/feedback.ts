@@ -51,6 +51,14 @@ const DRIFT_SNAP_MIN = 0.12;
  * qui s'accumule doit ressembler.
  */
 const DRIFT_HALO = 0x25e2ff;
+/**
+ * La bande de vitesse, en fraction de `speedMax`, sur laquelle se lit ce que le
+ * wall riding procure. En dessous de 0,8 le rail ne donne rien de remarquable ;
+ * à 1,7 il donne tout ce que le moteur peut rendre.
+ */
+const RIDE_PACE_FROM = 0.8;
+const RIDE_PACE_SPAN = 0.9;
+
 const DRIFT_HALO_HOLD = 0.75;
 const DRIFT_HALO_MIN = 0.08;
 const DRIFT_HALO_MAX = 0.3;
@@ -87,6 +95,16 @@ export class Feedback {
   private fxShake = 0;
   /* Vrai une fois la réserve assez entamée pour valoir une nouvelle annonce. */
   private boostArmed = false;
+
+  /**
+   * Ce que le wall riding procure, 0 à 1, relu à chaque frame.
+   *
+   * `consume` ne reçoit que des événements — c'est ce qui le garde simple — mais
+   * le retour d'un pas de contact doit dire **combien** le rail donne, pas
+   * seulement qu'il donne. La valeur est donc déposée ici par `update`, qui a
+   * l'état, et lue par l'événement.
+   */
+  private ridePace = 0;
 
   constructor(private readonly deps: FeedbackDeps) {}
 
@@ -158,21 +176,30 @@ export class Feedback {
           if (e.kind === 'coin') {
             hud.showPop(`× +${e.gain.toFixed(1)}`, `#${COIN_COLOURS[e.tier].toString(16)}`);
             this.flash(COIN_COLOURS[e.tier], 0.75 + e.gain * 0.9);
-            haptics.buzz(10 + Math.round(e.gain * 22));
+            // **Le plus léger de tous, et de loin.** La pièce est l'objet le
+            // plus fréquent du jeu ; à 13 ms en croisière et 40 en G-SURGE, le
+            // téléphone vibrait pratiquement en continu dans une bonne course
+            // et le retour cessait de dire quoi que ce soit. De 4 à 12 ms : une
+            // pichenette, qui garde le barreau dans son intensité sans occuper
+            // la main.
+            haptics.buzz(3 + Math.round(e.gain * 7));
           } else if (e.kind === 'fix') {
             hud.showPop('REPAIRED', '#35e08a');
             this.flash(0x35e08a);
-            haptics.buzz([22, 40, 22]);
+            haptics.buzz([10, 40, 10]);
           } else if (e.kind === 'sup') {
             this.superBoost();
           } else if (e.kind === 'ride') {
             hud.showPop('INVINCIBLE', '#9b6bff');
             this.flash(RIDE_COLOUR, 1.4);
-            haptics.buzz([25, 30, 25, 30, 60]);
+            // Allégé comme le reste, mais il reste le plus marqué des
+            // ramassages : c'est le plus rare, et celui qui change le plus la
+            // course. La hiérarchie compte plus que les valeurs.
+            haptics.buzz([12, 30, 12, 30, 30]);
           } else {
             hud.showPop(`FUEL +${Math.round(e.gain)}`, '#ff5a4a');
             this.flash(FUEL_COLOUR, 0.6 + e.gain / 100);
-            haptics.buzz([18, 30, 18]);
+            haptics.buzz([9, 30, 9]);
           }
           break;
         case 'fuelEmpty':
@@ -183,7 +210,11 @@ export class Feedback {
           // Tenu comme le frottement, dans le violet de l'item : le mur pousse,
           // il ne mord pas, et la coque doit le dire à chaque pas de contact.
           this.hold(RIDE_COLOUR, 0.8, 0.9);
-          haptics.buzz(7, 160);
+          // Le retour suit ce que le rail procure : 6 ms quand il pousse à
+          // peine, 22 quand il donne tout. À 7 ms fixes il était sous le seuil
+          // du perceptible sur un téléphone, donc le wall riding se sentait
+          // autant qu'une route lisse — c'est-à-dire pas.
+          haptics.buzz(6 + Math.round(this.ridePace * 16), 130);
           break;
         case 'rideEnd':
           this.flash(RIDE_COLOUR, 0.7);
@@ -281,6 +312,12 @@ export class Feedback {
    * pas fixe.
    */
   update(frameDt: number, state: SimState, tuning: Tuning, playing: boolean): void {
+    // Ce que le rail procure : la part de vitesse au-delà d'une croisière
+    // ordinaire. Le wall riding pousse au-dessus de la cible — jusqu'à un quart
+    // de plus — donc c'est bien cet excès qui mesure ce qu'il donne, et non la
+    // vitesse brute.
+    const over = (state.speed / tuning.speedMax - RIDE_PACE_FROM) / RIDE_PACE_SPAN;
+    this.ridePace = over < 0 ? 0 : over > 1 ? 1 : over;
     // La lueur du drift, tenue tant qu'il dure et portée par ce que le drift
     // remplit — la réserve en croisière, la montée en poussée — donc elle dit
     // aussi « j'y suis presque », ce qu'aucun autre élément ne dit. Écartée si

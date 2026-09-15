@@ -129,6 +129,17 @@ const TURB_RATES = [3.3, 5.9] as const;
  * pulsation ; au-delà de la vingtaine, un bourdonnement. Entre les deux, c'est
  * du frottement.
  */
+/**
+ * Le registre du wall riding : où il commence et de combien il monte, en Hz.
+ * Les hauts médiums, là où une friction métallique se place et où elle ne se
+ * confond ni avec le grondement du moteur ni avec son sifflement.
+ */
+const RIDE_HZ = 1200;
+const RIDE_HZ_SPAN = 1700;
+/** La bande de vitesse que ce registre couvre. Voir `ridePace` dans `feedback.ts`. */
+const RIDE_PACE_FROM = 0.8;
+const RIDE_PACE_SPAN = 0.9;
+
 const GRIND_RATES = [11.3, 17.9] as const;
 /** Profondeurs du broutement, en Hz sur la bande et en fraction de son gain. */
 const GRIND_FREQ_DEPTH = 520;
@@ -482,7 +493,15 @@ export class Audio {
     const grinding = playing && this.riding;
     const rideGain = grinding ? 0.11 : 0;
     this.rideBand?.gain.gain.setTargetAtTime(rideGain, t, 0.06);
-    this.rideBand?.filter.frequency.setTargetAtTime(900 + r * 700, t, 0.1);
+    // **La bande monte avec ce que le rail procure, dans les hauts médiums.**
+    // Elle allait de 900 à 2090 Hz sur toute la plage du moteur : une pente
+    // douce, sur du bruit filtré, donc un glissement de timbre qu'on ne
+    // remarque pas. Elle part maintenant de 1200 et grimpe à 2900 sur la seule
+    // bande où le wall riding vit — au-delà de 0,8 de la vitesse maximale,
+    // puisque c'est là qu'il pousse. Même excès que le retour haptique lit,
+    // voir `ridePace` dans `feedback.ts`.
+    const over = Math.min(1, Math.max(0, (r - RIDE_PACE_FROM) / RIDE_PACE_SPAN));
+    this.rideBand?.filter.frequency.setTargetAtTime(RIDE_HZ + over * RIDE_HZ_SPAN, t, 0.1);
     if (this.grind) {
       // Le broutement est une fraction du grind lui-même, comme la turbulence
       // l'est du souffle : deux sinusoïdes somment à 2 au plus, donc la moitié

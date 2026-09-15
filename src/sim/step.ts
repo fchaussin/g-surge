@@ -110,8 +110,14 @@ export function step(
     state.rideT = Math.max(0, state.rideT - dt);
     if (state.rideT === 0) {
       // On ne retombe pas de l'invincibilité au plein tarif : deux secondes
-      // pour se remettre en piste, souvent le long du mur qu'on chevauchait.
-      state.graceT = T.graceRide;
+      // pour se remettre en piste.
+      //
+      // **Sauf si l'on est encore contre le mur à cet instant.** Ce qu'elle
+      // achète est le temps de se replacer ; collé à la paroi quand le champ
+      // tombe, on ne se replace pas, on continue — et la lui offrir là
+      // récompenserait exactement ce qu'elle est censée couvrir. Mesuré, elle
+      // offrait deux secondes de raclement gratuit à 800 km/h.
+      if (!state.contact) state.graceT = T.graceRide;
       out.push({ type: 'rideEnd' });
     }
   }
