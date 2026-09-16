@@ -1124,13 +1124,37 @@
         <p class="acct" id="duelLine">Opening a room…</p>
         <!-- L'invité qui n'a pas de compte : se connecter d'ici, et retomber
              dans le salon au retour. Le fragment du lien ne survit pas à
-             l'aller-retour, le salon mis de côté si. -->
+             l'aller-retour, le salon mis de côté si. Rien d'autre ne se
+             montre tant que ce n'est pas fait : proposer un appairage ou une
+             liste d'amis à qui ne peut pas encore s'en servir n'est qu'une
+             confusion. -->
         <button class="btn" id="btnDuelSignIn" hidden>SIGN IN WITH GOOGLE</button>
       </div>
-      <!-- Les gens d'abord, le lien ensuite : défier un ami ne demande aucun
-           échange, c'est le lien qui est le cas particulier. -->
-      <div class="grp">
-        <h3>Race a friend</h3>
+      <!-- L'appairage d'abord, une fois connecté : c'est le geste qu'on est
+           venu faire, le code en repli du même bloc plutôt qu'une section à
+           part qui laisse croire à un second choix. -->
+      <div class="grp" id="duelPairGrp" hidden>
+        <h3>Race someone</h3>
+        <button class="btn" id="btnMakeLink">INVITE BY LINK</button>
+        <!-- Ce qui se partage n'appartient qu'à celui qui ouvre le salon : celui
+             qui arrive par le lien n'a rien à partager, et voyait un champ vide,
+             deux boutons inertes et le trou d'un QR jamais dessiné. -->
+        <div id="duelShare" hidden>
+          <p class="mycode" id="roomCode"></p>
+          <input type="text" id="inviteLink" readonly aria-label="Invite link">
+          <button class="btn" id="btnShareInvite">SHARE LINK</button>
+          <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
+          <canvas id="inviteQr" width="232" height="232" aria-label="Invite QR code" hidden></canvas>
+        </div>
+        <p>Got a code instead?</p>
+        <input type="text" id="inviteInput" placeholder="ROOM CODE, or an invite link" aria-label="Room code or invite link">
+        <button class="btn ghost" id="btnJoinInvite">JOIN</button>
+      </div>
+      <!-- Les amis, en second : une identité qui dure, pas la session d'un
+           duel. Un défi depuis la liste ouvre le même salon que le bouton
+           ci-dessus, il n'y a juste rien à faire parvenir à personne. -->
+      <div class="grp" id="duelFriendGrp" hidden>
+        <h3>Friends</h3>
         <div id="duelFriends"></div>
         <div class="addfriend">
           <input type="text" id="friendCode" maxlength="6" placeholder="THEIR CODE"
@@ -1143,28 +1167,7 @@
         <button class="btn ghost" id="btnShareCode" hidden>SHARE MY CODE</button>
         <p class="acct" id="friendsNote"></p>
       </div>
-      <div class="grp">
-        <h3>Got a link?</h3>
-        <input type="text" id="inviteInput" placeholder="ROOM CODE, or an invite link" aria-label="Room code or invite link">
-        <button class="btn ghost" id="btnJoinInvite">JOIN</button>
-      </div>
-      <!-- Le lien est le cas particulier : celui qui n'est pas encore un ami.
-           Le salon ne s'ouvre qu'ici — regarder l'écran n'en ouvre plus un. -->
-      <div class="grp">
-        <h3>Nobody in the list?</h3>
-        <button class="btn ghost" id="btnMakeLink">INVITE BY LINK</button>
-        <!-- Ce qui se partage n'appartient qu'à celui qui ouvre le salon : celui
-             qui arrive par le lien n'a rien à partager, et voyait un champ vide,
-             deux boutons inertes et le trou d'un QR jamais dessiné. -->
-        <div id="duelShare" hidden>
-          <p class="mycode" id="roomCode"></p>
-          <input type="text" id="inviteLink" readonly aria-label="Invite link">
-          <button class="btn" id="btnShareInvite">SHARE LINK</button>
-          <button class="btn ghost" id="btnCopyInvite">COPY LINK</button>
-          <canvas id="inviteQr" width="232" height="232" aria-label="Invite QR code" hidden></canvas>
-        </div>
-      </div>
-      <div class="grp">
+      <div class="grp" id="duelInfoGrp" hidden>
         <p>Same track for both, on the server. The other pilot's ship rides beside yours as a ghost; there are no collisions. The race starts as soon as they arrive.</p>
       </div>
       </div>

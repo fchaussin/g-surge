@@ -499,7 +499,8 @@ function stopWatching(): void {
  */
 const DUEL_WHY: Record<DuelEnd, string> = {
   offline: 'offline',
-  'sign-in': 'Sign in to take the other seat. A duel needs two accounts.',
+  'sign-in':
+    'A duel needs two accounts: sign in to challenge a friend, share a link, or take a seat someone opened for you.',
   self: 'This room is your own. The other pilot needs their own account.',
   refused: 'refused by the server',
   unreachable: 'server unreachable',
@@ -549,11 +550,23 @@ function rememberDuel(room: string | null): void {
   }
 }
 
+/**
+ * La porte du duel : connecté, l'appairage et les amis ; sinon, l'explication
+ * et rien d'autre. Proposer les deux blocs à qui ne peut pas encore s'en
+ * servir n'est qu'une confusion — c'est le retour de l'auteur après un test.
+ */
+function setDuelGate(open: boolean): void {
+  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', !open);
+  document.getElementById('duelPairGrp')?.toggleAttribute('hidden', open);
+  document.getElementById('duelFriendGrp')?.toggleAttribute('hidden', open);
+  document.getElementById('duelInfoGrp')?.toggleAttribute('hidden', open);
+}
+
 /** L'écran d'invitation sans compte : le refus, et de quoi en sortir. */
 function askSignIn(room: string | null): void {
   rememberDuel(room);
   sayDuel(DUEL_WHY['sign-in']);
-  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', false);
+  setDuelGate(true);
   screens.buildNav();
 }
 
@@ -595,11 +608,11 @@ const friends = new Friends({
 function openDuel(): void {
   screens.setMode('duel');
   showShare(false);
-  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', true);
   if (!session.signedIn) {
     askSignIn(null);
     return;
   }
+  setDuelGate(false);
   sayDuel('Challenge a friend, or invite by link.');
   friends.load();
 }
@@ -641,11 +654,11 @@ async function makeLink(): Promise<void> {
 async function joinDuel(room: string): Promise<void> {
   screens.setMode('duel');
   showShare(false);
-  document.getElementById('btnDuelSignIn')?.toggleAttribute('hidden', true);
   if (!session.signedIn) {
     askSignIn(room);
     return;
   }
+  setDuelGate(false);
   sayDuel('Joining…');
   const why = await duel.join(room, session.picture);
   if (why) {
@@ -1393,6 +1406,7 @@ async function addFriendByLink(code: string): Promise<void> {
     rememberFriend(code);
     return;
   }
+  setDuelGate(false);
   sayDuel('Adding a friend…');
   await friends.addByCode(code);
   friends.load();
