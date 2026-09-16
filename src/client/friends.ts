@@ -135,14 +135,28 @@ export class Friends {
     this.options.onRebuild();
   }
 
+  /** Le QR déjà montré, à ne pas redessiner caché après une relecture. */
+  private codeShown = false;
+
   /**
-   * Mon code en QR, et le bouton qui le partage. Dessiné à chaque lecture de
-   * la liste : le code ne change pas, mais l'écran peut avoir été ouvert avant
-   * qu'il soit connu.
+   * Le bouton qui partage mon code, activé dès qu'il est connu. Le QR, lui,
+   * ne se dessine qu'à la demande — `revealCode()` — plutôt qu'à chaque
+   * lecture de la liste : posé là d'entrée, il se prenait pour celui du
+   * duel, à côté, et l'ami qui le scannait pensait rejoindre une course.
    */
   private paintCode(code: string): void {
     const share = document.getElementById('btnShareCode');
     share?.toggleAttribute('hidden', !code);
+    if (this.codeShown) this.drawCode(code);
+  }
+
+  /** Demandé explicitement — un clic sur « SHARE MY CODE » — jamais posé seul. */
+  revealCode(): void {
+    this.codeShown = true;
+    if (this.list) this.drawCode(this.list.code);
+  }
+
+  private drawCode(code: string): void {
     const qr = document.getElementById('friendQr') as HTMLCanvasElement | null;
     if (!qr) return;
     try {

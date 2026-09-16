@@ -1205,6 +1205,7 @@ on('btnStay', () => screens.setMode('menu'));
 on('btnDuel', () => openDuel());
 on('btnMakeLink', () => void makeLink());
 on('btnShareCode', () => {
+  friends.revealCode();
   const url = friends.link;
   if (!url) return;
   const nav = navigator as Navigator & {

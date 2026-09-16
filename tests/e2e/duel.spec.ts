@@ -353,10 +353,14 @@ test.describe('a duel', () => {
       return route.fulfill({ contentType: 'application/json', body: '{"ok":true}' });
     });
 
-    // Mon code, et son QR : un module noir au cœur du repère haut-gauche
+    // Mon code, posé seul — le QR ne se montre qu'à la demande, pour ne pas
+    // se prendre pour celui du duel affiché juste à côté.
     await game.boot();
     await page.locator('#btnDuel').click();
     await expect(page.locator('#duelFriends .mycode')).toContainText('ABC234');
+    await expect(page.locator('#friendQr')).toBeHidden();
+    // Un module noir au cœur du repère haut-gauche, une fois demandé
+    await page.locator('#btnShareCode').click();
     await expect(page.locator('#friendQr')).toBeVisible();
     // La part de noir plutôt qu'un pixel précis : elle ne dépend pas de la
     // version du code, donc le test ne casse pas si l'adresse s'allonge.
